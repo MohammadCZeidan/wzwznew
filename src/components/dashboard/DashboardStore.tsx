@@ -164,6 +164,7 @@ export function DashboardStore({
       <AvatarCustomRequestModal
         userId={userId}
         userName={userName}
+        tokenBalance={tokenBalance}
         isOpen={requestModalOpen}
         onClose={() => setRequestModalOpen(false)}
       />

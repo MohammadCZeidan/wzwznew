@@ -16,6 +16,10 @@ export interface PollVoteResult {
   optionVotes: Record<string, number>;
 }
 
+const POLL_COMMENTS_CACHE_TTL_MS = 30_000;
+const pollCommentsCache = new Map<string, { expiresAt: number; comments: PollCommentRow[] }>();
+const pollCommentsRequests = new Map<string, Promise<PollCommentRow[]>>();
+
 export async function testPollConnection(): Promise<{ ok: boolean; message: string }> {
   try {
     const { error } = await supabase.from("polls").select("id").limit(1);
@@ -195,14 +199,37 @@ export async function fetchTrendingPolls(limit = 5): Promise<TrendingPoll[]> {
 }
 
 export async function fetchPollComments(pollId: string): Promise<PollCommentRow[]> {
-  const { data, error } = await supabase
-    .from("poll_comments")
-    .select("id, poll_id, text, created_at, user_id, author_name, parent_comment_id")
-    .eq("poll_id", pollId)
-    .order("created_at", { ascending: true })
-    .limit(50);
-  if (error) throw error;
-  return (data ?? []) as PollCommentRow[];
+  const now = Date.now();
+  const cached = pollCommentsCache.get(pollId);
+  if (cached && cached.expiresAt > now) {
+    return cached.comments;
+  }
+
+  const pending = pollCommentsRequests.get(pollId);
+  if (pending) return pending;
+
+  const request = (async () => {
+    const { data, error } = await supabase
+      .from("poll_comments")
+      .select("id, poll_id, text, created_at, user_id, author_name, parent_comment_id")
+      .eq("poll_id", pollId)
+      .order("created_at", { ascending: true })
+      .limit(50);
+    if (error) throw error;
+    const comments = (data ?? []) as PollCommentRow[];
+    pollCommentsCache.set(pollId, {
+      comments,
+      expiresAt: Date.now() + POLL_COMMENTS_CACHE_TTL_MS,
+    });
+    return comments;
+  })();
+
+  pollCommentsRequests.set(pollId, request);
+  try {
+    return await request;
+  } finally {
+    pollCommentsRequests.delete(pollId);
+  }
 }
 
 export async function addPollComment(
@@ -225,5 +252,6 @@ export async function addPollComment(
     .select("id, poll_id, text, created_at, user_id, author_name, parent_comment_id")
     .single();
   if (error || !data) throw error ?? new Error("Failed to create comment");
+  pollCommentsCache.delete(pollId);
   return data as PollCommentRow;
 }

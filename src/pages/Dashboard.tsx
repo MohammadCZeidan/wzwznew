@@ -133,7 +133,7 @@ export default function Dashboard({
 }: DashboardProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { progress, award, awardOnce } = useUserProgress(user.id);
+  const { award, awardOnce } = useUserProgress(user.id);
   const [activeTab, setActiveTab] = useState<DashboardTab>("home");
   // Seed from the persistent cache so the user sees their communities
   // instantly on remount instead of a cold spinner.
@@ -549,7 +549,7 @@ export default function Dashboard({
             <DashboardSectionShell>
               <DashboardStore
                 userName={user.username}
-                avatarCatalog={user.role === "admin" || user.role === "moderator" ? avatarCatalog : avatarCatalog.filter((a) => a.showIn !== "admin")}
+                avatarCatalog={user.role === "admin" ? avatarCatalog : avatarCatalog.filter((a) => a.showIn !== "admin")}
                 ownedAvatarLevels={ownedAvatarLevels}
                 onUnlockAvatar={unlockAvatarLevel}
                 onAvatarPurchased={markAvatarOwned}
