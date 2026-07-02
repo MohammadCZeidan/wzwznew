@@ -1,6 +1,6 @@
 // Pure string transform used by scripts/prerender-seo.mts to bake per-route
 // <head> metadata into the built index.html. No Node/DOM deps so it's unit-testable.
-import { SOCIAL_IMAGE_URL, canonicalFor, routeSeo } from "@/components/seo/seo-config";
+import { SOCIAL_IMAGE_URL, canonicalFor, routeSeo, structuredDataFor } from "@/components/seo/seo-config";
 
 const escText = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -36,7 +36,7 @@ export function buildRouteHtml(baseHtml: string, path: string): string {
   html = setMetaContent(html, "name", "twitter:image", SOCIAL_IMAGE_URL);
   html = html.replace(/(<link rel="canonical" href=")[^"]*(")/, `$1${escAttr(canonical)}$2`);
 
-  const data = seo.structuredData?.(canonical) ?? [];
+  const data = structuredDataFor(path);
   if (data.length > 0) {
     const tag = `<script type="application/ld+json" data-route-seo="route">${JSON.stringify(data)}</script>`;
     html = html.replace("</head>", `    ${tag}\n  </head>`);

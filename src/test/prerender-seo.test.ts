@@ -46,4 +46,16 @@ describe("buildRouteHtml", () => {
     const html = buildRouteHtml(BASE, "/security");
     expect(html).toContain("Community Chat Safety &amp; Privacy | raW");
   });
+
+  it("injects BreadcrumbList on subpages but not on home", () => {
+    expect(buildRouteHtml(BASE, "/security")).toContain('"@type":"BreadcrumbList"');
+    expect(buildRouteHtml(BASE, "/")).not.toContain('"@type":"BreadcrumbList"');
+  });
+
+  it("carries the PeopleAudience age signal on the home app schema", () => {
+    const html = buildRouteHtml(BASE, "/");
+    expect(html).toContain('"@type":"PeopleAudience"');
+    expect(html).toContain('"suggestedMinAge":15');
+    expect(html).toContain('"suggestedMaxAge":35');
+  });
 });

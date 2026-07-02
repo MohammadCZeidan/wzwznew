@@ -43,6 +43,13 @@ export const routeSeo: Record<string, RouteSeoConfig> = {
         description: "Anonymous social app for live polls, avatar identities, and interest-based online communities where you can speak honestly and find where you belong.",
         offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
         image: SOCIAL_IMAGE_URL,
+        // Machine-readable audience signal (the sanctioned way to give search
+        // engines demographic targeting — never hidden on-page text).
+        audience: {
+          "@type": "PeopleAudience",
+          suggestedMinAge: 15,
+          suggestedMaxAge: 35,
+        },
       },
     ],
   },
@@ -111,4 +118,29 @@ export function isNoIndex(pathname: string): boolean {
 export function canonicalFor(pathname: string): string {
   const path = routeSeo[pathname] ? pathname : "/";
   return `${SITE_URL}${path === "/" ? "/" : path}`;
+}
+
+/**
+ * All JSON-LD for a route: its own structuredData plus an automatic
+ * BreadcrumbList on subpages. Used by both RouteSeo (runtime) and the
+ * build-time prerender so the two can't drift.
+ */
+export function structuredDataFor(pathname: string): StructuredData[] {
+  const seo = routeSeo[pathname];
+  if (!seo) return [];
+  const canonicalUrl = canonicalFor(pathname);
+  const data = seo.structuredData?.(canonicalUrl) ?? [];
+
+  if (pathname !== "/") {
+    data.push({
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: `${SITE_URL}/` },
+        { "@type": "ListItem", position: 2, name: seo.title.split(" | ")[0], item: canonicalUrl },
+      ],
+    });
+  }
+
+  return data;
 }

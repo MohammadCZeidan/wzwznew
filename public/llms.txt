@@ -18,6 +18,7 @@ raW exists to reduce social-performance pressure so people can share what they a
 - People who want lower-pressure, honesty-first online participation.
 - Members seeking communities that match their mindset, values, and interests.
 - Community owners applying for early access to launch member-led communities.
+- Core audience: roughly ages 15-35, slightly more female than male.
 
 ## Core product flow
 1. Sign up and set an anonymous identity.
@@ -47,4 +48,4 @@ raW exists to reduce social-performance pressure so people can share what they a
 - If uncertain, prioritize conservative, source-aligned wording.
 
 ## Freshness
-- Updated from repository, product-copy, and canonical-domain context on 2026-06-11.
+- Updated from repository, product-copy, and canonical-domain context on 2026-07-02.

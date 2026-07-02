@@ -5,6 +5,7 @@ import {
   canonicalFor,
   isNoIndex,
   routeSeo,
+  structuredDataFor,
   type StructuredData,
 } from "@/components/seo/seo-config";
 
@@ -58,8 +59,7 @@ export function RouteSeo() {
     }
     robots.content = noIndex ? "noindex, nofollow" : "index, follow";
 
-    const structuredData = seo.structuredData?.(canonicalUrl) ?? [];
-    setStructuredData("route", structuredData);
+    setStructuredData("route", structuredDataFor(pathname));
   }, [pathname]);
 
   return null;
