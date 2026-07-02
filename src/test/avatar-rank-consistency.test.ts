@@ -91,8 +91,14 @@ describe("avatar rank data stays in lockstep with the catalog", () => {
     const offenders: string[] = [];
 
     for (const [id, override] of Object.entries(CANONICAL_OVERRIDES_BY_ID)) {
-      if (typeof override.rank_tier !== "number" || !LABELED_TIERS.has(override.rank_tier)) {
-        offenders.push(`${id}: override rank ${override.rank_tier ?? "missing"} is not labeled`);
+      // Client-only presentation overrides (e.g. s1-custom's showIn: "admin")
+      // change no rank and can't be expressed in a migration — the DB
+      // show_in check constraint only allows landing/app/both. Only rank
+      // overrides need a labeled tier and a documented backfill migration.
+      if (typeof override.rank_tier !== "number") continue;
+
+      if (!LABELED_TIERS.has(override.rank_tier)) {
+        offenders.push(`${id}: override rank ${override.rank_tier} is not labeled`);
       }
 
       if (SLUG_AVATAR_RANKS[id] !== undefined && override.rank_tier !== SLUG_AVATAR_RANKS[id]) {

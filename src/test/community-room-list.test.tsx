@@ -93,7 +93,9 @@ describe("CommunityRoomList", () => {
       freeCommunitySlotsRemaining: 1,
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Open Chat — Free" }));
+    // The free-slot button is labeled plain "Open Chat" since c251f5b; what
+    // distinguishes it from the joined-state button is the callback it fires.
+    fireEvent.click(screen.getByRole("button", { name: "Open Chat" }));
 
     expect(props.onUnlockCommunity).toHaveBeenCalledWith("public");
   });
