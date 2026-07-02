@@ -45,7 +45,8 @@ export default function LandingShell({
 }: LandingShellProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [siteReady, setSiteReady] = useState(false);
+  const skipPollShowcase = Boolean((location.state as { skipPollShowcase?: boolean } | null)?.skipPollShowcase);
+  const [siteReady, setSiteReady] = useState(skipPollShowcase);
   const [pendingInviteCode, setPendingInviteCode] = useState("");
 
   // An invite link (?invite=CODE) pre-fills the code and opens signup.
@@ -61,7 +62,7 @@ export default function LandingShell({
   return (
     <div className="landing-page-shell min-h-screen overflow-x-hidden bg-raw-black">
       <PollShowcase
-        initialOpen
+        initialOpen={!skipPollShowcase}
         onOpenChange={(open) => {
           if (open) setSiteReady(false);
         }}

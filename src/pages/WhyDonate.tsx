@@ -16,6 +16,7 @@ export default function WhyDonate() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const backTo = (location.state as { from?: string } | null)?.from ?? "/dashboard";
+  const backState = backTo === "/" ? { skipPollShowcase: true } : undefined;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +42,7 @@ export default function WhyDonate() {
         <div className="flex h-16 items-center gap-4 px-4 sm:px-6 lg:px-10">
           <button
             type="button"
-            onClick={() => navigate(backTo, { replace: true })}
+            onClick={() => navigate(backTo, { replace: true, state: backState })}
             className="flex items-center gap-2 text-raw-silver/60 transition-colors hover:text-raw-text"
             aria-label="Go back"
           >
