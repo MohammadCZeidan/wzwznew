@@ -27,11 +27,17 @@ const FALLBACK_POLLS: PollData[] = POLL_QUESTION_SEEDS.map((s) => ({
 const SKIP_SHOWCASE_KEY = "raw.skip-poll-showcase-once";
 
 function consumeSkipPollShowcaseFlag(): boolean {
-  const shouldSkip = window.sessionStorage.getItem(SKIP_SHOWCASE_KEY) === "1";
-  if (shouldSkip) {
-    window.sessionStorage.removeItem(SKIP_SHOWCASE_KEY);
+  if (typeof window === "undefined") return false;
+
+  try {
+    const shouldSkip = window.sessionStorage.getItem(SKIP_SHOWCASE_KEY) === "1";
+    if (shouldSkip) {
+      window.sessionStorage.removeItem(SKIP_SHOWCASE_KEY);
+    }
+    return shouldSkip;
+  } catch {
+    return false;
   }
-  return shouldSkip;
 }
 
 export function PollShowcase({ initialOpen = false, onResolved, onOpenChange }: PollShowcaseProps) {

@@ -9,11 +9,22 @@ import { useToast } from "@/hooks/use-toast";
 
 /* Word-by-word scroll scrub: each word fades 0.12 -> 1 as the paragraph
    crosses the viewport. Falls back to fully visible for reduced motion. */
-function ScrubWord({ children, progress, range }: { children: string; progress: ReturnType<typeof useScroll>["scrollYProgress"]; range: [number, number] }) {
+function ScrubWord({
+  children,
+  progress,
+  range,
+  trailingSpace,
+}: {
+  children: string;
+  progress: ReturnType<typeof useScroll>["scrollYProgress"];
+  range: [number, number];
+  trailingSpace: boolean;
+}) {
   const opacity = useTransform(progress, range, [0.12, 1]);
   return (
-    <motion.span style={{ opacity }} className="inline">
-      {children}{" "}
+    <motion.span style={{ opacity }} className="inline-block">
+      {children}
+      {trailingSpace ? "\u00A0" : null}
     </motion.span>
   );
 }
@@ -22,16 +33,21 @@ function ManifestoScrub({ text }: { text: string }) {
   const targetRef = useRef<HTMLParagraphElement>(null);
   const prefersReducedMotion = useReducedMotion();
   const { scrollYProgress } = useScroll({ target: targetRef, offset: ["start 0.85", "end 0.45"] });
-  const words = text.split(" ");
+  const words = text.trim().split(/\s+/);
 
   if (prefersReducedMotion) {
     return <p className="text-xl leading-relaxed text-raw-text sm:text-2xl sm:leading-relaxed md:text-3xl md:leading-relaxed">{text}</p>;
   }
 
   return (
-    <p ref={targetRef} className="flex flex-wrap text-xl leading-relaxed text-raw-text sm:text-2xl sm:leading-relaxed md:text-3xl md:leading-relaxed">
+    <p ref={targetRef} className="text-xl leading-relaxed text-raw-text sm:text-2xl sm:leading-relaxed md:text-3xl md:leading-relaxed">
       {words.map((word, index) => (
-        <ScrubWord key={`${word}-${index}`} progress={scrollYProgress} range={[index / words.length, Math.min(1, (index + 1.5) / words.length)]}>
+        <ScrubWord
+          key={`${word}-${index}`}
+          progress={scrollYProgress}
+          range={[index / words.length, Math.min(1, (index + 1.5) / words.length)]}
+          trailingSpace={index < words.length - 1}
+        >
           {word}
         </ScrubWord>
       ))}
