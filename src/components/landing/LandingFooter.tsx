@@ -70,7 +70,7 @@ export function LandingFooter() {
             <MessageCircle className="h-3.5 w-3.5" />
           </a>
           <a
-            href="https://instagram.com/theartofraw"
+            href="https://instagram.com/thecumulativemind"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Instagram"
