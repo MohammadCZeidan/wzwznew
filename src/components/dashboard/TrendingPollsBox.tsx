@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Flame, MessageCircle, Heart, Reply, Send } from "lucide-react";
 import {
+  addPollComment,
   fetchPollComments,
   fetchTrendingPolls,
   submitPollVote,
@@ -81,7 +82,7 @@ export function TrendingPollsBox({
   const [commentInputByPoll, setCommentInputByPoll] = useState<Record<string, string>>({});
   const [likesByCommentId, setLikesByCommentId] = useState<Record<string, number>>({});
   const [likedCommentIds, setLikedCommentIds] = useState<Set<string>>(new Set());
-  const [replyingToCommentId, setReplyingToCommentId] = useState<string | null>(null);
+  const [replyingToByPoll, setReplyingToByPoll] = useState<Record<string, PollCommentRow | null>>({});
 
   useEffect(() => {
     setSelectedByPoll(readStoredSelections(userId));
@@ -176,12 +177,14 @@ export function TrendingPollsBox({
     const text = (commentInputByPoll[pollId] ?? "").trim();
     if (!text) return;
 
+    const replyingTo = replyingToByPoll[pollId] ?? null;
     const newComment: PollCommentRow = {
       id: `comment-${Date.now()}`,
       poll_id: pollId,
       text,
       author_name: `@user-${userId?.slice(0, 4)}`,
       created_at: new Date().toISOString(),
+      parent_comment_id: replyingTo?.id ?? null,
     };
 
     setCommentsByPoll((previous) => ({
@@ -190,7 +193,29 @@ export function TrendingPollsBox({
     }));
 
     setCommentInputByPoll((previous) => ({ ...previous, [pollId]: "" }));
-  }, [commentInputByPoll, userId]);
+    setReplyingToByPoll((previous) => ({ ...previous, [pollId]: null }));
+
+    void addPollComment(
+      pollId,
+      text,
+      userId ? { id: userId, name: newComment.author_name ?? "Anonymous" } : null,
+      replyingTo?.id ?? null,
+    )
+      .then((savedComment) => {
+        setCommentsByPoll((previous) => ({
+          ...previous,
+          [pollId]: (previous[pollId] ?? []).map((comment) =>
+            comment.id === newComment.id ? savedComment : comment,
+          ),
+        }));
+      })
+      .catch(() => {
+        setCommentsByPoll((previous) => ({
+          ...previous,
+          [pollId]: (previous[pollId] ?? []).filter((comment) => comment.id !== newComment.id),
+        }));
+      });
+  }, [commentInputByPoll, replyingToByPoll, userId]);
 
   const handleLikeComment = useCallback((commentId: string) => {
     setLikedCommentIds((previous) => {
@@ -249,6 +274,7 @@ export function TrendingPollsBox({
             const isCommentsOpen = expandedCommentsPollId === entry.poll.id;
             const comments = commentsByPoll[entry.poll.id] ?? [];
             const commentsLoading = Boolean(commentsLoadingByPoll[entry.poll.id]);
+            const replyingTo = replyingToByPoll[entry.poll.id] ?? null;
 
             return (
               <div key={entry.poll.id} className="w-[18.5rem] shrink-0 space-y-3 sm:w-[20rem] md:w-auto md:shrink">
@@ -316,6 +342,11 @@ export function TrendingPollsBox({
                             <p className={`mt-1 text-sm leading-relaxed ${isLight ? "text-slate-700" : "text-raw-silver/80"}`}>
                               {comment.text}
                             </p>
+                            {comment.parent_comment_id && (
+                              <p className={`mt-1 text-[10px] ${isLight ? "text-blue-500" : "text-blue-300/80"}`}>
+                                Replying to another comment
+                              </p>
+                            )}
                             <div className="mt-2 flex items-center gap-2">
                               <button
                                 type="button"
@@ -337,7 +368,12 @@ export function TrendingPollsBox({
                               </button>
                               <button
                                 type="button"
-                                onClick={() => setReplyingToCommentId(replyingToCommentId === comment.id ? null : comment.id)}
+                                onClick={() =>
+                                  setReplyingToByPoll((previous) => ({
+                                    ...previous,
+                                    [entry.poll.id]: previous[entry.poll.id]?.id === comment.id ? null : comment,
+                                  }))
+                                }
                                 className={`flex items-center gap-1 text-[11px] transition ${
                                   isLight ? "text-slate-400 hover:text-blue-500" : "text-raw-silver/50 hover:text-blue-400"
                                 }`}
@@ -350,6 +386,25 @@ export function TrendingPollsBox({
                         ))
                       )}
                     </div>
+
+                    {replyingTo && (
+                      <div
+                        className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs ${
+                          isLight
+                            ? "border-blue-200 bg-blue-50 text-blue-700"
+                            : "border-blue-400/25 bg-blue-400/10 text-blue-200"
+                        }`}
+                      >
+                        <span className="min-w-0 truncate">Replying to @{replyingTo.author_name?.trim() || "Anonymous"}</span>
+                        <button
+                          type="button"
+                          onClick={() => setReplyingToByPoll((previous) => ({ ...previous, [entry.poll.id]: null }))}
+                          className={isLight ? "shrink-0 text-blue-500 hover:text-blue-700" : "shrink-0 text-blue-200/75 hover:text-blue-100"}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
 
                     <div className="flex items-center gap-2">
                       <input
