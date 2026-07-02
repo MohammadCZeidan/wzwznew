@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { BrandName } from "@/components/ui/brand-name";
 import { highlightRawWordmark } from "@/components/ui/highlightRawWordmark";
 import { motion } from "framer-motion";
@@ -44,6 +44,7 @@ export default function LandingShell({
   login,
 }: LandingShellProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [siteReady, setSiteReady] = useState(false);
   const [pendingInviteCode, setPendingInviteCode] = useState("");
 
@@ -71,7 +72,7 @@ export default function LandingShell({
         isLoggedIn={isLoggedIn}
         username={user?.username}
         onSignupClick={() => setShowSignup(true)}
-        onDonateClick={() => navigate("/why-donate")}
+        onDonateClick={() => navigate("/why-donate", { state: { from: `${location.pathname}${location.search}${location.hash}` } })}
       />
       <div className="mt-16">
         <LaunchCountdown variant="banner" />
