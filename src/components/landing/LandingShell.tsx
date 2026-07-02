@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { BrandName } from "@/components/ui/brand-name";
 import { highlightRawWordmark } from "@/components/ui/highlightRawWordmark";
 import { motion } from "framer-motion";
@@ -44,8 +44,10 @@ export default function LandingShell({
   login,
 }: LandingShellProps) {
   const navigate = useNavigate();
-  const location = useLocation();
-  const [siteReady, setSiteReady] = useState(false);
+  const [skipPollShowcase] = useState(() => {
+    return window.sessionStorage.getItem("raw.skip-poll-showcase-once") === "1";
+  });
+  const [siteReady, setSiteReady] = useState(skipPollShowcase);
   const [pendingInviteCode, setPendingInviteCode] = useState("");
 
   // An invite link (?invite=CODE) pre-fills the code and opens signup.
@@ -61,7 +63,7 @@ export default function LandingShell({
   return (
     <div className="landing-page-shell min-h-screen overflow-x-hidden bg-raw-black">
       <PollShowcase
-        initialOpen
+        initialOpen={!skipPollShowcase}
         onOpenChange={(open) => {
           if (open) setSiteReady(false);
         }}
@@ -72,7 +74,7 @@ export default function LandingShell({
         isLoggedIn={isLoggedIn}
         username={user?.username}
         onSignupClick={() => setShowSignup(true)}
-        onDonateClick={() => navigate("/why-donate", { state: { from: `${location.pathname}${location.search}${location.hash}` } })}
+        onDonateClick={() => navigate("/why-donate")}
       />
       <div className="mt-16">
         <LaunchCountdown variant="banner" />
