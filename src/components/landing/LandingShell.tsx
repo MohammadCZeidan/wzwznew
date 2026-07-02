@@ -25,6 +25,18 @@ const SignupModalLazy = lazy(() =>
   import("@/components/landing/SignupModal").then((module) => ({ default: module.SignupModal }))
 );
 
+const SKIP_SHOWCASE_KEY = "raw.skip-poll-showcase-once";
+
+function shouldSkipPollShowcase(): boolean {
+  if (typeof window === "undefined") return false;
+
+  try {
+    return window.sessionStorage.getItem(SKIP_SHOWCASE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export interface LandingShellProps {
   user: User | null;
   isLoggedIn: boolean;
@@ -43,9 +55,7 @@ export default function LandingShell({
   login,
 }: LandingShellProps) {
   const navigate = useNavigate();
-  const [skipPollShowcase] = useState(() => {
-    return window.sessionStorage.getItem("raw.skip-poll-showcase-once") === "1";
-  });
+  const [skipPollShowcase] = useState(shouldSkipPollShowcase);
   const [siteReady, setSiteReady] = useState(skipPollShowcase);
   const [pendingInviteCode, setPendingInviteCode] = useState("");
 
