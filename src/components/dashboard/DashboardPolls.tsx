@@ -448,6 +448,7 @@ export function DashboardPolls({
 
   const handleStartReply = (commentId: string, author: string) => {
     setReplyingTo({ commentId, author });
+    setCommentDraft((current) => current.trim() ? current : `@${author} `);
     setCommentModerationError(null);
     setTimeout(() => commentInputRef.current?.focus(), 30);
   };
@@ -722,7 +723,11 @@ export function DashboardPolls({
                 </span>
                 <button
                   type="button"
-                  onClick={() => setReplyingTo(null)}
+                  onClick={() => {
+                    const mention = `@${replyingTo.author} `;
+                    setReplyingTo(null);
+                    setCommentDraft((current) => current === mention ? "" : current);
+                  }}
                   className={`inline-flex size-5 items-center justify-center rounded-full transition ${
                     isLightMode ? "text-slate-500 hover:bg-slate-200" : "text-raw-silver/55 hover:bg-raw-surface/40 hover:text-raw-silver"
                   }`}
