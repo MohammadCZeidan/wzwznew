@@ -58,7 +58,7 @@ export function SignupModal({ open, onClose, onSignup, onLogin, source, initialR
       setShowConfirmPassword(false);
       setShowTermsPopup(false);
     }
-  }, [open, source]);
+  }, [open, source, initialReferralCode]);
 
   useEffect(() => {
     if (cooldown <= 0) {
