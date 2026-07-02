@@ -68,6 +68,25 @@ function getTextPosition(index: number, total: number, radius: number): { x: num
   };
 }
 
+function readablePrizeTextColor(textColor: string, isLight: boolean): string {
+  if (!isLight) {
+    return textColor;
+  }
+
+  const hexMatch = /^#([0-9a-f]{6})$/i.exec(textColor.trim());
+  if (!hexMatch) {
+    return textColor;
+  }
+
+  const value = hexMatch[1];
+  const red = parseInt(value.slice(0, 2), 16);
+  const green = parseInt(value.slice(2, 4), 16);
+  const blue = parseInt(value.slice(4, 6), 16);
+  const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
+
+  return luminance > 0.72 ? "#334155" : textColor;
+}
+
 
 export function WheelOfFortune({ prizes, onSpinEnd, onSpinStart, disabled = false, prizeWeights, forcedPrizeId = null, radius: radiusProp = 200, previewOnly = false, disabledLabel }: WheelOfFortuneProps) {
   const { mode } = useTheme();
@@ -214,6 +233,7 @@ export function WheelOfFortune({ prizes, onSpinEnd, onSpinStart, disabled = fals
             const clipId = `wheel-clip-${baseId}-${index}`;
             const scale = (prize.imageSrc && IMAGE_SCALE_BY_SRC[prize.imageSrc]) || 1;
             const scaledSize = imgSize * scale;
+            const textColor = readablePrizeTextColor(prize.textColor, isLight);
             return (
               <g key={prize.id}>
                 <path d={getSegmentPath(index, total, radius)} fill={prize.color} stroke={isLight ? "#9ca9bb" : "#1f1f1f"} strokeWidth="1" />
@@ -237,7 +257,7 @@ export function WheelOfFortune({ prizes, onSpinEnd, onSpinStart, disabled = fals
                     <text
                       x={textPosition.x}
                       y={textPosition.y + imgSize / 2 + 10}
-                      fill={prize.textColor}
+                      fill={textColor}
                       fontSize={9}
                       fontWeight="700"
                       textAnchor="middle"
@@ -251,7 +271,7 @@ export function WheelOfFortune({ prizes, onSpinEnd, onSpinStart, disabled = fals
                   <text
                     x={textPosition.x}
                     y={textPosition.y}
-                    fill={prize.textColor}
+                    fill={textColor}
                     fontSize={prize.shortLabel.length > 7 ? 9 : 11}
                     fontWeight="700"
                     textAnchor="middle"
