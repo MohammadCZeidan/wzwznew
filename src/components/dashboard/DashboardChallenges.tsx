@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { getTodayKey } from "@/store/useRawStore.storage";
 import { loadLocalLoginDays, loadUserXPClaimKeys } from "@/lib/userProgress";
+import { useTheme } from "@/providers/useTheme";
 
 interface DashboardChallengesProps {
   userId: string;
@@ -150,6 +151,8 @@ export function DashboardChallenges({
   onAwardTokens,
   onAvatarWon,
 }: DashboardChallengesProps) {
+  const { mode } = useTheme();
+  const isLight = mode === "light";
   const [claimedChallenges, setClaimedChallenges] = useState<Set<string>>(new Set());
   const [dailyLoginClaimKeys, setDailyLoginClaimKeys] = useState<string[]>([]);
   const [testProgress, setTestProgress] = useState<Record<string, number>>({});
@@ -324,7 +327,9 @@ export function DashboardChallenges({
                     type="button"
                     onClick={() => handleClaimChallenge(challenge)}
                     disabled={claimed && !isAdmin}
-                    className="rounded-full border border-emerald-300/35 bg-emerald-400/20 px-2.5 py-0.5 text-[10px] font-medium text-emerald-100 transition hover:bg-emerald-400/30 disabled:cursor-default disabled:opacity-55"
+                    className={`rounded-full border border-emerald-300/35 bg-emerald-400/20 px-2.5 py-0.5 text-[10px] font-medium transition hover:bg-emerald-400/30 disabled:cursor-default disabled:opacity-55 ${
+                      isLight ? "text-emerald-800" : "text-emerald-100"
+                    }`}
                   >
                     {claimed && !isAdmin ? "Claimed" : "Claim"}
                   </button>
