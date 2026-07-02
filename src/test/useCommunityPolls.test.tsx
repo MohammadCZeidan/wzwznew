@@ -58,9 +58,9 @@ describe("useCommunityPolls", () => {
       expect(result.current.communityPolls).toHaveLength(1);
     });
 
-    let timeoutCallback: TimerHandler | undefined;
+    let timeoutCallback: (() => void) | undefined;
     const setTimeoutSpy = vi.spyOn(window, "setTimeout").mockImplementation(((callback: TimerHandler) => {
-      timeoutCallback = callback;
+      timeoutCallback = typeof callback === "function" ? (callback as () => void) : undefined;
       return 1 as unknown as number;
     }) as typeof window.setTimeout);
 

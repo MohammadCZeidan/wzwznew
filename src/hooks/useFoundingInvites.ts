@@ -11,7 +11,7 @@ import {
  * Every surface that shows invite codes (dashboard Home hero + list, Profile)
  * uses this hook so the codes and their claimed/unclaimed state stay identical.
  */
-export function useFoundingInvites(userId: string) {
+export function useFoundingInvites(userId?: string) {
   const [codes, setCodes] = useState<string[]>(() => (userId ? readFoundingInviteCodes(userId) : []));
   const [redeemedCodes, setRedeemedCodes] = useState<Set<string>>(new Set());
 

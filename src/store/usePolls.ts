@@ -150,6 +150,18 @@ export function usePolls(isLoggedIn: boolean, userId?: string) {
       });
   }, [TOKEN_BALANCE_KEY, isLoggedIn, userId]);
 
+  const syncTokenBalance = useCallback(async () => {
+    if (!isLoggedIn || !userId) return;
+    try {
+      const balance = await fetchTokenBalance(userId);
+      setTokenBalance(balance);
+      window.localStorage.setItem(TOKEN_BALANCE_KEY, String(balance));
+      emitTokenBalanceUpdated(TOKEN_BALANCE_KEY, balance);
+    } catch {
+      // keep local value on network error
+    }
+  }, [TOKEN_BALANCE_KEY, isLoggedIn, userId]);
+
   useEffect(() => {
     if (loadedDailyStorageKey !== STORAGE_KEY) return;
     try {
@@ -233,19 +245,9 @@ export function usePolls(isLoggedIn: boolean, userId?: string) {
     if (safeAmount === 0) return;
 
     if (isLoggedIn && userId) {
-      setTokenBalance((previous) => {
-        const next = previous + safeAmount;
-        try {
-          window.localStorage.setItem(TOKEN_BALANCE_KEY, String(next));
-          emitTokenBalanceUpdated(TOKEN_BALANCE_KEY, next);
-        } catch {
-          // ignore storage errors
-        }
-        return next;
-      });
-
-      // Token rewards stay local until a trusted reward/payment API mints them server-side.
-      // Direct frontend minting is disabled by design — the /tokens endpoint refuses { action: "add" }.
+      // Token rewards need a trusted server-side mint before they are spendable.
+      // Keep authenticated balances pinned to Supabase so the UI cannot show fake tokens.
+      void syncTokenBalance();
       return;
     }
 
@@ -259,7 +261,7 @@ export function usePolls(isLoggedIn: boolean, userId?: string) {
       }
       return next;
     });
-  }, [TOKEN_BALANCE_KEY, isLoggedIn, userId]);
+  }, [TOKEN_BALANCE_KEY, isLoggedIn, syncTokenBalance, userId]);
 
   const vote = useCallback((pollId: string, optionId: string) => {
     const currentDay = getTodayKey();
