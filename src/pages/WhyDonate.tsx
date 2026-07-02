@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { BrandName } from "@/components/ui/brand-name";
 import { submitDonationInterest } from "@/backend/supabase/controllers/donationInterestController";
@@ -8,14 +8,12 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function WhyDonate() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const backTo = (location.state as { from?: string } | null)?.from ?? "/dashboard";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +39,10 @@ export default function WhyDonate() {
         <div className="flex h-16 items-center gap-4 px-4 sm:px-6 lg:px-10">
           <button
             type="button"
-            onClick={() => navigate(backTo, { replace: true })}
+            onClick={() => {
+              window.sessionStorage.setItem("raw.skip-poll-showcase-once", "1");
+              navigate(-1);
+            }}
             className="flex items-center gap-2 text-raw-silver/60 transition-colors hover:text-raw-text"
             aria-label="Go back"
           >
