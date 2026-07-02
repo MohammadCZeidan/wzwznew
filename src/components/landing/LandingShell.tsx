@@ -45,9 +45,7 @@ export default function LandingShell({
 }: LandingShellProps) {
   const navigate = useNavigate();
   const [skipPollShowcase] = useState(() => {
-    const shouldSkip = window.sessionStorage.getItem("raw.skip-poll-showcase-once") === "1";
-    window.sessionStorage.removeItem("raw.skip-poll-showcase-once");
-    return shouldSkip;
+    return window.sessionStorage.getItem("raw.skip-poll-showcase-once") === "1";
   });
   const [siteReady, setSiteReady] = useState(skipPollShowcase);
   const [pendingInviteCode, setPendingInviteCode] = useState("");
