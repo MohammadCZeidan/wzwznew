@@ -118,7 +118,10 @@ function buildPrizes(pool: PoolEntry[], isLight: boolean): WheelPrize[] {
     color: isLight
       ? i % 2 === 0 ? "#e8edf5" : "#dde4ef"
       : i % 2 === 0 ? "#121212" : "#0e0e0e",
-    textColor: "#F1C42D",
+    // Gold-on-pale-blue fails contrast in light mode (the wheel's light-mode
+    // wedges are near-white). Use raw-ink (near-black) there instead; dark
+    // mode's near-black wedges keep gold.
+    textColor: isLight ? "#0c0c0c" : "#F1C42D",
   }));
 }
 
