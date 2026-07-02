@@ -5,6 +5,7 @@ import {
   GithubIcon,
   InstagramIcon,
   LinkedinIcon,
+  MessageCircle,
   TwitterIcon,
   YoutubeIcon,
 } from "lucide-react";
@@ -25,6 +26,8 @@ export function MinimalFooter({
   edgeToScreen = false,
 }: MinimalFooterProps) {
   const year = new Date().getFullYear();
+  const supportWhatsAppNumber = import.meta.env.VITE_SUPPORT_WHATSAPP_NUMBER ?? "+96171148488";
+  const whatsAppHref = `https://wa.me/${supportWhatsAppNumber.replace(/\D/g, "")}`;
 
   const company = [
     {
@@ -41,11 +44,11 @@ export function MinimalFooter({
     },
     {
       title: "Privacy Policy",
-      href: "#",
+      href: "/privacy",
     },
     {
       title: "Terms of Service",
-      href: "#",
+      href: "/terms",
     },
   ];
 
@@ -74,8 +77,13 @@ export function MinimalFooter({
     },
     {
       icon: <InstagramIcon className="size-4" />,
-      link: "#",
+      link: "https://instagram.com/thecumulativemind",
       label: "Instagram",
+    },
+    {
+      icon: <MessageCircle className="size-4" />,
+      link: whatsAppHref,
+      label: "WhatsApp",
     },
     {
       icon: <LinkedinIcon className="size-4" />,
