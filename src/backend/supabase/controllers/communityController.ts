@@ -115,29 +115,34 @@ export async function joinCommunity(communityId: string, _userId: string, _usern
 
 export async function leaveCommunity(communityId: string, _userId: string): Promise<void> {
   void _userId;
-  const { error } = await supabase.rpc('leave_community', { p_community_id: communityId });
-  if (error) throw error;
+  await apiRequest('/api/communities/leave', {
+    method: 'POST',
+    body: JSON.stringify({ communityId }),
+  });
 }
 
 export async function touchMemberActivity(communityId: string, _userId: string, _username: string): Promise<void> {
   void _userId; void _username;
-  const { error } = await supabase.rpc('touch_member_activity', { p_community_id: communityId });
-  if (error) throw error;
+  await apiRequest('/api/communities/touch-activity', {
+    method: 'POST',
+    body: JSON.stringify({ communityId }),
+  });
 }
 
 export async function markCommunityRead(communityId: string, _userId: string): Promise<void> {
   void _userId;
-  const { error } = await supabase.rpc('mark_community_read', { p_community_id: communityId });
-  if (error) throw error;
+  await apiRequest('/api/communities/mark-read', {
+    method: 'POST',
+    body: JSON.stringify({ communityId }),
+  });
 }
 
 export async function setCommunityNotifications(communityId: string, _userId: string, enabled: boolean): Promise<void> {
   void _userId;
-  const { error } = await supabase.rpc('set_community_notifications', {
-    p_community_id: communityId,
-    p_enabled: enabled,
+  await apiRequest('/api/communities/notifications', {
+    method: 'POST',
+    body: JSON.stringify({ communityId, enabled }),
   });
-  if (error) throw error;
 }
 
 // Admin-only — RPC enforces is_admin() server-side.
