@@ -137,15 +137,7 @@ export default function LandingShell({
                   Join with just a username and password. No email, no phone, no real name — your people are already talking.
                 </p>
 
-                <div className="mx-auto mt-8 flex w-full max-w-sm flex-col gap-3 sm:flex-row sm:items-center">
-                  <input
-                    type="text"
-                    value={pendingInviteCode}
-                    onChange={(e) => setPendingInviteCode(e.target.value.toUpperCase().replace(/\s+/g, ""))}
-                    placeholder="Invitation code"
-                    maxLength={32}
-                    className="flex-1 rounded-xl border border-raw-border/40 bg-raw-black/60 px-4 py-3 text-sm text-raw-text placeholder-raw-silver/35 outline-none transition focus:border-raw-gold/60 focus:ring-1 focus:ring-raw-gold/30"
-                  />
+                <div className="mx-auto mt-8 flex w-full justify-center">
                   <button
                     type="button"
                     onClick={() => setShowSignup(true)}
@@ -154,9 +146,6 @@ export default function LandingShell({
                     Join Now
                   </button>
                 </div>
-                <p className="mt-3 text-[11px] text-raw-silver/35">
-                  Have an invitation code? Enter it above — it unlocks your account.
-                </p>
               </div>
             </section>
 
