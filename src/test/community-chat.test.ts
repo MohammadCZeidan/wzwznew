@@ -80,33 +80,29 @@ describe("community chat Supabase persistence", () => {
     });
   });
 
-  it("routes community membership writes through the appropriate server-authoritative path", async () => {
-    // join goes through POST /api/communities/join (see communityController.ts —
-    // no `join_community` RPC exists in supabase/migrations at all, and even if
-    // it did, browser-side RPC calls can't carry the app's session identity).
-    // leave/read/notifications still call RPCs pending the same migration.
-    const fetchMock = vi.spyOn(global, "fetch").mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve({ ok: true }),
-    } as Response);
-    rpcMock.mockResolvedValue({ data: null, error: null });
+  it("routes community membership writes through server-authoritative /api/communities/* endpoints", async () => {
+    // None of join_community, leave_community, touch_member_activity,
+    // mark_community_read, or set_community_notifications exist as RPCs in
+    // supabase/migrations, and even if they did, browser-side RPC calls
+    // can't carry the app's session identity (see api/communities/join.ts).
+    const fetchMock = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({ ok: true }) } as Response);
 
     await joinCommunity("community-1", "user-alice", "alice");
     await leaveCommunity("community-1", "user-alice");
     await markCommunityRead("community-1", "user-alice");
     await setCommunityNotifications("community-1", "user-alice", false);
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      "/api/communities/join",
-      expect.objectContaining({ method: "POST" }),
-    );
-    expect(rpcMock).toHaveBeenNthCalledWith(1, "leave_community", { p_community_id: "community-1" });
-    expect(rpcMock).toHaveBeenNthCalledWith(2, "mark_community_read", { p_community_id: "community-1" });
-    expect(rpcMock).toHaveBeenNthCalledWith(3, "set_community_notifications", {
-      p_community_id: "community-1",
-      p_enabled: false,
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/communities/join", expect.objectContaining({ method: "POST" }));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/communities/leave", expect.objectContaining({ method: "POST" }));
+    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/communities/mark-read", expect.objectContaining({ method: "POST" }));
+    expect(fetchMock).toHaveBeenNthCalledWith(4, "/api/communities/notifications", expect.objectContaining({ method: "POST" }));
+    expect(JSON.parse((fetchMock.mock.calls[3][1] as RequestInit).body as string)).toEqual({
+      communityId: "community-1",
+      enabled: false,
     });
+    expect(rpcMock).not.toHaveBeenCalled();
     expect(fromMock).not.toHaveBeenCalled();
   });
 
