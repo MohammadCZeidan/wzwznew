@@ -19,9 +19,67 @@ function getRouteUserId(request: Request): string | null {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
-async function readBody(request: Request): Promise<{ action?: unknown; amount?: unknown } | null> {
+type ChallengeReset = "daily" | "weekly" | "monthly";
+
+const CHALLENGE_REWARDS: Record<string, { xp: number; tokens: number; reset: ChallengeReset }> = {
+  "daily-7-polls": { xp: 50, tokens: 50, reset: "daily" },
+  "weekly-warrior": { xp: 150, tokens: 150, reset: "weekly" },
+  "monthly-70-polls": { xp: 500, tokens: 500, reset: "monthly" },
+  "seven-day-streak": { xp: 100, tokens: 120, reset: "weekly" },
+  "thirty-day-streak": { xp: 300, tokens: 320, reset: "monthly" },
+};
+
+function getTodayKey(): string {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`;
+}
+
+function getWeekKey(): string {
+  const now = new Date();
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const day = start.getUTCDay() || 7;
+  start.setUTCDate(start.getUTCDate() - day + 1);
+  return `${start.getUTCFullYear()}-W${String(Math.ceil((((start.getTime() - Date.UTC(start.getUTCFullYear(), 0, 1)) / 86400000) + 1) / 7)).padStart(2, "0")}`;
+}
+
+function getMonthKey(): string {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function getResetKey(reset: ChallengeReset): string {
+  if (reset === "weekly") return getWeekKey();
+  if (reset === "monthly") return getMonthKey();
+  return getTodayKey();
+}
+
+function resolveChallengeReward(claimKey: string): { xp: number; tokens: number } | null {
+  const separator = claimKey.indexOf(":");
+  if (separator <= 0) return null;
+  const challengeId = claimKey.slice(0, separator);
+  const reward = CHALLENGE_REWARDS[challengeId];
+  if (!reward) return null;
+  if (claimKey !== `${challengeId}:${getResetKey(reward.reset)}`) return null;
+  return { xp: reward.xp, tokens: reward.tokens };
+}
+
+async function readBody(request: Request): Promise<{
+  action?: unknown;
+  amount?: unknown;
+  source?: unknown;
+  claimKey?: unknown;
+  xpAmount?: unknown;
+  tokenAmount?: unknown;
+} | null> {
   try {
-    return (await request.json()) as { action?: unknown; amount?: unknown };
+    return (await request.json()) as {
+      action?: unknown;
+      amount?: unknown;
+      source?: unknown;
+      claimKey?: unknown;
+      xpAmount?: unknown;
+      tokenAmount?: unknown;
+    };
   } catch {
     return null;
   }
@@ -81,6 +139,49 @@ export default async function handler(request: Request): Promise<Response> {
 
   const body = await readBody(request);
   if (!body) return json({ error: "invalid_json" }, 400);
+
+  if (body.action === "claim_challenge_reward") {
+    const source = typeof body.source === "string" ? body.source.trim() : "";
+    const claimKey = typeof body.claimKey === "string" ? body.claimKey.trim() : "";
+    if (!source || !claimKey) return json({ error: "invalid_claim" }, 400);
+    if (source !== "challenge") return json({ error: "invalid_claim_source" }, 400);
+    const reward = resolveChallengeReward(claimKey);
+    if (!reward) return json({ error: "invalid_challenge_reward" }, 400);
+
+    const accessToken = await mintAccessToken(verifiedUserId);
+    if (!accessToken) return json({ error: "session_not_configured" }, 500);
+    const client = buildUserScopedClient(accessToken);
+    if (!client) return json({ error: "supabase_not_configured" }, 503);
+
+    const { data, error } = await client.rpc("claim_challenge_reward", {
+      p_source: source,
+      p_claim_key: claimKey,
+      p_xp_amount: reward.xp,
+      p_token_amount: reward.tokens,
+    });
+    if (error) return json({ error: "failed_to_claim_challenge_reward" }, 500);
+
+    const payload = (data as {
+      awarded?: boolean;
+      xp?: number;
+      level?: number;
+      leveled_up?: boolean;
+      token_balance?: number;
+      error?: string;
+    }) ?? {};
+    if (payload.error) {
+      const status = payload.error === "unauthorized" ? 401 : 400;
+      return json({ error: payload.error }, status);
+    }
+
+    return json({
+      awarded: payload.awarded === true,
+      xp: payload.xp ?? 0,
+      level: payload.level ?? 1,
+      leveledUp: payload.leveled_up === true,
+      tokenBalance: payload.token_balance ?? 0,
+    });
+  }
 
   // Minting tokens from the client is never allowed; only the trusted
   // server-side reward flows may credit balances.

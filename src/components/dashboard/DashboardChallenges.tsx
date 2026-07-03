@@ -21,8 +21,14 @@ interface DashboardChallengesProps {
   dailyAnsweredCount: number;
   dailyPollLimit: number;
   onAwardXP?: (amount: number) => Promise<void>;
-  onClaimXP?: (source: string, claimKey: string, amount: number) => Promise<boolean>;
+  onClaimXP?: (
+    source: string,
+    claimKey: string,
+    xpAmount: number,
+    tokenAmount: number
+  ) => Promise<{ awarded: boolean; tokenBalance?: number } | boolean>;
   onAwardTokens?: (amount: number) => void;
+  onTokenBalanceChange?: (balance: number) => void;
   onAvatarWon?: (level: number) => void;
 }
 
@@ -149,6 +155,7 @@ export function DashboardChallenges({
   onAwardXP,
   onClaimXP,
   onAwardTokens,
+  onTokenBalanceChange,
   onAvatarWon,
 }: DashboardChallengesProps) {
   const { mode } = useTheme();
@@ -197,9 +204,15 @@ export function DashboardChallenges({
     }
 
     if (onClaimXP) {
-      void onClaimXP("challenge", claimKey, challenge.rewardXP).then((awarded) => {
+      const tokenReward = challenge.rewardXP + (challenge.rewardTokens ?? 0);
+      void onClaimXP("challenge", claimKey, challenge.rewardXP, tokenReward).then((claim) => {
+        const awarded = typeof claim === "boolean" ? claim : claim.awarded;
         if (awarded) {
-          awardTokens();
+          if (typeof claim !== "boolean" && typeof claim.tokenBalance === "number") {
+            onTokenBalanceChange?.(claim.tokenBalance);
+          } else {
+            awardTokens();
+          }
           setClaimedChallenges((previous) => new Set(previous).add(claimKey));
           toast({
             title: `${challenge.title} complete`,
@@ -227,7 +240,7 @@ export function DashboardChallenges({
     }
 
     autoClaimingRef.current.delete(claimKey);
-  }, [claimedChallenges, isAdmin, onAwardTokens, onAwardXP, onClaimXP]);
+  }, [claimedChallenges, isAdmin, onAwardTokens, onAwardXP, onClaimXP, onTokenBalanceChange]);
 
   useEffect(() => {
     if (isAdmin) return;

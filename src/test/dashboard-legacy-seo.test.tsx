@@ -115,6 +115,7 @@ const props = {
   isDailyPollLimitReached: false,
   tokenBalance: 0,
   addTokens: vi.fn(),
+  setTokenBalance: vi.fn(),
   unlockExtraPolls: vi.fn(),
   vote: vi.fn(),
   onLogout: vi.fn(),

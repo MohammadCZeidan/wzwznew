@@ -293,8 +293,18 @@ export function usePolls(isLoggedIn: boolean, userId?: string) {
     addTokens,
     unlockExtraPolls,
     tokenBalance,
+    setTokenBalance: (balance: number) => {
+      const next = Math.max(0, Number(balance) || 0);
+      setTokenBalance(next);
+      try {
+        window.localStorage.setItem(TOKEN_BALANCE_KEY, String(next));
+        emitTokenBalanceUpdated(TOKEN_BALANCE_KEY, next);
+      } catch {
+        // ignore storage errors
+      }
+    },
     dailyAnsweredCount: dailyAnsweredPollIds.size,
     dailyPollLimit: effectiveDailyLimit,
     isDailyPollLimitReached: dailyAnsweredPollIds.size >= effectiveDailyLimit,
-  }), [addTokens, dailyAnsweredPollIds.size, effectiveDailyLimit, freeVotesUsed, polls, tokenBalance, unlockExtraPolls, vote, votedPolls]);
+  }), [TOKEN_BALANCE_KEY, addTokens, dailyAnsweredPollIds.size, effectiveDailyLimit, freeVotesUsed, polls, tokenBalance, unlockExtraPolls, vote, votedPolls]);
 }

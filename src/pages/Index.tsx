@@ -58,6 +58,7 @@ const Index = () => {
     isDailyPollLimitReached,
     tokenBalance,
     addTokens,
+    setTokenBalance,
     unlockExtraPolls,
     completeOnboarding,
     vote,
@@ -220,6 +221,7 @@ const Index = () => {
         isDailyPollLimitReached={isDailyPollLimitReached}
         tokenBalance={tokenBalance}
         addTokens={addTokens}
+        setTokenBalance={setTokenBalance}
         unlockExtraPolls={unlockExtraPolls}
         vote={vote}
         onLogout={logout}
