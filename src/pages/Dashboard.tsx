@@ -595,6 +595,7 @@ export default function Dashboard({
               <DashboardSettings
                 userId={user.id}
                 isAdmin={user.role === "admin"}
+                isModerator={user.role === "moderator"}
                 onLogout={onLogout}
                 onBackToDashboard={handleBackToDashboardHome}
               />

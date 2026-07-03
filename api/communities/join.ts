@@ -1,7 +1,7 @@
 import { json, readJsonBody } from "../_lib/authServer.js";
 import { isTrustedOrigin } from "../_lib/requestSecurity.js";
 import { supabaseServerClient } from "../_lib/supabaseServerClient.js";
-import { getRequestUserId } from "../_lib/sessionAuth.js";
+import { fetchSessionProfile, getRequestUserId, isCurrentlyBanned } from "../_lib/sessionAuth.js";
 
 export const config = { runtime: "edge" };
 
@@ -29,22 +29,16 @@ export default async function handler(request: Request): Promise<Response> {
   const communityId = typeof body?.communityId === "string" ? body.communityId : "";
   if (!communityId) return json({ error: "Invalid input.", details: "communityId" }, 400);
 
-  const { data: user, error: userError } = await supabaseServerClient
-    .from("users")
-    .select("id, username, status")
-    .eq("id", userId)
-    .single();
-  if (userError || !user) return json({ error: "User not found." }, 401);
-
-  const userRow = user as { id: string; username: string; status: string };
-  if (userRow.status === "banned" || userRow.status === "deleted") {
+  const profile = await fetchSessionProfile(userId);
+  if (!profile) return json({ error: "User not found." }, 401);
+  if (profile.status === "deleted" || isCurrentlyBanned(profile)) {
     return json({ error: "account_inactive" }, 403);
   }
 
   const { error: upsertError } = await supabaseServerClient
     .from("community_members")
     .upsert(
-      { community_id: communityId, user_id: userId, username: userRow.username },
+      { community_id: communityId, user_id: userId, username: profile.username },
       { onConflict: "community_id,user_id", ignoreDuplicates: false },
     );
 
