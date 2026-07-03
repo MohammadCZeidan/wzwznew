@@ -5,7 +5,7 @@ import { supabaseServerClient } from "../_lib/supabaseServerClient.js";
 
 export const config = { runtime: "edge" };
 
-const MAX_GRANT_PER_REQUEST = 20;
+const MAX_GRANT_PER_REQUEST = 100;
 
 interface GrantInviteCodesBody {
   username?: unknown;

@@ -594,6 +594,7 @@ export default function Dashboard({
             <DashboardSectionShell>
               <DashboardSettings
                 userId={user.id}
+                username={user.username}
                 isAdmin={user.role === "admin"}
                 isModerator={user.role === "moderator"}
                 onLogout={onLogout}
