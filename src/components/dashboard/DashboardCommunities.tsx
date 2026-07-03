@@ -348,8 +348,8 @@ export function DashboardCommunities({
       try {
         await moderateUser(message.senderName, "timeout", 60);
         toast({ title: "User timed out", description: `@${message.senderName} is timed out for 1 hour.` });
-      } catch {
-        toast({ title: "Could not timeout user", description: "Please try again." });
+      } catch (error) {
+        toast({ title: "Could not timeout user", description: error instanceof Error ? error.message : "Please try again." });
       }
     },
     [confirm],
@@ -367,8 +367,8 @@ export function DashboardCommunities({
       try {
         await moderateUser(message.senderName, "ban");
         toast({ title: "User banned", description: `@${message.senderName} has been banned.` });
-      } catch {
-        toast({ title: "Could not ban user", description: "Please try again." });
+      } catch (error) {
+        toast({ title: "Could not ban user", description: error instanceof Error ? error.message : "Please try again." });
       }
     },
     [confirm],
