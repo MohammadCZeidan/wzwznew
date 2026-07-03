@@ -10,6 +10,7 @@ import {
   UserCog,
 } from "lucide-react";
 import { AdminBlockedWordsSettings } from "@/components/dashboard/AdminBlockedWordsSettings";
+import { AdminUserModerationSettings } from "@/components/dashboard/AdminUserModerationSettings";
 import {
   fetchDonationInterests,
   updateDonationInterestStatus,
@@ -30,6 +31,7 @@ import {
 interface DashboardSettingsProps {
   userId: string;
   isAdmin?: boolean;
+  isModerator?: boolean;
   onLogout: () => void;
   onBackToDashboard: () => void;
 }
@@ -44,10 +46,11 @@ const SECTIONS: Array<{ key: SettingsSection; label: string; icon: typeof UserCo
   { key: "danger",   label: "Danger zone",  icon: Trash2 },
 ];
 
-export function DashboardSettings({ userId, isAdmin = false, onLogout, onBackToDashboard }: DashboardSettingsProps) {
+export function DashboardSettings({ userId, isAdmin = false, isModerator = false, onLogout, onBackToDashboard }: DashboardSettingsProps) {
   const { toast } = useToast();
   const [section, setSection] = useState<SettingsSection>("account");
-  const visibleSections = isAdmin ? SECTIONS : SECTIONS.filter((item) => item.key !== "admin");
+  const canModerate = isAdmin || isModerator;
+  const visibleSections = canModerate ? SECTIONS : SECTIONS.filter((item) => item.key !== "admin");
 
   // Visibility
   const [profilePublic, setProfilePublic] = useState(true);
@@ -231,10 +234,11 @@ export function DashboardSettings({ userId, isAdmin = false, onLogout, onBackToD
             </div>
           )}
 
-          {section === "admin" && isAdmin && (
+          {section === "admin" && canModerate && (
             <div className="space-y-6">
-              <AdminBlockedWordsSettings />
-              <DonationRequestsPanel />
+              <AdminUserModerationSettings />
+              {isAdmin && <AdminBlockedWordsSettings />}
+              {isAdmin && <DonationRequestsPanel />}
             </div>
           )}
 

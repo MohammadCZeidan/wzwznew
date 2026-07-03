@@ -64,14 +64,28 @@ export default async function handler(request: Request): Promise<Response> {
 
   const { data: user, error: userError } = await supabaseServerClient
     .from("users")
-    .select("id, username, avatar_level, status, spam_strikes")
+    .select("id, username, avatar_level, status, spam_strikes, banned_until")
     .eq("id", userId)
     .single();
 
   if (userError || !user) return json({ error: "unauthorized" }, 401);
 
-  const userRow = user as { id: string; username: string; avatar_level?: number; status: string; spam_strikes?: number };
-  if (userRow.status === "banned" || userRow.status === "deleted") return json({ error: "not_allowed" }, 403);
+  const userRow = user as {
+    id: string;
+    username: string;
+    avatar_level?: number;
+    status: string;
+    spam_strikes?: number;
+    banned_until?: string | null;
+  };
+  if (userRow.status === "deleted") return json({ error: "not_allowed" }, 403);
+  if (userRow.status === "banned") {
+    const timeoutExpired = userRow.banned_until && new Date(userRow.banned_until).getTime() <= Date.now();
+    if (!timeoutExpired) return json({ error: "not_allowed" }, 403);
+    // Timeout has passed — lazily clear it so the user can post again.
+    await supabaseServerClient.from("users").update({ status: "active", banned_until: null }).eq("id", userId);
+    userRow.status = "active";
+  }
 
   // Enforce blocked words + link/number rules server-side before any DB write.
   const [dbBlockedWords] = await Promise.all([listBlockedWords(supabaseServerClient)]);
