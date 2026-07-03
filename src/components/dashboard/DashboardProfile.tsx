@@ -44,6 +44,8 @@ interface DashboardProfileProps {
   polls: Poll[];
   /** Live token balance for insight purchases. */
   tokenBalance: number;
+  /** Admins generate many invite codes; once used, they're dropped from the list. */
+  isAdmin?: boolean;
 }
 
 const STAT_ICONS = {
@@ -94,12 +96,19 @@ export function DashboardProfile({
   pollsAnswered,
   polls,
   tokenBalance,
+  isAdmin = false,
 }: DashboardProfileProps) {
   const [hoveredAvatarLevel, setHoveredAvatarLevel] = useState<number | null>(null);
   const [activeIdentity, setActiveIdentity] = useState<"public" | "private">("public");
   const [ownedInsightIds, setOwnedInsightIds] = useState<Set<string>>(() => readOwnedInsightIds(userId));
   const { codes: inviteCodes, redeemedCodes } = useFoundingInvites(userId);
-  const [openInviteIndex, setOpenInviteIndex] = useState<number | null>(null);
+  // Admins generate large batches of codes to hand out; once a code is used it
+  // just clutters the list, so drop used ones from their view. Regular users
+  // keep seeing their two codes (used ones show a "used" state) as before.
+  const visibleInviteCodes = isAdmin
+    ? inviteCodes.filter((code) => !redeemedCodes.has(code.toUpperCase()))
+    : inviteCodes;
+  const [openInviteCode, setOpenInviteCode] = useState<string | null>(null);
 
   // Private identity
   const [privateAlias, setPrivateAlias] = useState<UserAliasRow | null>(null);
@@ -111,7 +120,7 @@ export function DashboardProfile({
 
   useEffect(() => {
     setOwnedInsightIds(readOwnedInsightIds(userId));
-    setOpenInviteIndex(null);
+    setOpenInviteCode(null);
   }, [userId]);
 
 
@@ -413,24 +422,24 @@ export function DashboardProfile({
             </p>
           </div>
           <span className="rounded-full border border-raw-gold/25 bg-raw-gold/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-raw-gold/70">
-            2 total
+            {visibleInviteCodes.length} total
           </span>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          {inviteCodes.map((code, index) => {
-            const isOpen = openInviteIndex === index;
+          {visibleInviteCodes.map((code, index) => {
+            const isOpen = openInviteCode === code;
             const isUsed = redeemedCodes.has(code.toUpperCase());
             return (
               <div
                 key={code}
                 role="button"
                 tabIndex={0}
-                onClick={() => !isUsed && setOpenInviteIndex(isOpen ? null : index)}
+                onClick={() => !isUsed && setOpenInviteCode(isOpen ? null : code)}
                 onKeyDown={(event) => {
                   if (!isUsed && (event.key === "Enter" || event.key === " ")) {
                     event.preventDefault();
-                    setOpenInviteIndex(isOpen ? null : index);
+                    setOpenInviteCode(isOpen ? null : code);
                   }
                 }}
                 className={`group relative overflow-hidden rounded-2xl border border-dashed p-4 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-raw-gold/45 ${
