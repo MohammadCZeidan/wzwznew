@@ -1,7 +1,7 @@
 export interface User {
   id: string;
   username: string;
-  role: "member" | "admin";
+  role: "member" | "moderator" | "admin";
   moderationStatus: "active" | "warned" | "banned";
   warnings: number;
   onboardingCompleted?: boolean;
