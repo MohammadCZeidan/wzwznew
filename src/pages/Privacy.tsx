@@ -26,79 +26,94 @@ export default function Privacy() {
 
           <div className="mt-6 space-y-5 text-raw-silver/75 sm:mt-8 sm:space-y-6">
             <section>
-              <h2 className="text-lg font-semibold text-raw-text">1. Introduction</h2>
+              <h2 className="text-lg font-semibold text-raw-text">1. Overview</h2>
               <p className="mt-2 text-sm leading-relaxed">
-                raW ("we", "our", or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website and platform.
+                This Privacy Policy explains how raW collects, uses, discloses, and safeguards information when you use our app. raW enables anonymous public interaction while collecting certain data to operate the app, ensure safety, prevent abuse, and comply with legal obligations. By using raW, you consent to this data collection.
               </p>
             </section>
 
             <section>
               <h2 className="text-lg font-semibold text-raw-text">2. Information We Collect</h2>
               <p className="mt-2 text-sm leading-relaxed">
-                We focus on collecting raW data: the choices, votes, communities, messages, and engagement signals you create while using the platform. This data is primarily connected to your username and account features, not to a public real-world identity.
+                We collect information you provide directly and information gathered automatically as you use the app.
               </p>
               <ul className="mt-3 space-y-2 text-sm">
-                <li>• Account information needed to run your account, such as username and password</li>
-                <li>• Profile data, including avatar selection and community preferences</li>
-                <li>• raW engagement data, including polls voted, communities joined, messages sent, and features used</li>
-                <li>• Technical data needed for security and reliability, such as IP address, browser type, and device type</li>
+                <li>• Posts, comments, messages, reports, and support communications you submit</li>
+                <li>• Public content is anonymous to other users but associated with internal identifiers for safety and moderation</li>
+                <li>• Device identifiers and device information (model, OS version, app version, language, timezone)</li>
+                <li>• Network data and security signals used to detect abuse, bots, tampering, and suspicious activity</li>
+                <li>• Approximate location derived from IP or device signals; precise location requires your explicit permission</li>
+                <li>• Details related to any content you report or that is reported about you</li>
               </ul>
             </section>
 
             <section>
               <h2 className="text-lg font-semibold text-raw-text">3. How We Use Your Information</h2>
               <p className="mt-2 text-sm leading-relaxed">
-                We use your raW engagement data to operate the product and to power The Cumulative Mind (The raW Engine), our system for trend analysis and correlation. The raW Engine looks for patterns in how people vote, join, talk, and engage so we can better understand what different users have in common.
+                We use this information to operate and improve raW, maintain security, detect and prevent fraud and abuse, enforce our community guidelines, comply with legal obligations, and power features like matching, recommendations, and trend analysis across engagement data.
               </p>
-              <ul className="mt-3 space-y-2 text-sm">
-                <li>• Provide, maintain, and improve our services</li>
-                <li>• Process your account and deliver features connected to your username</li>
-                <li>• Match you with people who show similar interests, opinions, and engagement patterns</li>
-                <li>• Recommend better communities, suggestions, polls, and services</li>
-                <li>• Analyze trends and correlations across engagement data</li>
-                <li>• Detect and prevent fraudulent activity, spam, and abuse</li>
-              </ul>
             </section>
 
             <section>
-              <h2 className="text-lg font-semibold text-raw-text">4. Data Security</h2>
+              <h2 className="text-lg font-semibold text-raw-text">4. Monitoring and Moderation</h2>
               <p className="mt-2 text-sm leading-relaxed">
-                We implement appropriate technical and organizational measures designed to protect your personal information against unauthorized access, alteration, disclosure, or destruction. However, no method of transmission over the Internet is 100% secure.
+                Automated systems and user reports are used to detect violations in content and communications. Public posts may be automatically screened before broader visibility. Messages are retained to provide the service and may be processed for safety and abuse prevention. We maintain zero tolerance for child sexual abuse material and sexual content involving minors, with disclosure to authorities where legally required.
               </p>
             </section>
 
             <section>
-              <h2 className="text-lg font-semibold text-raw-text">5. Anonymity & Account Features</h2>
+              <h2 className="text-lg font-semibold text-raw-text">5. Legal Compliance and Law Enforcement</h2>
               <p className="mt-2 text-sm leading-relaxed">
-                raW is designed for username-based participation. Your activity helps shape your raW profile, but the experience is built around a username rather than a required real name. We use your engagement to improve matching, recommendations, and communities through The Cumulative Mind (The raW Engine), while retaining the account and technical data needed to operate the service and prevent abuse.
+                We may disclose information if required by law, legal process, or governmental request, or where necessary to protect user safety, prevent illegal activity, or protect our rights. We do not proactively share user data with law enforcement except as required by law or valid legal requests.
               </p>
             </section>
 
             <section>
-              <h2 className="text-lg font-semibold text-raw-text">6. Third-Party Services</h2>
+              <h2 className="text-lg font-semibold text-raw-text">6. Data Retention</h2>
               <p className="mt-2 text-sm leading-relaxed">
-                We use third-party services for error tracking (Sentry). These services have their own privacy policies governing their use of data.
+                We retain information only as long as necessary to provide the service, fulfill legal obligations, resolve disputes, and enforce our agreements. Some data may persist for safety, security, and compliance purposes even after account deletion.
               </p>
             </section>
 
             <section>
-              <h2 className="text-lg font-semibold text-raw-text">7. Data Retention</h2>
+              <h2 className="text-lg font-semibold text-raw-text">7. Data Security</h2>
               <p className="mt-2 text-sm leading-relaxed">
-                We retain personal data for as long as necessary to provide our services and comply with legal obligations. You can request deletion of your account and associated data at any time.
+                We use reasonable technical and organizational measures to protect your information against unauthorized access and misuse, though no system is completely secure.
               </p>
             </section>
 
             <section>
-              <h2 className="text-lg font-semibold text-raw-text">8. Your Rights</h2>
+              <h2 className="text-lg font-semibold text-raw-text">8. Sharing of Information</h2>
               <p className="mt-2 text-sm leading-relaxed">
-                Depending on your location, you may have rights including access, correction, deletion, and portability of your personal data. Contact us to exercise these rights.
+                We may share data with service providers, moderation vendors, legal authorities when mandated, and business partners in aggregated form. We do not sell personal data to third parties.
               </p>
             </section>
 
             <section>
-              <h2 className="text-lg font-semibold text-raw-text">9. Contact Us</h2>
+              <h2 className="text-lg font-semibold text-raw-text">9. Children's Privacy</h2>
+              <p className="mt-2 text-sm leading-relaxed">
+                raW is not intended for users under the age of 13 (or the minimum age required by local law). We do not knowingly collect data from children, and we will delete such information if we become aware of it.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-raw-text">10. Your Rights</h2>
+              <p className="mt-2 text-sm leading-relaxed">
+                Depending on your location, you may access, correct, or delete your personal data through the app or by contacting us. You can request deletion of your account and associated data at any time.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-raw-text">11. Contact Us</h2>
               <p className="mt-2 text-sm leading-relaxed">
                 If you have questions about this Privacy Policy or our privacy practices, please contact us at info@myraw.app or via WhatsApp.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-raw-text">12. Changes to This Policy</h2>
+              <p className="mt-2 text-sm leading-relaxed">
+                We may update this Privacy Policy from time to time. Continued use of raW after updates are posted constitutes acceptance of the updated policy.
               </p>
             </section>
 
