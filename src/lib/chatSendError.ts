@@ -18,6 +18,12 @@ const BLOCKED_WORD_INFO: ChatSendErrorInfo = {
   retryable: false,
 };
 
+const BANNED_FOR_SPAM_INFO: ChatSendErrorInfo = {
+  title: "You've been banned",
+  description: "Repeated attempts to share links or phone numbers got your account banned from chat.",
+  retryable: false,
+};
+
 const DEFAULT_SEND_ERROR: ChatSendErrorInfo = {
   title: "Failed to send message",
   description: "Please try again.",
@@ -34,6 +40,7 @@ export function getChatSendErrorInfo(error: unknown): ChatSendErrorInfo {
   const msg =
     error instanceof Error ? error.message : typeof error === "string" ? error : "";
 
+  if (msg === "banned_for_spam" || msg.includes("banned_for_spam")) return BANNED_FOR_SPAM_INFO;
   if (msg === "blocked_word" || msg.includes("blocked_word")) return BLOCKED_WORD_INFO;
   return SEND_ERROR_MAP[msg] ?? DEFAULT_SEND_ERROR;
 }

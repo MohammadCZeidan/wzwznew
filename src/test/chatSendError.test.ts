@@ -54,4 +54,10 @@ describe("getChatSendErrorInfo", () => {
     expect(result.retryable).toBe(false);
     expect(result.title).toBe("Message blocked");
   });
+
+  it("banned_for_spam is non-retryable with a ban-specific message", () => {
+    const result = getChatSendErrorInfo(new Error("banned_for_spam"));
+    expect(result.title).toBe("You've been banned");
+    expect(result.retryable).toBe(false);
+  });
 });
