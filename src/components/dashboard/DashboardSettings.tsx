@@ -32,6 +32,7 @@ import {
 
 interface DashboardSettingsProps {
   userId: string;
+  username: string;
   isAdmin?: boolean;
   isModerator?: boolean;
   onLogout: () => void;
@@ -48,7 +49,7 @@ const SECTIONS: Array<{ key: SettingsSection; label: string; icon: typeof UserCo
   { key: "danger",   label: "Danger zone",  icon: Trash2 },
 ];
 
-export function DashboardSettings({ userId, isAdmin = false, isModerator = false, onLogout, onBackToDashboard }: DashboardSettingsProps) {
+export function DashboardSettings({ userId, username, isAdmin = false, isModerator = false, onLogout, onBackToDashboard }: DashboardSettingsProps) {
   const { toast } = useToast();
   const [section, setSection] = useState<SettingsSection>("account");
   const canModerate = isAdmin || isModerator;
@@ -240,7 +241,7 @@ export function DashboardSettings({ userId, isAdmin = false, isModerator = false
             <div className="space-y-6">
               <AdminUserModerationSettings />
               {isAdmin && <AdminCreateStaffAccountSettings />}
-              {isAdmin && <AdminInviteCodesSettings />}
+              {isAdmin && <AdminInviteCodesSettings currentUsername={username} />}
               {isAdmin && <AdminBlockedWordsSettings />}
               {isAdmin && <DonationRequestsPanel />}
             </div>
