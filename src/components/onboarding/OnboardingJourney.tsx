@@ -19,6 +19,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { SwipeablePollCard } from "./SwipeablePollCard";
 import { EnterRawModal } from "./EnterRawModal";
+import { TermsAgreementModal } from "./TermsAgreementModal";
 import type { OnboardingStep, Poll, User } from "@/store/useRawStore";
 import { track } from "@/lib/analytics";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -351,6 +352,7 @@ export function OnboardingJourney({
   const [pollStats, setPollStats] = useState<Record<string, Record<string, number>>>({});
   const [currentPollIndex, setCurrentPollIndex] = useState(0);
   const [enterRawOpen, setEnterRawOpen] = useState(false);
+  const [termsAgreementOpen, setTermsAgreementOpen] = useState(false);
   const [isAgeVerified, setIsAgeVerified] = useState(false);
   const [isAgeVerifiedLoaded, setIsAgeVerifiedLoaded] = useState(false);
   const [communitySaveError, setCommunitySaveError] = useState<string | null>(null);
@@ -1356,7 +1358,18 @@ export function OnboardingJourney({
 
       <EnterRawModal
         open={enterRawOpen}
-        onEnter={async () => {
+        onEnter={() => {
+          setEnterRawOpen(false);
+          setTermsAgreementOpen(true);
+        }}
+        onDismiss={() => {
+          setEnterRawOpen(false);
+        }}
+      />
+
+      <TermsAgreementModal
+        open={termsAgreementOpen}
+        onAccept={async () => {
           if (isCompletingOnboarding) return;
           track("onboarding_completed", {
             total_duration_ms: Date.now() - stepStartTimeRef.current,
@@ -1368,16 +1381,16 @@ export function OnboardingJourney({
           setCommunitySaveError(null);
           try {
             await onCompleteOnboarding();
-            setEnterRawOpen(false);
+            setTermsAgreementOpen(false);
           } catch (error) {
-            setEnterRawOpen(false);
+            setTermsAgreementOpen(false);
             setCommunitySaveError(error instanceof Error ? error.message : "Could not save your community. Please try again.");
           } finally {
             setIsCompletingOnboarding(false);
           }
         }}
         onDismiss={() => {
-          setEnterRawOpen(false);
+          setTermsAgreementOpen(false);
         }}
       />
     </div>
