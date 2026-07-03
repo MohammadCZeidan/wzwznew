@@ -81,8 +81,23 @@ async function handleModerateUser(request: Request): Promise<Response> {
     details = "Unbanned.";
   }
 
-  const { error: updateError } = await supabaseServerClient.from("users").update(patch).eq("id", targetUserId);
-  if (updateError) return json({ error: "Failed to update user." }, 500);
+  let { error: updateError } = await supabaseServerClient.from("users").update(patch).eq("id", targetUserId);
+
+  // banned_until/spam_strikes may not exist yet if that migration hasn't
+  // landed on this database — fall back to just the status/warnings fields
+  // (guaranteed to exist) rather than failing the whole action. A timeout
+  // degrades to an indefinite ban (until manually unbanned) in that case.
+  if (updateError) {
+    const fallbackPatch: Record<string, unknown> = {};
+    if ("warnings" in patch) fallbackPatch.warnings = patch.warnings;
+    if ("status" in patch) fallbackPatch.status = patch.status;
+    ({ error: updateError } = await supabaseServerClient.from("users").update(fallbackPatch).eq("id", targetUserId));
+  }
+
+  if (updateError) {
+    console.error("[admin.moderate-user] update error", updateError);
+    return json({ error: "Failed to update user.", details: updateError.message }, 500);
+  }
 
   if (action !== "unban") {
     await supabaseServerClient.from("chat_reports").insert({

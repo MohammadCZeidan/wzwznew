@@ -1,9 +1,9 @@
 export type ModerationAction = "warn" | "timeout" | "ban" | "unban";
 
 async function parseJsonResponse<T>(response: Response): Promise<T> {
-  const body = (await response.json()) as T & { error?: string };
+  const body = (await response.json()) as T & { error?: string; details?: string };
   if (!response.ok) {
-    throw new Error(body.error ?? "moderate_user_request_failed");
+    throw new Error(body.details ? `${body.error}: ${body.details}` : body.error ?? "moderate_user_request_failed");
   }
   return body;
 }
