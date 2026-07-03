@@ -109,9 +109,13 @@ export async function fetchSessionProfile(userId: string): Promise<SessionProfil
 
   // Lazily clear an expired timeout so the account reads as active again.
   if (profile.status === "banned" && profile.banned_until && new Date(profile.banned_until).getTime() <= Date.now()) {
-    await supabaseServerClient.from("users").update({ status: "active", banned_until: null }).eq("id", userId);
-    profile.status = "active";
-    profile.banned_until = null;
+    try {
+      await supabaseServerClient.from("users").update({ status: "active", banned_until: null }).eq("id", userId);
+      profile.status = "active";
+      profile.banned_until = null;
+    } catch {
+      // Non-fatal — the account will just read as banned until this succeeds on a later request.
+    }
   }
 
   return profile;
