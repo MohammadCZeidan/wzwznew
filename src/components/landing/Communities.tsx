@@ -29,7 +29,7 @@ const communities = [
     title: "Lebanon Initiatives",
     description: "Join the waitlist for local action, support, and community-led initiatives.",
     badge: "Waitlist",
-    image: "/assets/lebaneese.webp",
+    image: "/assets/community-covers/lebanese-initiatives.png",
     waitlist: true,
   },
 ];
