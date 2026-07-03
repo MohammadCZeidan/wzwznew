@@ -99,11 +99,23 @@ export async function getRequestUserId(request: Request): Promise<string | null>
 
 export async function fetchSessionProfile(userId: string): Promise<SessionProfile | null> {
   if (!supabaseServerClient) return null;
-  const { data, error } = await supabaseServerClient
+  let { data, error } = await supabaseServerClient
     .from("users")
     .select("id, username, role, status, avatar_level, onboarding_completed, profile_public, banned_until")
     .eq("id", userId)
     .maybeSingle();
+
+  // banned_until may not exist yet if that migration hasn't landed on this
+  // database — fall back to the column set every deployment is guaranteed
+  // to have, rather than failing every session check.
+  if (error) {
+    ({ data, error } = await supabaseServerClient
+      .from("users")
+      .select("id, username, role, status, avatar_level, onboarding_completed, profile_public")
+      .eq("id", userId)
+      .maybeSingle());
+  }
+
   if (error || !data) return null;
   const profile = data as SessionProfile;
 

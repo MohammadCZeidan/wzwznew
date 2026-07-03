@@ -71,11 +71,22 @@ async function handleSend(request: Request): Promise<Response> {
 
   const trimmedText = text.trim();
 
-  const { data: user, error: userError } = await supabaseServerClient
+  let { data: user, error: userError } = await supabaseServerClient
     .from("users")
     .select("id, username, avatar_level, status, spam_strikes, banned_until")
     .eq("id", userId)
     .single();
+
+  // spam_strikes/banned_until may not exist yet if that migration hasn't
+  // landed on this database — fall back to the guaranteed column set rather
+  // than failing every chat send.
+  if (userError) {
+    ({ data: user, error: userError } = await supabaseServerClient
+      .from("users")
+      .select("id, username, avatar_level, status")
+      .eq("id", userId)
+      .single());
+  }
 
   if (userError || !user) return json({ error: "unauthorized" }, 401);
 
