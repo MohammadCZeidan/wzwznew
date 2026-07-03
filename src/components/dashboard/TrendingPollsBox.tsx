@@ -326,7 +326,11 @@ export function TrendingPollsBox({
                       ) : comments.length === 0 ? (
                         <p className={`text-xs ${isLight ? "text-slate-500" : "text-raw-silver/45"}`}>No comments yet. Be first!</p>
                       ) : (
-                        comments.map((comment) => (
+                        comments.map((comment) => {
+                          const parentAuthor = comment.parent_comment_id
+                            ? comments.find((c) => c.id === comment.parent_comment_id)?.author_name?.trim()
+                            : null;
+                          return (
                           <div
                             key={comment.id}
                             className={`rounded-xl border px-3 py-2 ${
@@ -344,7 +348,7 @@ export function TrendingPollsBox({
                             </p>
                             {comment.parent_comment_id && (
                               <p className={`mt-1 text-[10px] ${isLight ? "text-blue-500" : "text-blue-300/80"}`}>
-                                Replying to another comment
+                                Replying to @{parentAuthor || "Anonymous"}
                               </p>
                             )}
                             <div className="mt-2 flex items-center gap-2">
@@ -383,7 +387,8 @@ export function TrendingPollsBox({
                               </button>
                             </div>
                           </div>
-                        ))
+                          );
+                        })
                       )}
                     </div>
 
