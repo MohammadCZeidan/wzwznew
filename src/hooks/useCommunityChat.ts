@@ -497,6 +497,12 @@ export function useCommunityChat(
       };
       justSentMessageRef.current = true;
       updateCommunities((current) => appendOptimisticMessage(current, selectedCommunity.id, optimisticMessage));
+      // Clear the composer immediately — the optimistic bubble carries the
+      // text, so the user can keep typing while the send is in flight.
+      if (!retryingMessage) {
+        setMessageDraft("");
+        setMentionQuery(null);
+      }
       try {
         const mentionRecipientIds = selectedCommunity.members
           .filter(
@@ -518,8 +524,6 @@ export function useCommunityChat(
         updateCommunities((current) =>
           replaceCommunityMessage(current, selectedCommunity.id, optimisticMessage.id, saved),
         );
-        setMessageDraft("");
-        setMentionQuery(null);
         void sendCommunityPushNotification({
           recipientUserIds: mentionRecipientIds,
           title: `@${username} mentioned you`,
@@ -536,6 +540,9 @@ export function useCommunityChat(
           updateCommunities((current) =>
             removeCommunityMessage(current, selectedCommunity.id, optimisticMessage.id),
           );
+          // The message won't be retried — put the text back in the composer
+          // so it isn't lost, unless the user already started typing again.
+          setMessageDraft((current) => current || optimisticMessage.text);
         }
         toast({ title, description });
       }

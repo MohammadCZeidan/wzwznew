@@ -42,6 +42,26 @@ export async function listBlockedWords(supabase: SupabaseClient): Promise<Blocke
   return ((data ?? []) as BlockedWordRow[]).map(mapBlockedWord);
 }
 
+// ponytail: 60s per-isolate cache — blocked words are admin-edited rarely, so
+// hot paths (chat send) skip a DB round-trip; a newly added term takes at most
+// a minute to apply on an already-warm isolate.
+const TERMS_CACHE_TTL_MS = 60_000;
+let termsCache: { terms: string[]; fetchedAt: number } | null = null;
+
+export async function listBlockedTermsCached(supabase: SupabaseClient): Promise<string[]> {
+  if (termsCache && Date.now() - termsCache.fetchedAt < TERMS_CACHE_TTL_MS) {
+    return termsCache.terms;
+  }
+  const terms = (await listBlockedWords(supabase)).map((w) => w.normalizedTerm);
+  termsCache = { terms, fetchedAt: Date.now() };
+  return terms;
+}
+
+/** Test-only: reset the blocked-terms cache between test cases. */
+export function __resetBlockedTermsCache(): void {
+  termsCache = null;
+}
+
 export async function addBlockedWord(
   supabase: SupabaseClient,
   term: string,

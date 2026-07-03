@@ -2,7 +2,7 @@ import { json, readJsonBody } from "../_lib/authServer.js";
 import { isTrustedOrigin } from "../_lib/requestSecurity.js";
 import { supabaseServerClient } from "../_lib/supabaseServerClient.js";
 import { getRequestUserId } from "../_lib/sessionAuth.js";
-import { listBlockedWords } from "../_lib/blockedWordsStore.js";
+import { listBlockedTermsCached } from "../_lib/blockedWordsStore.js";
 import { checkServerText, parseEnvDenylist } from "../_lib/serverModeration.js";
 
 export const config = { runtime: "edge" };
@@ -71,11 +71,43 @@ async function handleSend(request: Request): Promise<Response> {
 
   const trimmedText = text.trim();
 
-  let { data: user, error: userError } = await supabaseServerClient
-    .from("users")
-    .select("id, username, avatar_level, status, spam_strikes, banned_until")
-    .eq("id", userId)
-    .single();
+  // One parallel batch for every independent lookup — the database is a long
+  // network round-trip away from this function, so sequential awaits dominate
+  // send latency. Authorization checks below run in the same order as before;
+  // only the fetching is concurrent.
+  const [userResult, dbBlockedTerms, memberResult, aliasResult, replyResult] = await Promise.all([
+    supabaseServerClient
+      .from("users")
+      .select("id, username, avatar_level, status, spam_strikes, banned_until")
+      .eq("id", userId)
+      .single(),
+    listBlockedTermsCached(supabaseServerClient),
+    supabaseServerClient
+      .from("community_members")
+      .select("user_id")
+      .eq("community_id", communityId)
+      .eq("user_id", userId)
+      .maybeSingle(),
+    identityAlias
+      ? supabaseServerClient
+          .from("user_aliases")
+          .select("alias")
+          .eq("user_id", userId)
+          .eq("is_public", false)
+          .ilike("alias", identityAlias as string)
+          .maybeSingle()
+      : Promise.resolve(null),
+    replyToMessageId
+      ? supabaseServerClient
+          .from("community_messages")
+          .select("sender_name, text")
+          .eq("id", replyToMessageId as string)
+          .eq("community_id", communityId)
+          .maybeSingle()
+      : Promise.resolve(null),
+  ]);
+
+  let { data: user, error: userError } = userResult;
 
   // spam_strikes/banned_until may not exist yet if that migration hasn't
   // landed on this database — fall back to the guaranteed column set rather
@@ -108,10 +140,9 @@ async function handleSend(request: Request): Promise<Response> {
   }
 
   // Enforce blocked words + link/number rules server-side before any DB write.
-  const [dbBlockedWords] = await Promise.all([listBlockedWords(supabaseServerClient)]);
   const blockedTerms = [
     ...parseEnvDenylist(process.env.VITE_RAW_TEXT_DENYLIST),
-    ...dbBlockedWords.map((w) => w.normalizedTerm),
+    ...dbBlockedTerms,
   ];
   const moderation = checkServerText(trimmedText, blockedTerms);
   if (!moderation.allowed) {
@@ -143,14 +174,7 @@ async function handleSend(request: Request): Promise<Response> {
     return json({ error: banned ? "banned_for_spam" : "blocked_word", violation: moderation.violation }, banned ? 403 : 422);
   }
 
-  const { data: member } = await supabaseServerClient
-    .from("community_members")
-    .select("user_id")
-    .eq("community_id", communityId)
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (!member && !isAdminUsername(userRow.username)) {
+  if (!memberResult.data && !isAdminUsername(userRow.username)) {
     return json({ error: "not_a_member" }, 403);
   }
 
@@ -158,13 +182,7 @@ async function handleSend(request: Request): Promise<Response> {
   let senderAvatarLevel: number = userRow.avatar_level ?? 1;
 
   if (identityAlias) {
-    const { data: alias } = await supabaseServerClient
-      .from("user_aliases")
-      .select("alias")
-      .eq("user_id", userId)
-      .eq("is_public", false)
-      .ilike("alias", identityAlias as string)
-      .maybeSingle();
+    const alias = aliasResult?.data;
     if (!alias) return json({ error: "Invalid identity alias." }, 403);
     senderName = (alias as { alias: string }).alias;
   }
@@ -176,17 +194,10 @@ async function handleSend(request: Request): Promise<Response> {
   let replyToSenderName: string | null = null;
   let replyToText: string | null = null;
 
-  if (replyToMessageId) {
-    const { data: original } = await supabaseServerClient
-      .from("community_messages")
-      .select("sender_name, text")
-      .eq("id", replyToMessageId as string)
-      .eq("community_id", communityId)
-      .maybeSingle();
-    if (original) {
-      replyToSenderName = (original as { sender_name: string }).sender_name;
-      replyToText = (original as { text: string }).text;
-    }
+  const original = replyResult?.data;
+  if (original) {
+    replyToSenderName = (original as { sender_name: string }).sender_name;
+    replyToText = (original as { text: string }).text;
   }
 
   const { data: message, error: insertError } = await supabaseServerClient
