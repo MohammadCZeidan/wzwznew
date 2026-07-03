@@ -21,6 +21,15 @@ export default async function handler(request: Request): Promise<Response> {
   if (!supabaseServerClient) return json({ error: "supabase_not_configured" }, 503);
   if (!isTrustedOrigin(request)) return json({ error: "forbidden_origin" }, 403);
 
+  try {
+    return await handleModerateUser(request);
+  } catch (error) {
+    console.error("[admin.moderate-user] unhandled error", error);
+    return json({ error: "internal_error" }, 500);
+  }
+}
+
+async function handleModerateUser(request: Request): Promise<Response> {
   const moderator = await requireModeratorProfile(request);
   if (!moderator) return json({ error: "unauthorized" }, 401);
 

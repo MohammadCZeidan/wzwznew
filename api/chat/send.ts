@@ -38,6 +38,15 @@ export default async function handler(request: Request): Promise<Response> {
   if (!supabaseServerClient) return json({ error: "supabase_not_configured" }, 503);
   if (!isTrustedOrigin(request)) return json({ error: "forbidden_origin" }, 403);
 
+  try {
+    return await handleSend(request);
+  } catch (error) {
+    console.error("[chat.send] unhandled error", error);
+    return json({ error: "internal_error" }, 500);
+  }
+}
+
+async function handleSend(request: Request): Promise<Response> {
   const userId = await getRequestUserId(request);
   if (!userId) return json({ error: "unauthorized" }, 401);
 
