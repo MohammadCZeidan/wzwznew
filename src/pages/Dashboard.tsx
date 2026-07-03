@@ -583,6 +583,7 @@ export default function Dashboard({
                 pollsAnswered={votedPolls.size}
                 polls={polls}
                 tokenBalance={tokenBalance}
+                isAdmin={user.role === "admin"}
                 onLogout={onLogout}
               />
             </DashboardSectionShell>
