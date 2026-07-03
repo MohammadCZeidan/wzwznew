@@ -1,6 +1,6 @@
 import { memo } from "react";
 import type { RefObject } from "react";
-import { AlertTriangle, Ban, BarChart3, Clock, Heart, MoreHorizontal, Trash2 } from "lucide-react";
+import { AlertTriangle, Ban, BarChart3, Clock, Heart, MoreHorizontal, ShieldCheck, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,6 +37,7 @@ interface CommunityMessageTimelineProps {
   onOpenSenderProfile: (message: CommunityChatMessageRecord) => void;
   onTimeoutSender?: (message: CommunityChatMessageRecord) => void;
   onBanSender?: (message: CommunityChatMessageRecord) => void;
+  onUnbanSender?: (message: CommunityChatMessageRecord) => void;
 }
 
 function MessageSkeleton() {
@@ -68,6 +69,7 @@ interface MessageRowProps {
   onOpenSenderProfile: (msg: CommunityChatMessageRecord) => void;
   onTimeoutSender?: (msg: CommunityChatMessageRecord) => void;
   onBanSender?: (msg: CommunityChatMessageRecord) => void;
+  onUnbanSender?: (msg: CommunityChatMessageRecord) => void;
 }
 
 const MessageRow = memo(function MessageRow({
@@ -83,6 +85,7 @@ const MessageRow = memo(function MessageRow({
   onOpenSenderProfile,
   onTimeoutSender,
   onBanSender,
+  onUnbanSender,
 }: MessageRowProps) {
   const isOwnMessage = message.senderId === userId || message.senderName === username;
   const likedBy = message.likedBy ?? [];
@@ -215,6 +218,15 @@ const MessageRow = memo(function MessageRow({
                       Ban from community
                     </DropdownMenuItem>
                   )}
+                  {canModerateUsers && onUnbanSender && (
+                    <DropdownMenuItem
+                      className="cursor-pointer gap-2 text-xs text-emerald-300 focus:bg-emerald-500/15 focus:text-emerald-100"
+                      onClick={() => onUnbanSender(message)}
+                    >
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      Remove timeout/ban
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
@@ -254,6 +266,7 @@ export const CommunityMessageTimeline = memo(function CommunityMessageTimeline({
   onOpenSenderProfile,
   onTimeoutSender,
   onBanSender,
+  onUnbanSender,
 }: CommunityMessageTimelineProps) {
   return (
     <div ref={containerRef} className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
@@ -344,6 +357,7 @@ export const CommunityMessageTimeline = memo(function CommunityMessageTimeline({
               onOpenSenderProfile={onOpenSenderProfile}
               onTimeoutSender={onTimeoutSender}
               onBanSender={onBanSender}
+              onUnbanSender={onUnbanSender}
             />
           ))}
         </div>

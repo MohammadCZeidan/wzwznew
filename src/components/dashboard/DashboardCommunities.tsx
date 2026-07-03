@@ -374,6 +374,24 @@ export function DashboardCommunities({
     [confirm],
   );
 
+  const handleUnbanSender = useCallback(
+    async (message: CommunityChatMessageRecord) => {
+      const confirmed = await confirm({
+        title: `Remove timeout/ban for @${message.senderName}?`,
+        description: "They'll immediately regain access to chat and communities.",
+        confirmLabel: "Remove",
+      });
+      if (!confirmed) return;
+      try {
+        await moderateUser(message.senderName, "unban");
+        toast({ title: "Timeout/ban removed", description: `@${message.senderName} can post again.` });
+      } catch (error) {
+        toast({ title: "Could not unban user", description: error instanceof Error ? error.message : "Please try again." });
+      }
+    },
+    [confirm],
+  );
+
   const handleSubmitReport = useCallback(async () => {
     if (!reportTarget) return;
     const reason = reportDraft.reason.trim();
@@ -785,6 +803,7 @@ export function DashboardCommunities({
                 onOpenSenderProfile={chat.openSenderProfile}
                 onTimeoutSender={handleTimeoutSender}
                 onBanSender={handleBanSender}
+                onUnbanSender={handleUnbanSender}
               />
 
               <CommunityMessageComposer
