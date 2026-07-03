@@ -37,7 +37,7 @@ export async function fetchFoundingInviteCodes(userId: string): Promise<string[]
     .select('code')
     .eq('inviter_id', userId)
     .order('created_at', { ascending: true })
-    .limit(10);
+    .limit(50);
   if (error) throw error;
   return (data ?? []).map((row) => row.code as string);
 }

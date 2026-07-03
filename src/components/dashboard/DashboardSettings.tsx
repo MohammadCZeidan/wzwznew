@@ -12,6 +12,7 @@ import {
 import { AdminBlockedWordsSettings } from "@/components/dashboard/AdminBlockedWordsSettings";
 import { AdminUserModerationSettings } from "@/components/dashboard/AdminUserModerationSettings";
 import { AdminCreateStaffAccountSettings } from "@/components/dashboard/AdminCreateStaffAccountSettings";
+import { AdminInviteCodesSettings } from "@/components/dashboard/AdminInviteCodesSettings";
 import {
   fetchDonationInterests,
   updateDonationInterestStatus,
@@ -239,6 +240,7 @@ export function DashboardSettings({ userId, isAdmin = false, isModerator = false
             <div className="space-y-6">
               <AdminUserModerationSettings />
               {isAdmin && <AdminCreateStaffAccountSettings />}
+              {isAdmin && <AdminInviteCodesSettings />}
               {isAdmin && <AdminBlockedWordsSettings />}
               {isAdmin && <DonationRequestsPanel />}
             </div>

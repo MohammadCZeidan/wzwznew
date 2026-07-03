@@ -30,7 +30,9 @@ export function readFoundingInviteCodes(userId: string): string[] {
     try {
       const parsed = JSON.parse(saved) as unknown;
       if (Array.isArray(parsed) && parsed.every((code) => typeof code === "string")) {
-        const codes = parsed.slice(0, FOUNDING_INVITE_COUNT);
+        // Don't truncate: an admin may have granted extra codes beyond the
+        // base allotment, and those should keep showing up.
+        const codes = [...parsed];
         if (codes.length < FOUNDING_INVITE_COUNT) {
           while (codes.length < FOUNDING_INVITE_COUNT) {
             codes.push(createInviteCode(codes.length + 1));
@@ -56,7 +58,7 @@ export function persistFoundingInviteCodes(userId: string, codes: string[]): voi
   try {
     window.localStorage.setItem(
       `${FOUNDING_INVITES_STORAGE_PREFIX}.${userId}`,
-      JSON.stringify(codes.slice(0, FOUNDING_INVITE_COUNT)),
+      JSON.stringify(codes),
     );
   } catch {
     // Invite tickets remain usable for this session even if storage is blocked.
@@ -87,10 +89,12 @@ export async function getOrSyncInviteCodes(
 
   if (serverCodes.length > 0) {
     // Pad to FOUNDING_INVITE_COUNT in case older accounts have fewer rows.
+    // Never truncate down — an admin may have granted extra codes beyond
+    // the base allotment, and those should keep showing up.
     while (serverCodes.length < FOUNDING_INVITE_COUNT) {
       serverCodes.push(createInviteCode(serverCodes.length + 1));
     }
-    const canonical = serverCodes.slice(0, FOUNDING_INVITE_COUNT);
+    const canonical = serverCodes;
     persistFoundingInviteCodes(userId, canonical);
     // Register any newly padded codes so they're in Supabase too.
     try { await registerToDb(canonical, userId); } catch { /* best-effort */ }
