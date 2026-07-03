@@ -1,6 +1,6 @@
 import { memo } from "react";
 import type { RefObject } from "react";
-import { AlertTriangle, Ban, BarChart3, Heart, MoreHorizontal, Trash2 } from "lucide-react";
+import { AlertTriangle, Ban, BarChart3, Clock, Heart, MoreHorizontal, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +24,7 @@ interface CommunityMessageTimelineProps {
   activeMessageCount: number;
   isLoading?: boolean;
   canManagePolls: boolean;
+  canModerateUsers?: boolean;
   userId: string;
   username: string;
   senderAvatarLevels: Record<string, number>;
@@ -34,6 +35,8 @@ interface CommunityMessageTimelineProps {
   onOpenMessageReport: (message: CommunityChatMessageRecord) => void;
   onBlockMessageSender: (message: CommunityChatMessageRecord) => void;
   onOpenSenderProfile: (message: CommunityChatMessageRecord) => void;
+  onTimeoutSender?: (message: CommunityChatMessageRecord) => void;
+  onBanSender?: (message: CommunityChatMessageRecord) => void;
 }
 
 function MessageSkeleton() {
@@ -57,11 +60,14 @@ interface MessageRowProps {
   avatarLevel: number;
   userId: string;
   username: string;
+  canModerateUsers?: boolean;
   onRetryMessage: (msg: CommunityChatMessageRecord) => void;
   onLikeMessage: (msg: CommunityChatMessageRecord) => void;
   onOpenMessageReport: (msg: CommunityChatMessageRecord) => void;
   onBlockMessageSender: (msg: CommunityChatMessageRecord) => void;
   onOpenSenderProfile: (msg: CommunityChatMessageRecord) => void;
+  onTimeoutSender?: (msg: CommunityChatMessageRecord) => void;
+  onBanSender?: (msg: CommunityChatMessageRecord) => void;
 }
 
 const MessageRow = memo(function MessageRow({
@@ -69,11 +75,14 @@ const MessageRow = memo(function MessageRow({
   avatarLevel,
   userId,
   username,
+  canModerateUsers = false,
   onRetryMessage,
   onLikeMessage,
   onOpenMessageReport,
   onBlockMessageSender,
   onOpenSenderProfile,
+  onTimeoutSender,
+  onBanSender,
 }: MessageRowProps) {
   const isOwnMessage = message.senderId === userId || message.senderName === username;
   const likedBy = message.likedBy ?? [];
@@ -188,6 +197,24 @@ const MessageRow = memo(function MessageRow({
                     <Ban className="h-3.5 w-3.5" />
                     Block
                   </DropdownMenuItem>
+                  {canModerateUsers && onTimeoutSender && (
+                    <DropdownMenuItem
+                      className="cursor-pointer gap-2 text-xs text-raw-gold/90 focus:bg-raw-gold/10 focus:text-raw-gold"
+                      onClick={() => onTimeoutSender(message)}
+                    >
+                      <Clock className="h-3.5 w-3.5" />
+                      Timeout
+                    </DropdownMenuItem>
+                  )}
+                  {canModerateUsers && onBanSender && (
+                    <DropdownMenuItem
+                      className="cursor-pointer gap-2 text-xs text-red-300 focus:bg-red-500/15 focus:text-red-100"
+                      onClick={() => onBanSender(message)}
+                    >
+                      <Ban className="h-3.5 w-3.5" />
+                      Ban from community
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
@@ -214,6 +241,7 @@ export const CommunityMessageTimeline = memo(function CommunityMessageTimeline({
   activeMessageCount,
   isLoading = false,
   canManagePolls,
+  canModerateUsers = false,
   userId,
   username,
   senderAvatarLevels,
@@ -224,6 +252,8 @@ export const CommunityMessageTimeline = memo(function CommunityMessageTimeline({
   onOpenMessageReport,
   onBlockMessageSender,
   onOpenSenderProfile,
+  onTimeoutSender,
+  onBanSender,
 }: CommunityMessageTimelineProps) {
   return (
     <div ref={containerRef} className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
@@ -306,11 +336,14 @@ export const CommunityMessageTimeline = memo(function CommunityMessageTimeline({
               avatarLevel={message.senderAvatarLevel ?? senderAvatarLevels[message.senderId] ?? 1}
               userId={userId}
               username={username}
+              canModerateUsers={canModerateUsers}
               onRetryMessage={onRetryMessage}
               onLikeMessage={onLikeMessage}
               onOpenMessageReport={onOpenMessageReport}
               onBlockMessageSender={onBlockMessageSender}
               onOpenSenderProfile={onOpenSenderProfile}
+              onTimeoutSender={onTimeoutSender}
+              onBanSender={onBanSender}
             />
           ))}
         </div>

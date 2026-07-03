@@ -16,6 +16,7 @@ import {
   type CommunityJoinRequestRecord,
 } from "@/lib/adminData";
 import { submitChatReport } from "@/backend/supabase/controllers/chatReportsController";
+import { moderateUser } from "@/lib/api/userModeration";
 import { canManageCommunity } from "@/lib/communityChat";
 import {
   joinCommunity as joinCommunitySupabase,
@@ -124,6 +125,7 @@ export function DashboardCommunities({
 }: DashboardCommunitiesProps) {
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const isGlobalAdmin = user.role === "admin";
+  const canModerateUsers = user.role === "admin" || user.role === "moderator";
 
   // --- UI state ---
   const [searchQuery, setSearchQuery] = useState("");
@@ -332,6 +334,44 @@ export function DashboardCommunities({
       setReportDialogOpen(true);
     },
     [chat.selectedCommunity],
+  );
+
+  const handleTimeoutSender = useCallback(
+    async (message: CommunityChatMessageRecord) => {
+      const confirmed = await confirm({
+        title: `Timeout @${message.senderName}?`,
+        description: "They won't be able to chat or join communities for 1 hour.",
+        confirmLabel: "Timeout 1h",
+        tone: "danger",
+      });
+      if (!confirmed) return;
+      try {
+        await moderateUser(message.senderName, "timeout", 60);
+        toast({ title: "User timed out", description: `@${message.senderName} is timed out for 1 hour.` });
+      } catch {
+        toast({ title: "Could not timeout user", description: "Please try again." });
+      }
+    },
+    [confirm],
+  );
+
+  const handleBanSender = useCallback(
+    async (message: CommunityChatMessageRecord) => {
+      const confirmed = await confirm({
+        title: `Ban @${message.senderName}?`,
+        description: "They will be permanently banned from chat and communities across raW.",
+        confirmLabel: "Ban",
+        tone: "danger",
+      });
+      if (!confirmed) return;
+      try {
+        await moderateUser(message.senderName, "ban");
+        toast({ title: "User banned", description: `@${message.senderName} has been banned.` });
+      } catch {
+        toast({ title: "Could not ban user", description: "Please try again." });
+      }
+    },
+    [confirm],
   );
 
   const handleSubmitReport = useCallback(async () => {
@@ -732,6 +772,7 @@ export function DashboardCommunities({
                 activeMessageCount={chat.activeMessages.length}
                 isLoading={chat.messagesLoading}
                 canManagePolls={canManagePolls}
+                canModerateUsers={canModerateUsers}
                 userId={user.id}
                 username={user.username}
                 senderAvatarLevels={chat.senderAvatarLevels}
@@ -742,6 +783,8 @@ export function DashboardCommunities({
                 onOpenMessageReport={handleOpenMessageReport}
                 onBlockMessageSender={chat.blockSender}
                 onOpenSenderProfile={chat.openSenderProfile}
+                onTimeoutSender={handleTimeoutSender}
+                onBanSender={handleBanSender}
               />
 
               <CommunityMessageComposer
