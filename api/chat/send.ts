@@ -7,6 +7,9 @@ import { checkServerText, parseEnvDenylist } from "../_lib/serverModeration.js";
 
 export const config = { runtime: "edge" };
 
+// Repeated link/phone-number attempts (spam) auto-ban the user after this many strikes.
+const SPAM_STRIKE_BAN_THRESHOLD = 3;
+
 // ---------------------------------------------------------------------------
 // Admin check
 // ---------------------------------------------------------------------------
@@ -59,6 +62,17 @@ export default async function handler(request: Request): Promise<Response> {
 
   const trimmedText = text.trim();
 
+  const { data: user, error: userError } = await supabaseServerClient
+    .from("users")
+    .select("id, username, avatar_level, status, spam_strikes")
+    .eq("id", userId)
+    .single();
+
+  if (userError || !user) return json({ error: "unauthorized" }, 401);
+
+  const userRow = user as { id: string; username: string; avatar_level?: number; status: string; spam_strikes?: number };
+  if (userRow.status === "banned" || userRow.status === "deleted") return json({ error: "not_allowed" }, 403);
+
   // Enforce blocked words + link/number rules server-side before any DB write.
   const [dbBlockedWords] = await Promise.all([listBlockedWords(supabaseServerClient)]);
   const blockedTerms = [
@@ -67,19 +81,33 @@ export default async function handler(request: Request): Promise<Response> {
   ];
   const moderation = checkServerText(trimmedText, blockedTerms);
   if (!moderation.allowed) {
-    return json({ error: "blocked_word", violation: moderation.violation }, 422);
+    let banned = false;
+
+    if (moderation.violation === "link" || moderation.violation === "number") {
+      const strikes = (userRow.spam_strikes ?? 0) + 1;
+      banned = strikes >= SPAM_STRIKE_BAN_THRESHOLD;
+
+      await supabaseServerClient
+        .from("users")
+        .update(banned ? { spam_strikes: strikes, status: "banned" } : { spam_strikes: strikes })
+        .eq("id", userId);
+
+      if (banned) {
+        await supabaseServerClient.from("chat_reports").insert({
+          community_id: communityId,
+          reported_user_id: userId,
+          reported_username: userRow.username,
+          reason: `auto_ban_spam_${moderation.violation}`,
+          details: `Auto-banned after ${strikes} link/phone-number spam attempts in chat.`,
+          status: "banned",
+          resolved_at: new Date().toISOString(),
+          resolved_by: "bot",
+        });
+      }
+    }
+
+    return json({ error: banned ? "banned_for_spam" : "blocked_word", violation: moderation.violation }, banned ? 403 : 422);
   }
-
-  const { data: user, error: userError } = await supabaseServerClient
-    .from("users")
-    .select("id, username, avatar_level, status")
-    .eq("id", userId)
-    .single();
-
-  if (userError || !user) return json({ error: "unauthorized" }, 401);
-
-  const userRow = user as { id: string; username: string; avatar_level?: number; status: string };
-  if (userRow.status === "banned" || userRow.status === "deleted") return json({ error: "not_allowed" }, 403);
 
   const { data: member } = await supabaseServerClient
     .from("community_members")
