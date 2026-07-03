@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { AdminBlockedWordsSettings } from "@/components/dashboard/AdminBlockedWordsSettings";
 import { AdminUserModerationSettings } from "@/components/dashboard/AdminUserModerationSettings";
+import { AdminCreateStaffAccountSettings } from "@/components/dashboard/AdminCreateStaffAccountSettings";
 import {
   fetchDonationInterests,
   updateDonationInterestStatus,
@@ -237,6 +238,7 @@ export function DashboardSettings({ userId, isAdmin = false, isModerator = false
           {section === "admin" && canModerate && (
             <div className="space-y-6">
               <AdminUserModerationSettings />
+              {isAdmin && <AdminCreateStaffAccountSettings />}
               {isAdmin && <AdminBlockedWordsSettings />}
               {isAdmin && <DonationRequestsPanel />}
             </div>
