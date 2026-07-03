@@ -51,10 +51,6 @@ vi.mock("@/components/notifications/NotificationConsentPrompt", () => ({
   NotificationConsentPrompt: () => null,
 }));
 
-vi.mock("@/components/ui/LevelUpCelebration", () => ({
-  LevelUpCelebration: () => null,
-}));
-
 vi.mock("@/backend/supabase/controllers/communityController", () => ({
   fetchCommunities: vi.fn(async () => []),
 }));
