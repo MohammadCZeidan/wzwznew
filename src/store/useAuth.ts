@@ -17,7 +17,7 @@ function toUser(a: AuthUser): User {
   return {
     id: a.id,
     username: a.username,
-    role: a.role === "admin" ? "admin" : a.role === "moderator" ? "moderator" : "member",
+    role: a.role === "admin" || a.role === "moderator" ? a.role : "member",
     moderationStatus:
       a.status === "banned" || a.status === "deleted"
         ? "banned"
