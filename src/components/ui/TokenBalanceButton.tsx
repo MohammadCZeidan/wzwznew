@@ -1,35 +1,19 @@
-import { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import tokenImg from "@/assets/tokens.webp";
 import { useRawStore } from "@/store/useRawStore";
 import { useTheme } from "@/providers/useTheme";
-import { PACKAGES } from "@/lib/wallet-packages";
-
-const PaymentModal = lazy(() =>
-  import("@/components/dashboard/DashboardWallet").then((m) => ({ default: m.PaymentModal }))
-);
-
+import { RequestTokensModal } from "@/components/dashboard/RequestTokensModal";
 
 export function TokenBalanceButton() {
   const { tokenBalance: balance } = useRawStore();
   const { mode } = useTheme();
   const [open, setOpen] = useState(false);
-  const [selectedPackId, setSelectedPackId] = useState<string | null>(null);
-  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [requestOpen, setRequestOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const isLight = mode === "light";
 
   function handleClick() {
     setOpen((o) => !o);
-  }
-
-  function handleBuy(packId: string) {
-    setSelectedPackId(packId);
-    setOpen(false);
-    setPaymentOpen(true);
-  }
-
-  function handleClosePayment() {
-    setPaymentOpen(false);
   }
 
   useEffect(() => {
@@ -100,51 +84,29 @@ export function TokenBalanceButton() {
           }}
         >
           <div className="mb-2 flex items-center justify-between gap-2">
-            <span className="font-display text-[11px] uppercase tracking-[0.18em] text-raw-gold/75">Buy tokens</span>
+            <span className="font-display text-[11px] uppercase tracking-[0.18em] text-raw-gold/75">Tokens</span>
             <span className={`text-[11px] ${isLight ? "text-slate-500" : "text-raw-silver/45"}`}>
               Balance {balance}
             </span>
           </div>
-          <div className="space-y-1.5">
-            {PACKAGES.map((pack) => (
-              <button
-                key={pack.id}
-                type="button"
-                role="menuitem"
-                onClick={() => handleBuy(pack.id)}
-                className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-raw-gold/50 ${
-                  isLight
-                    ? "border-slate-200 hover:border-raw-gold/45 hover:bg-amber-50"
-                    : "border-raw-border/45 hover:border-raw-gold/45 hover:bg-raw-gold/[0.06]"
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <img src={tokenImg} alt="" width={20} height={20} className="shrink-0 object-contain" />
-                  <span>
-                    <span className="block text-sm font-semibold text-raw-gold">{pack.tokens.toLocaleString()} tokens</span>
-                    <span className={`text-[10px] uppercase tracking-[0.16em] ${isLight ? "text-slate-500" : "text-raw-silver/45"}`}>{pack.label}</span>
-                  </span>
-                </span>
-                <span className={`text-xs font-semibold ${isLight ? "text-slate-700" : "text-raw-text"}`}>
-                  ${pack.price.toFixed(2)}
-                </span>
-              </button>
-            ))}
-          </div>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              setRequestOpen(true);
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-raw-gold/45 bg-raw-gold/[0.08] px-3 py-2.5 text-sm font-semibold text-raw-gold transition hover:bg-raw-gold/[0.16] focus:outline-none focus-visible:ring-2 focus-visible:ring-raw-gold/50"
+          >
+            <img src={tokenImg} alt="" width={18} height={18} className="shrink-0 object-contain" />
+            Request Tokens
+          </button>
           <p className={`mt-3 text-[10px] leading-relaxed ${isLight ? "text-slate-500" : "text-raw-silver/40"}`}>
-            Token purchases are coming soon. Earn free tokens daily from the spin and challenges.
+            Paid top-ups aren't live yet — request a package and earn free tokens daily from the spin and challenges.
           </p>
         </div>
       )}
-      {paymentOpen && selectedPackId && (
-        <Suspense fallback={null}>
-          <PaymentModal
-            selectedPackage={PACKAGES.find((p) => p.id === selectedPackId)!}
-            onBack={handleClosePayment}
-            onClose={handleClosePayment}
-          />
-        </Suspense>
-      )}
+      <RequestTokensModal isOpen={requestOpen} onClose={() => setRequestOpen(false)} />
     </div>
   );
 }
