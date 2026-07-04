@@ -10,7 +10,7 @@ export default async function middleware(req: Request): Promise<Response | undef
 
   const base = "https://www.myraw.app";
   const pageUrl = `${base}/?invite=${invite}`;
-  const image = `${base}/og-invite.png`;
+  const image = `${base}/og-card.png`;
   const title = "You've been invited to raW";
   const description = `Use code ${invite} to join — anonymous polls, avatar identities, and real communities. No email, no phone, no real name.`;
 
