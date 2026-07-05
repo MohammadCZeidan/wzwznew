@@ -30,6 +30,9 @@ export default async function handler(request: Request): Promise<Response> {
 }
 
 async function handleModerateUser(request: Request): Promise<Response> {
+  // Narrowing from handler's guard doesn't cross function boundaries.
+  if (!supabaseServerClient) return json({ error: "supabase_not_configured" }, 503);
+
   const moderator = await requireModeratorProfile(request);
   if (!moderator) return json({ error: "unauthorized" }, 401);
 

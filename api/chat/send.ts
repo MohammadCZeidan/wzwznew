@@ -47,6 +47,9 @@ export default async function handler(request: Request): Promise<Response> {
 }
 
 async function handleSend(request: Request): Promise<Response> {
+  // Narrowing from handler's guard doesn't cross function boundaries.
+  if (!supabaseServerClient) return json({ error: "supabase_not_configured" }, 503);
+
   const userId = await getRequestUserId(request);
   if (!userId) return json({ error: "unauthorized" }, 401);
 
