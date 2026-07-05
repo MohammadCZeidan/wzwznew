@@ -1,5 +1,20 @@
 const BOT_UA = /facebookexternalhit|Twitterbot|WhatsApp|TelegramBot|Slackbot|LinkedInBot|Discordbot|Pinterest|Googlebot|bingbot|Applebot|Signal|SkypeUriPreview|iMessageLinkPreview|Iframely/i;
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"]/g, (char) => {
+    switch (char) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      default:
+        return "&quot;";
+    }
+  });
+}
+
 export default async function middleware(req: Request): Promise<Response | undefined> {
   const ua = req.headers.get("user-agent") ?? "";
   if (!BOT_UA.test(ua)) return undefined;
@@ -9,10 +24,11 @@ export default async function middleware(req: Request): Promise<Response | undef
   if (!invite) return undefined;
 
   const base = "https://www.myraw.app";
-  const pageUrl = `${base}/?invite=${invite}`;
-  const image = `${base}/og-invite.png`;
+  const escapedInvite = escapeHtml(invite);
+  const pageUrl = `${base}/?invite=${encodeURIComponent(invite)}`;
+  const image = `${base}/og-card.png`;
   const title = "You've been invited to raW";
-  const description = `Use code ${invite} to join — anonymous polls, avatar identities, and real communities. No email, no phone, no real name.`;
+  const description = `Use code ${escapedInvite} to join — anonymous polls, avatar identities, and real communities. No email, no phone, no real name.`;
 
   return new Response(
     `<!DOCTYPE html>
