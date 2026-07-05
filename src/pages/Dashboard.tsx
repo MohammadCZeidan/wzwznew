@@ -106,6 +106,7 @@ interface DashboardProps {
   isDailyPollLimitReached: boolean;
   tokenBalance: number;
   addTokens: (amount: number) => void;
+  setTokenBalance: (balance: number) => void;
   unlockExtraPolls: () => void;
   vote: (pollId: string, optionId: string) => void;
   onLogout: () => void;
@@ -127,13 +128,14 @@ export default function Dashboard({
   isDailyPollLimitReached,
   tokenBalance,
   addTokens,
+  setTokenBalance,
   unlockExtraPolls,
   vote,
   onLogout,
 }: DashboardProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { award, awardOnce } = useUserProgress(user.id);
+  const { award, awardOnce, claimChallengeRewardOnce } = useUserProgress(user.id);
   const [activeTab, setActiveTab] = useState<DashboardTab>("home");
   // Seed from the persistent cache so the user sees their communities
   // instantly on remount instead of a cold spinner.
@@ -510,8 +512,11 @@ export default function Dashboard({
                 dailyAnsweredCount={dailyAnsweredCount}
                 dailyPollLimit={dailyPollLimit}
                 onAwardXP={handleDailySpinAward}
-                onClaimXP={(source, claimKey, amount) => awardOnce(source, claimKey, amount)}
+                onClaimXP={async (source, claimKey, xpAmount, tokenAmount) =>
+                  (await claimChallengeRewardOnce(source, claimKey, xpAmount, tokenAmount)) ?? false
+                }
                 onAwardTokens={(amount) => addTokens(amount)}
+                onTokenBalanceChange={setTokenBalance}
                 onAvatarWon={markAvatarOwned}
               />
             </DashboardSectionShell>
