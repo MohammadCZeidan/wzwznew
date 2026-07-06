@@ -1,4 +1,4 @@
-const CACHE = 'raw-v7';
+const CACHE = 'raw-v8';
 const STATIC = [
   '/raw-logo-96.png',
   '/raw-logo-192.png',
@@ -39,6 +39,23 @@ self.addEventListener('fetch', (event) => {
   // hashed chunks that disappeared during a newer deployment.
   if (request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html')) {
     event.respondWith(fetch(request).catch(() => offlineResponse(request)));
+    return;
+  }
+
+  // Community covers keep stable public URLs; prefer fresh network responses so
+  // a stale cached miss cannot leave cards showing broken image alt text.
+  if (url.pathname.startsWith('/assets/community-covers/')) {
+    event.respondWith(
+      fetch(request)
+        .then((res) => {
+          if (canCache(request, res)) {
+            const clone = res.clone();
+            caches.open(CACHE).then((c) => c.put(request, clone));
+          }
+          return res;
+        })
+        .catch(() => caches.match(request).then((hit) => hit ?? offlineResponse(request)))
+    );
     return;
   }
 
