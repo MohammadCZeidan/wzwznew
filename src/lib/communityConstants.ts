@@ -22,7 +22,7 @@ export const COMMUNITY_COVER_IMAGES: Record<string, string> = {
   "match-maker": "/assets/community-covers/match-maker.png",
   "fucking-bored": "/assets/community-covers/fucking-bored.png",
   "advice-now": "/assets/community-covers/advice-now.svg",
-  "feeling-like-shit": "/assets/community-covers/feeling-like-shit.svg",
+  "feeling-like-shit": "/assets/community-covers/fresh-grad.webp",
   "best-story": "/assets/community-covers/best-story.png",
   c6: "/assets/community-covers/single-mom.png",
   c7: "/assets/community-covers/job-hunter.png",
