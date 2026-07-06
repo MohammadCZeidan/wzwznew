@@ -8,6 +8,7 @@ import { unlockCommunity } from "@/lib/communityAccess";
 import { joinCommunity } from "@/backend/supabase/controllers/communityController";
 import { saveOnboardingIdentities } from "@/backend/supabase/controllers/userController";
 import { APP_CANONICAL_HOST, buildCanonicalAppUrl } from "@/lib/canonicalHost";
+import { BrandName } from "@/components/ui/brand-name";
 
 const LandingShellLazy = lazy(() => import("@/components/landing/LandingShell"));
 const DashboardLazy = lazy(() => import("@/pages/Dashboard"));
@@ -44,18 +45,16 @@ function DashboardShellFallback() {
 }
 
 function LandingShellFallback() {
+  // Minimal centered brand loader. Mirrors the real header's logo + wordmark
+  // so the swap to the loaded landing reads as a clean fade, not a "broken
+  // half-rendered page" (the old skeleton's charcoal blocks were invisible on
+  // black, leaving only stray accent boxes visible).
   return (
-    <main className="min-h-screen bg-raw-black px-5 py-6 text-raw-silver">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between">
-        <div className="font-display text-lg text-raw-gold">RAW</div>
-        <div className="h-9 w-24 rounded border border-raw-border/60 bg-raw-charcoal/60" />
+    <main className="flex min-h-screen items-center justify-center bg-raw-black text-raw-text">
+      <div className="flex animate-pulse items-center gap-3 font-display text-2xl tracking-[0.06em]">
+        <img src="/raw-logo-96.png" alt="" width={32} height={32} className="h-8 w-8" />
+        <BrandName />
       </div>
-      <section className="mx-auto mt-20 w-full max-w-6xl">
-        <div className="h-5 w-28 rounded bg-raw-gold/30" />
-        <div className="mt-6 h-12 w-full max-w-2xl rounded bg-raw-charcoal/80" />
-        <div className="mt-4 h-12 w-3/4 max-w-xl rounded bg-raw-charcoal/60" />
-        <div className="mt-8 h-11 w-36 rounded border border-raw-gold/50 bg-raw-gold/15" />
-      </section>
     </main>
   );
 }
