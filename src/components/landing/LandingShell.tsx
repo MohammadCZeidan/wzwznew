@@ -20,6 +20,7 @@ import { INVITE_PARAM } from "@/lib/inviteLink";
 
 const loadGlobeHero = () =>
   import("@/components/landing/GlobeHero").then((m) => ({ default: m.GlobeHero }));
+
 const GlobeHero = lazy(loadGlobeHero);
 
 const SignupModalLazy = lazy(() =>
@@ -60,7 +61,9 @@ export default function LandingShell({
 }: LandingShellProps) {
   const navigate = useNavigate();
   const location = useLocation();
+
   const [skipPollShowcase] = useState(shouldSkipPollShowcase);
+  const [siteReady, setSiteReady] = useState(() => skipPollShowcase);
   const [pendingInviteCode, setPendingInviteCode] = useState("");
 
   useEffect(() => {
@@ -77,6 +80,7 @@ export default function LandingShell({
     if (typeof window !== "undefined" && "performance" in window) {
       window.performance.mark(POLL_EXIT_MARK);
     }
+
     setSiteReady(true);
   }, []);
 
@@ -95,7 +99,10 @@ export default function LandingShell({
       window.performance.measure(POLL_EXIT_TO_LANDING_MEASURE, POLL_EXIT_MARK, LANDING_VISIBLE_MARK);
 
       if (import.meta.env.DEV || window.location.search.includes("debugPerformance=1")) {
-        const [measure] = window.performance.getEntriesByName(POLL_EXIT_TO_LANDING_MEASURE, "measure").slice(-1);
+        const [measure] = window.performance
+          .getEntriesByName(POLL_EXIT_TO_LANDING_MEASURE, "measure")
+          .slice(-1);
+
         console.info(`[perf] ${POLL_EXIT_TO_LANDING_MEASURE}: ${measure.duration.toFixed(1)}ms`);
       }
     });
@@ -104,7 +111,9 @@ export default function LandingShell({
   // An invite link (?invite=CODE) pre-fills the code and opens signup.
   useEffect(() => {
     if (typeof window === "undefined") return;
+
     const code = new URLSearchParams(window.location.search).get(INVITE_PARAM);
+
     if (code) {
       setPendingInviteCode(code.toUpperCase().replace(/\s+/g, ""));
       setShowSignup(true);
@@ -123,11 +132,19 @@ export default function LandingShell({
         isLoggedIn={isLoggedIn}
         username={user?.username}
         onSignupClick={() => setShowSignup(true)}
-        onDonateClick={() => navigate("/why-donate", { state: { from: `${location.pathname}${location.search}${location.hash}` } })}
+        onDonateClick={() =>
+          navigate("/why-donate", {
+            state: {
+              from: `${location.pathname}${location.search}${location.hash}`,
+            },
+          })
+        }
       />
+
       <div className="mt-16">
         <LaunchCountdown variant="banner" />
       </div>
+
       <div className="relative min-h-screen overflow-x-hidden">
         {!siteReady && (
           <div className="fixed inset-0 z-0 bg-raw-black">
@@ -146,59 +163,73 @@ export default function LandingShell({
             <MatrixBackground />
 
             <div className="relative max-sm:z-10">
-            <Suspense fallback={<div className="min-h-[620px] sm:min-h-[680px]" />}>
-              <GlobeHero onSignupClick={() => setShowSignup(true)} />
-            </Suspense>
-            <ProblemSection />
-            <LandingPollsSection onSignupClick={() => setShowSignup(true)} />
-            <Communities onSignupClick={() => setShowSignup(true)} />
-            <AvatarShowcaseSection onSignupClick={() => setShowSignup(true)} />
+              <Suspense fallback={<div className="min-h-[620px] sm:min-h-[680px]" />}>
+                <GlobeHero onSignupClick={() => setShowSignup(true)} />
+              </Suspense>
 
-            <section className="landing-section px-4 py-8 sm:px-6 sm:py-12">
-              <div
-                className="relative mx-auto w-full max-w-6xl overflow-hidden rounded-3xl border-2 border-raw-gold/35 bg-gradient-to-b from-raw-gold/[0.04] to-transparent px-2 py-6 sm:px-4 sm:py-10"
-                style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 60px rgba(241,196,45,0.06)" }}
-              >
-                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-raw-gold/70 to-transparent" />
-                <div className="px-6 pb-2 pt-2 text-center sm:pb-6">
-                  <h3 className="landing-heading text-raw-gold">
-                    {highlightRawWordmark("What raW is building next")}
-                  </h3>
-                  <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-raw-silver/55">
-                    {highlightRawWordmark("Personality Insight is coming soon: anonymous answers turned into sharper self-understanding.")}
+              <ProblemSection />
+              <LandingPollsSection onSignupClick={() => setShowSignup(true)} />
+              <Communities onSignupClick={() => setShowSignup(true)} />
+              <AvatarShowcaseSection onSignupClick={() => setShowSignup(true)} />
+
+              <section className="landing-section px-4 py-8 sm:px-6 sm:py-12">
+                <div
+                  className="relative mx-auto w-full max-w-6xl overflow-hidden rounded-3xl border-2 border-raw-gold/35 bg-gradient-to-b from-raw-gold/[0.04] to-transparent px-2 py-6 sm:px-4 sm:py-10"
+                  style={{
+                    boxShadow:
+                      "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 60px rgba(241,196,45,0.06)",
+                  }}
+                >
+                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-raw-gold/70 to-transparent" />
+
+                  <div className="px-6 pb-2 pt-2 text-center sm:pb-6">
+                    <h3 className="landing-heading text-raw-gold">
+                      {highlightRawWordmark("What raW is building next")}
+                    </h3>
+
+                    <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-raw-silver/55">
+                      {highlightRawWordmark(
+                        "Personality Insight is coming soon: anonymous answers turned into sharper self-understanding."
+                      )}
+                    </p>
+                  </div>
+
+                  <PersonalityInsightsSection />
+                </div>
+              </section>
+
+              <FAQSection />
+
+              <section className="landing-section px-4 pb-14 pt-4 sm:px-6 sm:pb-20">
+                <div
+                  className="relative mx-auto w-full max-w-3xl overflow-hidden rounded-2xl border border-raw-gold/35 bg-gradient-to-b from-raw-gold/[0.06] to-transparent px-6 py-10 text-center sm:px-10 sm:py-14"
+                  style={{
+                    boxShadow:
+                      "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 60px rgba(241,196,45,0.06)",
+                  }}
+                >
+                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-raw-gold/70 to-transparent" />
+
+                  <h2 className="landing-heading">
+                    Ready to be <BrandName />?
+                  </h2>
+
+                  <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-raw-silver/55 sm:text-base">
+                    Join with just a username and password. No email, no phone, no real name — your
+                    people are already talking.
                   </p>
+
+                  <div className="mx-auto mt-8 flex w-full justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowSignup(true)}
+                      className="inline-flex min-h-11 items-center justify-center rounded-xl border border-raw-gold/45 bg-raw-gold px-7 py-3 text-base font-semibold text-raw-ink transition hover:bg-raw-gold/90 sm:whitespace-nowrap"
+                    >
+                      Join Now
+                    </button>
+                  </div>
                 </div>
-
-                <PersonalityInsightsSection />
-              </div>
-            </section>
-
-            <FAQSection />
-
-            <section className="landing-section px-4 pb-14 pt-4 sm:px-6 sm:pb-20">
-              <div
-                className="relative mx-auto w-full max-w-3xl overflow-hidden rounded-2xl border border-raw-gold/35 bg-gradient-to-b from-raw-gold/[0.06] to-transparent px-6 py-10 text-center sm:px-10 sm:py-14"
-                style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 60px rgba(241,196,45,0.06)" }}
-              >
-                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-raw-gold/70 to-transparent" />
-                <h2 className="landing-heading">
-                  Ready to be <BrandName />?
-                </h2>
-                <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-raw-silver/55 sm:text-base">
-                  Join with just a username and password. No email, no phone, no real name — your people are already talking.
-                </p>
-
-                <div className="mx-auto mt-8 flex w-full justify-center">
-                  <button
-                    type="button"
-                    onClick={() => setShowSignup(true)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-xl border border-raw-gold/45 bg-raw-gold px-7 py-3 text-base font-semibold text-raw-ink transition hover:bg-raw-gold/90 sm:whitespace-nowrap"
-                  >
-                    Join Now
-                  </button>
-                </div>
-              </div>
-            </section>
+              </section>
 
               <LandingFooter />
             </div>
