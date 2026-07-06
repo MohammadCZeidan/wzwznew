@@ -403,7 +403,7 @@ INSERT INTO public.communities (id, abbr, title, description, topic, status, loc
   ('match-maker', 'MM', 'Match Maker', 'Green flags, red flags, honest reads.', 'What match or dating situation needs a second opinion?', 'Active', false, '/assets/community-covers/match-maker.svg', '2026-06-12T00:00:00Z'),
   ('fucking-bored', 'FB', 'Fucking Bored', 'Chaos for a bored brain.', 'What should bored people argue about for five minutes?', 'Active', false, '/assets/community-covers/fucking-bored.svg', '2026-06-12T00:00:00Z'),
   ('advice-now', 'ADV', 'Advice Now!', 'Fast advice before you overthink.', 'What do you need advice on right now?', 'Active', false, '/assets/community-covers/advice-now.svg', '2026-06-12T00:00:00Z'),
-  ('feeling-like-shit', 'FLS', 'I''m feeling like shit honestly...', 'A soft place for heavy days.', 'What is weighing on you today?', 'Active', false, '/assets/community-covers/feeling-like-shit.svg', '2026-06-12T00:00:00Z'),
+  ('feeling-like-shit', 'FG', 'Fresh Grad', 'Caps off. First jobs, next moves, nerves, and wins after graduation.', 'Just graduated — what''s next for you?', 'Active', false, '/assets/community-covers/fresh-grad.webp', '2026-06-12T00:00:00Z'),
   ('best-story', 'BST', 'Best story I’ve been told', 'Wild stories worth retelling.', 'What is the best story someone ever told you?', 'Active', false, '/assets/community-covers/best-story.svg', '2026-06-12T00:00:00Z')
 ON CONFLICT (id) DO UPDATE SET
   abbr = EXCLUDED.abbr,

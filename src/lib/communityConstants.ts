@@ -22,11 +22,11 @@ export const COMMUNITY_COVER_IMAGES: Record<string, string> = {
   "match-maker": "/assets/community-covers/match-maker.png",
   "fucking-bored": "/assets/community-covers/fucking-bored.png",
   "advice-now": "/assets/community-covers/advice-now.svg",
-  "feeling-like-shit": "/assets/community-covers/feeling-like-shit.svg",
-  "best-story": "/assets/community-covers/best-story.webp",
-  c6: "/assets/community-covers/single-mom.webp",
-  c7: "/assets/community-covers/job-hunter.webp",
-  c8: "/assets/community-covers/graduated.webp",
+  "feeling-like-shit": "/assets/community-covers/fresh-grad.webp",
+  "best-story": "/assets/community-covers/best-story.png",
+  c6: "/assets/community-covers/single-mom.png",
+  c7: "/assets/community-covers/job-hunter.png",
+  c8: "/assets/community-covers/graduated.png",
 };
 
 export const COMMUNITY_COVER_VIDEOS: Record<string, string> = {
