@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Rocket } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const LAUNCH_DATE = new Date("2026-06-09T15:00:00");
+const LAUNCH_DATE = new Date("2026-07-09T15:00:00");
 
 function getTimeLeft() {
   const diff = LAUNCH_DATE.getTime() - Date.now();
@@ -82,7 +82,7 @@ export function LaunchCountdown({ isLight = false, variant = "section" }: Launch
         <div className="flex items-center gap-2">
           <Rocket className="size-4 text-raw-gold" />
           <span className={cn("text-sm font-semibold", isLight ? "text-slate-700" : "text-white/80")}>
-            Full launch — June 9, 2026 · 3 PM
+            Full launch — July 9, 2026 · 3 PM
           </span>
         </div>
         <div className="flex items-end gap-3">
@@ -108,7 +108,7 @@ export function LaunchCountdown({ isLight = false, variant = "section" }: Launch
           Full launch
         </h2>
         <span className={cn("text-sm", isLight ? "text-slate-500" : "text-white/40")}>
-          · June 9, 2026 at 3 PM
+          · July 9, 2026 at 3 PM
         </span>
       </div>
       <div className="flex gap-3 sm:gap-4">
