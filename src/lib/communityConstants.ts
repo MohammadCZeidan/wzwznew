@@ -8,7 +8,7 @@ export const FEATURED_COMMUNITY_ID_SET = new Set<string>(FEATURED_COMMUNITY_IDS)
 export const COMMUNITY_COVER_IMAGES: Record<string, string> = {
   syt: "https://images.unsplash.com/photo-1534131707746-25d604851a1f?auto=format&fit=crop&w=1200&q=80",
   iijm: "/assets/itisjustme-bounce.gif",
-  li: "/assets/community-covers/lebanese-initiatives.png",
+  li: "/assets/community-covers/lebanese-initiatives.webp",
   sic: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1200&q=80",
   mw: "https://images.unsplash.com/photo-1493836512294-502baa1986e2?auto=format&fit=crop&w=1200&q=80",
 
@@ -23,10 +23,10 @@ export const COMMUNITY_COVER_IMAGES: Record<string, string> = {
   "fucking-bored": "/assets/community-covers/fucking-bored.png",
   "advice-now": "/assets/community-covers/advice-now.svg",
   "feeling-like-shit": "/assets/community-covers/feeling-like-shit.svg",
-  "best-story": "/assets/community-covers/best-story.png",
-  c6: "/assets/community-covers/single-mom.png",
-  c7: "/assets/community-covers/job-hunter.png",
-  c8: "/assets/community-covers/graduated.png",
+  "best-story": "/assets/community-covers/best-story.webp",
+  c6: "/assets/community-covers/single-mom.webp",
+  c7: "/assets/community-covers/job-hunter.webp",
+  c8: "/assets/community-covers/graduated.webp",
 };
 
 export const COMMUNITY_COVER_VIDEOS: Record<string, string> = {
