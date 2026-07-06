@@ -27,7 +27,24 @@ const TestPollOnboarding = import.meta.env.DEV
   ? lazy(() => import("./pages/_TestPollOnboarding"))
   : null;
 
-const routeFallback = <div className="sr-only">Loading page…</div>;
+const routeFallback = (
+  <main className="min-h-screen bg-raw-black px-5 py-6 text-raw-silver">
+    <div className="mx-auto flex w-full max-w-6xl items-center justify-between">
+      <div className="font-display text-lg text-raw-gold">RAW</div>
+      <div className="h-8 w-24 rounded border border-raw-border/60 bg-raw-charcoal/60" />
+    </div>
+    <section className="mx-auto mt-16 w-full max-w-6xl">
+      <div className="h-5 w-24 rounded bg-raw-gold/30" />
+      <div className="mt-5 h-10 w-full max-w-xl rounded bg-raw-charcoal/80" />
+      <div className="mt-3 h-10 w-4/5 max-w-lg rounded bg-raw-charcoal/60" />
+      <div className="mt-8 grid gap-4 sm:grid-cols-3">
+        <div className="h-28 rounded border border-raw-border/50 bg-raw-charcoal/50" />
+        <div className="h-28 rounded border border-raw-border/50 bg-raw-charcoal/40" />
+        <div className="h-28 rounded border border-raw-border/50 bg-raw-charcoal/30" />
+      </div>
+    </section>
+  </main>
+);
 
 function ModerationInit() {
   useBlockedWordsSeed();

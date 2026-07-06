@@ -15,8 +15,27 @@ export function useBlockedWordsSeed(): void {
   const { isLoggedIn } = useRawStore();
   useEffect(() => {
     if (!isLoggedIn) return;
-    seedBlockedWordsFromServer().catch(() => {
-      /* non-fatal */
-    });
+
+    let cancelled = false;
+    const load = () => {
+      if (cancelled) return;
+      seedBlockedWordsFromServer().catch(() => {
+        /* non-fatal */
+      });
+    };
+
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      const idleId = window.requestIdleCallback(load, { timeout: 3000 });
+      return () => {
+        cancelled = true;
+        window.cancelIdleCallback(idleId);
+      };
+    }
+
+    const timeoutId = globalThis.setTimeout(load, 1000);
+    return () => {
+      cancelled = true;
+      globalThis.clearTimeout(timeoutId);
+    };
   }, [isLoggedIn]);
 }

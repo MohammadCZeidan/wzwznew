@@ -17,41 +17,74 @@ import posthog from "posthog-js";
 
 const appBootStart = markAppBootStart();
 const queryClient = new QueryClient();
+let monitoringStarted = false;
 
-initSentry();
-initBrowserAnalytics();
-installGlobalCrashAlerts();
+function runAfterFirstPaint(callback: () => void) {
+  if (typeof window === "undefined") {
+    callback();
+    return;
+  }
 
-const posthogKey = import.meta.env.VITE_POSTHOG_KEY;
-if (posthogKey) {
-  posthog.init(posthogKey, {
-    api_host: import.meta.env.VITE_POSTHOG_HOST || "https://us.i.posthog.com",
-    defaults: "2026-01-30",
-    capture_pageview: false,
-    autocapture: false,
-    person_profiles: "identified_only",
+  window.requestAnimationFrame(() => {
+    window.setTimeout(callback, 0);
   });
+}
 
-  setClient({
-    capture: (name, properties) => {
-      posthog.capture(name, properties);
-    },
-    identify: (userId, traits) => {
-      posthog.identify(userId, traits);
-    },
-    alias: (newId, previousId) => {
-      posthog.alias(newId, previousId);
-    },
-    reset: () => {
-      posthog.reset();
-    },
-    group: (groupType, groupKey, traits) => {
-      posthog.group(groupType, groupKey, traits);
-    },
-    register: (props) => {
-      posthog.register(props);
-    },
-    get_distinct_id: () => posthog.get_distinct_id(),
+function initMonitoringAndAnalytics() {
+  if (monitoringStarted) return;
+  monitoringStarted = true;
+
+  initSentry();
+  initBrowserAnalytics();
+  installGlobalCrashAlerts();
+
+  const posthogKey = import.meta.env.VITE_POSTHOG_KEY;
+  if (posthogKey) {
+    posthog.init(posthogKey, {
+      api_host: import.meta.env.VITE_POSTHOG_HOST || "https://us.i.posthog.com",
+      defaults: "2026-01-30",
+      capture_pageview: false,
+      capture_pageleave: false,
+      autocapture: false,
+      disable_session_recording: true,
+      person_profiles: "identified_only",
+    });
+
+    setClient({
+      capture: (name, properties) => {
+        posthog.capture(name, properties);
+      },
+      identify: (userId, traits) => {
+        posthog.identify(userId, traits);
+      },
+      alias: (newId, previousId) => {
+        posthog.alias(newId, previousId);
+      },
+      reset: () => {
+        posthog.reset();
+      },
+      group: (groupType, groupKey, traits) => {
+        posthog.group(groupType, groupKey, traits);
+      },
+      register: (props) => {
+        posthog.register(props);
+      },
+      get_distinct_id: () => posthog.get_distinct_id(),
+    });
+  }
+
+  if (typeof window !== "undefined" && import.meta.env.DEV) {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("analytics_test") === "1") {
+      track("diagnostics_probe_fired", {
+        source: "query_param",
+        mode: import.meta.env.MODE,
+      });
+    }
+  }
+
+  void ensureOneSignalInit().catch(() => {
+    // SDK may be blocked or unavailable; consent hook will retry on demand.
   });
 }
 
@@ -67,17 +100,6 @@ if (typeof window !== "undefined") {
 }
 
 const shouldEnableSpeedInsights = import.meta.env.PROD;
-
-if (typeof window !== "undefined" && import.meta.env.DEV) {
-  const params = new URLSearchParams(window.location.search);
-  if (params.get("analytics_test") === "1") {
-    track("diagnostics_probe_fired", {
-      source: "query_param",
-      mode: import.meta.env.MODE,
-    });
-  }
-}
-
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => {
@@ -95,14 +117,6 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
   });
 }
 
-// Initialize OneSignal Web SDK once on app boot.
-// Subscribing the user happens later via useNotificationConsent.
-if (typeof window !== "undefined") {
-  void ensureOneSignalInit().catch(() => {
-    // SDK may be blocked or unavailable; consent hook will retry on demand.
-  });
-}
-
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ErrorBoundary>
@@ -114,4 +128,7 @@ createRoot(document.getElementById("root")!).render(
   </StrictMode>
 );
 
-logAppBoot(appBootStart);
+runAfterFirstPaint(() => {
+  initMonitoringAndAnalytics();
+  logAppBoot(appBootStart);
+});

@@ -1,6 +1,6 @@
 import { ReactNode, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { onCLS, onLCP, onINP, onFCP, onTTFB, type Metric } from "web-vitals";
+import type { Metric } from "web-vitals";
 import { registerSuperProps, track } from "@/lib/analytics";
 import type { DeviceClass, Surface } from "@/lib/analytics/events";
 import { useTrackPageView } from "@/lib/analytics/useTrackPageView";
@@ -48,16 +48,24 @@ export function AnalyticsProvider({ children }: AnalyticsProviderProps) {
   }, [location.pathname, isLoggedIn]);
 
   useEffect(() => {
+    let cancelled = false;
     const report = (metric: Metric) => {
       const name = metric.name as "CLS" | "LCP" | "INP" | "FCP" | "TTFB";
       track("web_vitals_reported", { metric: name, value: metric.value });
     };
 
-    onCLS(report);
-    onLCP(report);
-    onINP(report);
-    onFCP(report);
-    onTTFB(report);
+    void import("web-vitals").then(({ onCLS, onLCP, onINP, onFCP, onTTFB }) => {
+      if (cancelled) return;
+      onCLS(report);
+      onLCP(report);
+      onINP(report);
+      onFCP(report);
+      onTTFB(report);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return <>{children}</>;
