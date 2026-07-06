@@ -49,6 +49,10 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+function disabled(): Response {
+  return new Response(null, { status: 204 });
+}
+
 function cleanString(value: unknown, maxLength: number): string {
   return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 }
@@ -63,7 +67,7 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   if (isProduction && !crashAlertSecret) {
-    return json({ error: "crash_alert_secret_not_configured" }, 503);
+    return disabled();
   }
 
   // Two accepted auth paths:
@@ -86,7 +90,7 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   if (!resendApiKey || !crashAlertTo || !crashAlertFrom) {
-    return json({ error: "crash_email_not_configured" }, 503);
+    return disabled();
   }
 
   let body: CrashAlertPayload;
