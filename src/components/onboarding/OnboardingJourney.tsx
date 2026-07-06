@@ -239,7 +239,7 @@ const ONBOARDING_COMMUNITIES = [
     members: "0",
     activeNow: "Early Access",
     locked: true,
-    image: "/assets/community-covers/lebanese-initiatives.png",
+    image: "/assets/community-covers/lebanese-initiatives.webp",
   },
 ];
 
