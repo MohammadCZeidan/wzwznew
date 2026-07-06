@@ -17,6 +17,7 @@ import {
 import { useTrackSectionView } from "@/lib/analytics/useTrackSectionView";
 import { useTheme } from "@/providers/useTheme";
 import { WheelRewardInline } from "@/components/landing/WheelReward";
+import { tryAvatarPngFallback } from "@/lib/avatarImageFallback";
 
 const DESKTOP_COUNT = 8;
 const FEATURED_UNLOCKABLE_COUNT = 8;
@@ -115,7 +116,7 @@ export function AvatarShowcaseSection({ onSignupClick = () => undefined }: Avata
           className={`relative rounded-full transition-all duration-300 ${scaleClass}`}
           style={{ transition: "transform 0.3s cubic-bezier(0.34,1.56,0.64,1)" }}
         >
-          <AvatarFigure key={`${avatar.level}-${themeVersion}`} avatarIndex={avatar.level} size="md" selected={isSelected || isActive} themeOverride={avatar} />
+          <AvatarFigure key={`${avatar.level}-${themeVersion}`} avatarIndex={avatar.level} size="md" selected={isSelected || isActive} themeOverride={avatar} loading="lazy" />
         </div>
 
         {/* Name */}
@@ -165,13 +166,18 @@ export function AvatarShowcaseSection({ onSignupClick = () => undefined }: Avata
               alt={avatar.name}
               loading="lazy"
               decoding="async"
+              onError={(event) => {
+                if (!tryAvatarPngFallback(event.currentTarget, avatar.imageSrc)) {
+                  event.currentTarget.style.display = "none";
+                }
+              }}
               draggable={false}
               className={`h-full w-full rounded-full object-contain transition-all duration-300 ${
                 isSelected || isActive ? "drop-shadow-[0_0_12px_rgba(241,196,45,0.45)]" : "opacity-80 group-hover:opacity-100"
               }`}
             />
           ) : (
-            <AvatarFigure key={`${themeIndex}-${themeVersion}`} avatarIndex={themeIndex} size="sm" selected={isSelected || isActive} themeOverride={avatar} />
+            <AvatarFigure key={`${themeIndex}-${themeVersion}`} avatarIndex={themeIndex} size="sm" selected={isSelected || isActive} themeOverride={avatar} loading="lazy" />
           )}
         </div>
         <span
@@ -233,7 +239,7 @@ export function AvatarShowcaseSection({ onSignupClick = () => undefined }: Avata
                   aria-pressed={avatarIndex === index}
                 >
                   <div className={`rounded-full transition-all duration-200 ${avatarIndex === index ? "scale-110" : "scale-100"}`}>
-                    <AvatarFigure key={`${avatar.level}-${themeVersion}`} avatarIndex={avatar.level} size="sm" selected={avatarIndex === index} themeOverride={avatar} />
+                    <AvatarFigure key={`${avatar.level}-${themeVersion}`} avatarIndex={avatar.level} size="sm" selected={avatarIndex === index} themeOverride={avatar} loading="lazy" />
                   </div>
                   <span
                     className="max-w-[46px] text-center font-display uppercase leading-tight transition-colors duration-200"
@@ -420,7 +426,18 @@ export function AvatarShowcaseSection({ onSignupClick = () => undefined }: Avata
                         extraPreviewAvatar?.id === avatar.id ? "border-raw-gold" : "border-raw-gold/40"
                       }`}>
                         {avatar.imageSrc
-                          ? <img src={avatar.imageSrc} alt={avatar.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                          ? <img
+                              src={avatar.imageSrc}
+                              alt={avatar.name}
+                              loading="lazy"
+                              decoding="async"
+                              onError={(event) => {
+                                if (!tryAvatarPngFallback(event.currentTarget, avatar.imageSrc)) {
+                                  event.currentTarget.style.display = "none";
+                                }
+                              }}
+                              className="h-full w-full object-cover"
+                            />
                           : <div className="h-full w-full" />
                         }
                       </div>

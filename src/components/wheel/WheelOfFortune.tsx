@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useTheme } from "@/providers/useTheme";
+import { pngFallbackForAvatarWebp } from "@/lib/avatarImageFallback";
 
 // Keep in sync with WHEEL_REWARD_POOL in WheelReward.tsx.
 const IMAGE_SCALE_BY_SRC: Record<string, number> = {
@@ -247,6 +248,12 @@ export function WheelOfFortune({ prizes, onSpinEnd, onSpinStart, disabled = fals
                     <circle cx={textPosition.x} cy={textPosition.y} r={imgSize / 2} fill={isLight ? "#1a1a1a" : "#000000"} />
                     <image
                       href={prize.imageSrc}
+                      onError={(event) => {
+                        const fallback = pngFallbackForAvatarWebp(prize.imageSrc);
+                        if (fallback && event.currentTarget.getAttribute("href") !== fallback) {
+                          event.currentTarget.setAttribute("href", fallback);
+                        }
+                      }}
                       x={textPosition.x - scaledSize / 2}
                       y={textPosition.y - scaledSize / 2}
                       width={scaledSize}
