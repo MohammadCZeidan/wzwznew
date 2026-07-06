@@ -10,7 +10,6 @@ import { timeSupabaseQuery } from '@/lib/devPerf';
 type DbMessage = DbCommunityMessage;
 
 type DbMember = {
-  community_id: string;
   user_id: string;
   username: string;
   joined_at: string;

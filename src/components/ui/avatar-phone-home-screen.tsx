@@ -1,6 +1,7 @@
 import { AvatarFigure } from "@/components/ui/avatar-figure";
 import { getAvatar } from "@/lib/avataridentity";
 import { BrandName } from "@/components/ui/brand-name";
+import { tryAvatarPngFallback } from "@/lib/avatarImageFallback";
 
 interface AvatarPhoneHomeScreenProps {
   avatarIndex: number;
@@ -25,6 +26,11 @@ export function AvatarPhoneHomeScreen({ avatarIndex, compact = false, previewAva
       alt={activeAvatar.name ?? "raW avatar"}
       loading="eager"
       decoding="async"
+      onError={(event) => {
+        if (!tryAvatarPngFallback(event.currentTarget, activeAvatar.imageSrc)) {
+          event.currentTarget.style.display = "none";
+        }
+      }}
       draggable={false}
       className={`relative h-full w-full animate-[iconPop_420ms_ease-out] object-contain ${compact ? "p-1.5" : "p-2"}`}
       style={{ objectPosition: "center 35%" }}

@@ -1,58 +1,56 @@
 -- ============================================================================
--- PROPOSED performance indexes — REVIEW BEFORE APPLYING. NOT auto-applied.
+-- Performance index review - verified gaps only. NOT auto-applied.
 -- ============================================================================
 -- This file lives under docs/ (NOT supabase/migrations/) on purpose, so
--- `supabase db push` will NOT run it. To apply after review:
---   1. Copy into a new migration:
---      supabase/migrations/<timestamp>_perf_indexes.sql
---   2. Verify against the live schema (column names/types) first.
---   3. Prefer running CREATE INDEX CONCURRENTLY on a busy prod table so it
---      does not take a long ACCESS EXCLUSIVE lock. (CONCURRENTLY cannot run
---      inside a transaction, and the Supabase migration runner wraps files in
---      one — so for prod, run these by hand in the SQL editor, or split each
---      into its own transaction-less migration.)
+-- `supabase db push` will NOT run it.
 --
--- All statements use IF NOT EXISTS and are non-destructive.
+-- IMPORTANT:
+-- - Verify live indexes before applying any statement below.
+-- - Run CREATE INDEX CONCURRENTLY only outside a transaction.
+-- - The Supabase migration runner wraps migrations in a transaction, so run
+--   any needed CONCURRENTLY statement manually in the Supabase SQL Editor after
+--   backup/rollback has been confirmed.
+-- - `IF NOT EXISTS` only checks the index name, not equivalent indexes. Do not
+--   run these if an existing primary key, unique index, or composite index
+--   already covers the access pattern.
 --
--- CONTEXT: most hot-path indexes ALREADY EXIST in the schema and are NOT
--- repeated here:
---   community_messages_community_created_idx  (community_id, created_at)  -- chat
---   community_members_community_user_idx      (community_id, user_id)
---   community_members_user_idx                (user_id)
---   community_polls_community_id_idx          (community_id)
---   community_poll_votes_option_id_idx / _community_poll_id_idx
---   poll_votes (poll_id, voter_key)                                       -- vote dedupe
---   chat_reports_status_idx                   (status)
--- Only the genuine gaps below are proposed.
+-- Verification query:
+--   select schemaname, tablename, indexname, indexdef
+--   from pg_indexes
+--   where schemaname = 'public'
+--     and tablename in ('poll_votes', 'user_avatar_inventory', 'chat_reports')
+--   order by tablename, indexname;
+--
+-- Linked production verification on 2026-07-06 found:
+-- - poll_votes_unique_user_poll on (user_id, poll_id) where user_id is not null
+-- - user_avatar_inventory_pkey on (user_id, avatar_id)
+-- - chat_reports_status_idx on (status, created_at desc)
+--
+-- Result: no new indexes are needed in the linked production database.
 -- ============================================================================
 
--- 1) poll_votes(user_id)  — HIGH VALUE
--- get_profile_stats() runs `... from public.poll_votes where user_id = p_user_id`
--- on every profile view. The only poll_votes index is (poll_id, voter_key),
--- which does NOT serve a user_id filter, so this is currently a seq scan that
--- grows with total votes. This is the single most launch-relevant gap.
-CREATE INDEX IF NOT EXISTS poll_votes_user_id_idx
-  ON public.poll_votes (user_id);
+-- 1) poll_votes(user_id)
+-- Helps: profile stats queries that filter votes by user_id, e.g.
+--        get_profile_stats() counting rows from public.poll_votes where user_id = p_user_id.
+-- Current linked DB status: SKIP. Covered by:
+--        poll_votes_unique_user_poll (user_id, poll_id) where user_id is not null.
+-- Only run this in another environment if no existing index starts with user_id:
+-- CREATE INDEX CONCURRENTLY IF NOT EXISTS poll_votes_user_id_idx
+--   ON public.poll_votes (user_id);
 
--- 2) user_avatar_inventory(user_id)  — MEDIUM
--- Inventory/store/profile load the current user's owned avatars filtered by
--- user_id. Confirm the table does not already have a PRIMARY KEY / UNIQUE
--- starting with user_id (e.g. PK (user_id, avatar_id)); if it does, that
--- already serves the filter and this index is redundant — skip it.
-CREATE INDEX IF NOT EXISTS user_avatar_inventory_user_id_idx
-  ON public.user_avatar_inventory (user_id);
+-- 2) user_avatar_inventory(user_id)
+-- Helps: inventory/store/profile queries loading owned avatars for the current user:
+--        select avatar_id from public.user_avatar_inventory where user_id = $1.
+-- Current linked DB status: SKIP. Covered by:
+--        user_avatar_inventory_pkey (user_id, avatar_id).
+-- Only run this in another environment if the primary key/index does not start with user_id:
+-- CREATE INDEX CONCURRENTLY IF NOT EXISTS user_avatar_inventory_user_id_idx
+--   ON public.user_avatar_inventory (user_id);
 
--- 3) chat_reports(status, created_at desc)  — LOW (admin only)
--- The moderation queue filters by status and orders by created_at desc. The
--- existing chat_reports_status_idx covers the filter but not the ordering, so
--- Postgres still sorts. A composite index serves both. Admin-only path, low
--- traffic — nice-to-have, not launch-critical.
-CREATE INDEX IF NOT EXISTS chat_reports_status_created_idx
-  ON public.chat_reports (status, created_at DESC);
-
--- 4) community_polls(community_id, created_at desc)  — LOW / OPTIONAL
--- community_polls_community_id_idx already exists; adding created_at only helps
--- if a single community accumulates many polls and they are ordered by recency.
--- Skip unless EXPLAIN on the community-polls query shows a sort step.
-CREATE INDEX IF NOT EXISTS community_polls_community_created_idx
-  ON public.community_polls (community_id, created_at DESC);
+-- 3) chat_reports(status, created_at desc)
+-- Helps: admin moderation queue queries filtering by status and ordering newest first.
+-- Current linked DB status: SKIP. Covered by:
+--        chat_reports_status_idx (status, created_at desc).
+-- Only run this in another environment if no existing index covers both status and ordering:
+-- CREATE INDEX CONCURRENTLY IF NOT EXISTS chat_reports_status_created_idx
+--   ON public.chat_reports (status, created_at DESC);
