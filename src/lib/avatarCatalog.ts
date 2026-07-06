@@ -4,6 +4,7 @@ import { RANK_TIER_PRICING } from "@/lib/avatarRarity";
 import { getAvatarRank } from "@/lib/avatarRank";
 import { GENERATED_AVATAR_ENTRIES } from "@/lib/generatedAvatarEntries";
 import { avatarDisplayName, avatarIdFromImageSrc } from "@/config/avatarNames";
+import { timeSupabaseQuery } from "@/lib/devPerf";
 
 export type AvatarCatalogItem = {
   id: string;
@@ -633,9 +634,18 @@ export async function loadUserAvatarState(
 
   try {
     const [{ data: inventoryRows, error: inventoryError }, { data: selectedRow, error: selectedError }] = await Promise.all([
-      supabase.from("user_avatar_inventory").select("avatar_id").eq("user_id", userId),
-      supabase.from("user_avatar_selection").select("avatar_id").eq("user_id", userId).maybeSingle(),
+      timeSupabaseQuery(
+        "avatar inventory load",
+        supabase.from("user_avatar_inventory").select("avatar_id").eq("user_id", userId),
+      ),
+      timeSupabaseQuery(
+        "avatar selection load",
+        supabase.from("user_avatar_selection").select("avatar_id").eq("user_id", userId).maybeSingle(),
+      ),
     ]);
+    if (import.meta.env.DEV) {
+      console.info("[perf] avatar inventory load", { ownedCount: inventoryRows?.length ?? 0 });
+    }
 
     if (inventoryError || selectedError) {
       markBackendMissingIfNeeded(inventoryError ?? selectedError);

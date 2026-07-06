@@ -9,6 +9,7 @@ import {
 import { supabase } from "@/backend/supabase/client";
 import { getUserTextModerationMessage, moderateUserText } from "@/lib/inputSecurity";
 import type { CommunityPollRecord } from "@/backend/supabase/models/community-poll";
+import { trackDevRealtimeSubscription } from "@/lib/devPerf";
 
 export interface CommunityPollsState {
   communityPolls: CommunityPollRecord[];
@@ -86,6 +87,7 @@ export function useCommunityPolls(
 
   useEffect(() => {
     if (!activeCommunityId || !communityPollsAvailable) return;
+    const cleanupPerfSubscription = trackDevRealtimeSubscription(`community-polls:${activeCommunityId}`);
     const channel = supabase
       .channel(`community-polls:${activeCommunityId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "community_polls", filter: `community_id=eq.${activeCommunityId}` }, debouncedReload)
@@ -93,6 +95,7 @@ export function useCommunityPolls(
       .on("postgres_changes", { event: "*", schema: "public", table: "community_poll_options" }, debouncedReload)
       .subscribe();
     return () => {
+      cleanupPerfSubscription();
       if (reloadTimerRef.current !== null) { clearTimeout(reloadTimerRef.current); reloadTimerRef.current = null; }
       void supabase.removeChannel(channel);
     };

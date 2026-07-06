@@ -5,6 +5,7 @@ import { buildCommunityAbbr } from '@/lib/communityChat.utils';
 import { mapCommunityMessage, type DbCommunityMessage } from './chatController';
 import { assertUserTextAllowed } from '@/lib/inputSecurity';
 import { apiRequest } from '@/lib/api/client';
+import { timeSupabaseQuery } from '@/lib/devPerf';
 
 type DbMessage = DbCommunityMessage;
 
@@ -63,34 +64,20 @@ function mapCommunity(c: DbCommunity): PersistedCommunityRecord {
 }
 
 export async function fetchCommunities(): Promise<PersistedCommunityRecord[]> {
-  const { data, error } = await supabase
-    .from('communities')
-    .select(`
-      id,
-      abbr,
-      title,
-      description,
-      topic,
-      status,
-      locked,
-      logo_url,
-      created_at,
-      created_by,
-      community_members(
-        user_id,
-        username,
-        joined_at,
-        last_seen_at,
-        last_read_at,
-        notifications_enabled
-      )
-    `)
-    .order('created_at', { ascending: true })
-    .order('id', { ascending: true })
-    .limit(100);
+  const { data, error } = await timeSupabaseQuery(
+    'fetchCommunities',
+    supabase
+      .from('communities')
+      .select('*, community_members(*)')
+      .order('created_at', { ascending: true }),
+  );
 
   if (error) throw error;
-  return (data as DbCommunity[]).map(mapCommunity);
+  const communities = (data as DbCommunity[]).map(mapCommunity);
+  if (import.meta.env.DEV) {
+    console.info('[perf] fetchCommunities', { count: communities.length });
+  }
+  return communities;
 }
 
 export async function fetchCommunityMessages(
@@ -109,11 +96,18 @@ export async function fetchCommunityMessages(
     query = query.lt('created_at', options.before);
   }
 
-  const { data, error } = await query;
+  const { data, error } = await timeSupabaseQuery('fetchCommunityMessages', query, {
+    limit,
+    paged: Boolean(options.before),
+  });
   if (error) throw error;
-  return ((data ?? []) as DbMessage[])
+  const messages = ((data ?? []) as DbMessage[])
     .map(mapCommunityMessage)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  if (import.meta.env.DEV) {
+    console.info('[perf] fetchCommunityMessages', { count: messages.length, limit, paged: Boolean(options.before) });
+  }
+  return messages;
 }
 
 // All membership writes go through SECURITY DEFINER RPCs that derive the

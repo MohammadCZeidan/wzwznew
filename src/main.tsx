@@ -8,11 +8,13 @@ import { setClient } from "@/lib/analytics/client";
 import { installGlobalCrashAlerts } from "@/lib/crashAlerts";
 import { initSentry } from "@/lib/sentry";
 import { ensureOneSignalInit, isOneSignalServiceWorker } from "@/lib/onesignal";
+import { logAppBoot, markAppBootStart } from "@/lib/devPerf";
 import App from "./App.tsx";
 import "./index.css";
 import "./styles/raw-reveal-button.css";
 import posthog from "posthog-js";
 
+const appBootStart = markAppBootStart();
 const queryClient = new QueryClient();
 
 initSentry();
@@ -109,3 +111,5 @@ createRoot(document.getElementById("root")!).render(
     </ErrorBoundary>
   </StrictMode>
 );
+
+logAppBoot(appBootStart);
