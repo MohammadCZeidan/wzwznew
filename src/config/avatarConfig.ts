@@ -20,12 +20,11 @@ export const EARLY_SIGNUP_AVATAR_IDS = [] as const;
 // users created at or after this timestamp cannot.
 export const EARLY_SIGNUP_CUTOFF_ISO = "2026-06-07T00:00:00Z";
 
-// Avatars that have a .webp file; all others fall back to .png.
-const WEBP_AVATAR_IDS = new Set([1, 6, 8, 13, 26, 41, 42, 43, 47, 52]);
-
-/** Helper: full /public/avatars URL for a numeric avatar id. */
+/** Helper: full /public/avatars URL for a numeric avatar id. All numeric
+ * avatars are served as optimized .webp (the .png originals stay on disk as a
+ * fallback but are no longer referenced). */
 export function avatarImageSrc(id: number): string {
-  return `/avatars/${id}.${WEBP_AVATAR_IDS.has(id) ? "webp" : "png"}`;
+  return `/avatars/${id}.webp`;
 }
 
 /** Dev-time sanity check: the two pools must not overlap. */
