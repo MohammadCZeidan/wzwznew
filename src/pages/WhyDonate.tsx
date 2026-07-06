@@ -1,13 +1,7 @@
-<<<<<<< Updated upstream
 import { useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import { ArrowLeft, ArrowDown, CheckCircle2, HeartHandshake, ServerCog, ShieldCheck } from "lucide-react";
-=======
-import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle2 } from "lucide-react";
->>>>>>> Stashed changes
 import { BrandName } from "@/components/ui/brand-name";
 import { submitDonationInterest } from "@/backend/supabase/controllers/donationInterestController";
 import { moderateUserText, getUserTextModerationMessage } from "@/lib/inputSecurity";
@@ -70,11 +64,8 @@ const cardReveal = {
 
 export default function WhyDonate() {
   const navigate = useNavigate();
-<<<<<<< Updated upstream
   const supportRef = useRef<HTMLDivElement>(null);
-=======
   const location = useLocation();
->>>>>>> Stashed changes
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -108,14 +99,10 @@ export default function WhyDonate() {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <button
             type="button"
-<<<<<<< Updated upstream
             onClick={() => {
               window.sessionStorage.setItem("raw.skip-poll-showcase-once", "1");
-              navigate(-1);
+              navigate(backTo, { replace: true });
             }}
-=======
-            onClick={() => navigate(backTo, { replace: true })}
->>>>>>> Stashed changes
             className="flex items-center gap-2 text-raw-silver/60 transition-colors hover:text-raw-text"
             aria-label="Go back"
           >

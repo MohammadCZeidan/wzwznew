@@ -55,13 +55,9 @@ export default function LandingShell({
   login,
 }: LandingShellProps) {
   const navigate = useNavigate();
-<<<<<<< Updated upstream
+  const location = useLocation();
   const [skipPollShowcase] = useState(shouldSkipPollShowcase);
   const [siteReady, setSiteReady] = useState(skipPollShowcase);
-=======
-  const location = useLocation();
-  const [siteReady, setSiteReady] = useState(false);
->>>>>>> Stashed changes
   const [pendingInviteCode, setPendingInviteCode] = useState("");
 
   // An invite link (?invite=CODE) pre-fills the code and opens signup.
