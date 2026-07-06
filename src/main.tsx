@@ -100,22 +100,40 @@ if (typeof window !== "undefined") {
 }
 
 const shouldEnableSpeedInsights = import.meta.env.PROD;
+const SERVICE_WORKER_CLEANUP_RELOAD_KEY = "raw.sw-cleanup-reloaded";
 
-if ("serviceWorker" in navigator && import.meta.env.PROD) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.getRegistrations()
-      .then((registrations) =>
-        Promise.all(
-          registrations
-            .filter((registration) => !isOneSignalServiceWorker(registration))
-            .map((registration) => registration.unregister()),
-        ),
-      )
-      .catch(() => {
-        // no-op: app works even if service worker cleanup is unavailable.
-      });
-  });
+function cleanupLegacyServiceWorkers() {
+  if (!("serviceWorker" in navigator) || !import.meta.env.PROD) return;
+
+  const hadController = Boolean(navigator.serviceWorker.controller);
+
+  navigator.serviceWorker.getRegistrations()
+    .then((registrations) =>
+      Promise.all(
+        registrations
+          .filter((registration) => !isOneSignalServiceWorker(registration))
+          .map((registration) => registration.unregister()),
+      ),
+    )
+    .then((results) => {
+      if (!hadController || !results.some(Boolean)) return;
+
+      try {
+        if (window.sessionStorage.getItem(SERVICE_WORKER_CLEANUP_RELOAD_KEY) === "1") return;
+        window.sessionStorage.setItem(SERVICE_WORKER_CLEANUP_RELOAD_KEY, "1");
+      } catch {
+        // If sessionStorage is unavailable, avoid a reload loop.
+        return;
+      }
+
+      window.location.reload();
+    })
+    .catch(() => {
+      // no-op: app works even if service worker cleanup is unavailable.
+    });
 }
+
+cleanupLegacyServiceWorkers();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
