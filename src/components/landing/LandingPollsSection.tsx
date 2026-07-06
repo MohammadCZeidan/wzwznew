@@ -1,12 +1,9 @@
 import { useCallback, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useTheme } from "@/providers/useTheme";
 import { ChevronLeft, ChevronRight, Send } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LandingSectionShell } from "@/components/landing/LandingSectionShell";
 import { useTrackSectionView } from "@/lib/analytics/useTrackSectionView";
-import { fetchPolls } from "@/lib/api/polls";
-import { POLL_QUESTION_SEEDS } from "@/features/polls/pollQuestions";
 import { PremiumPollCard } from "@/components/polls/PremiumPollCard";
 import { useKeyboardOffset } from "@/hooks/useKeyboardOffset";
 
@@ -17,33 +14,45 @@ interface PollItem {
   noPercent: number;
 }
 
-const FALLBACK: PollItem[] = POLL_QUESTION_SEEDS.slice(0, 4).map((s) => ({
-  question: s.question,
-  yesPercent: Math.round((s.yesVotes / (s.yesVotes + s.noVotes)) * 100),
-  noPercent: Math.round((s.noVotes / (s.yesVotes + s.noVotes)) * 100),
-}));
+const LANDING_POLLS: PollItem[] = [
+  {
+    question: "Does love end up fading?",
+    yesPercent: 61,
+    noPercent: 39,
+  },
+  {
+    question: "Do you think you are lacking self love?",
+    yesPercent: 54,
+    noPercent: 46,
+  },
+  {
+    question: "Would you consider yourself better than average?",
+    yesPercent: 48,
+    noPercent: 52,
+  },
+];
 
 const SEED_COMMENTS: Record<number, string[]> = {
   0: [
-    "100% — I drop all the masks when I'm alone",
-    "That's basically the only time I feel real",
-    "Honestly yes, social pressure is exhausting",
-    "Wish I could feel that way around people too",
-    "Not even close to the same person in public",
+    "It fades when nobody chooses it on purpose anymore",
+    "I think love changes shape more than it disappears",
+    "Sometimes comfort gets mistaken for fading",
+    "If both people stop trying, yes",
+    "The spark fades first, then the honesty if you're not careful",
   ],
   1: [
-    "Depends on the values, but probably yes",
-    "Already looking for something like this",
-    "The right community genuinely changes everything",
-    "Most communities talk values but don't live them",
-    "Yes, if it's honest and not performative",
+    "Yes, but I only notice it when I accept less than I deserve",
+    "Some days I talk to myself worse than anyone else would",
+    "Working on it, but it's not automatic yet",
+    "I confuse being useful with being lovable",
+    "Maybe not lacking, just inconsistent",
   ],
   2: [
-    "Absolutely — a static teacher stops being relevant",
-    "The best ones I had were still figuring things out",
-    "Growth goes both ways or it's just a transaction",
-    "Nothing worse than someone who stopped learning",
-    "Yes, that vulnerability builds real trust",
+    "Honestly yes, even if I know that sounds arrogant",
+    "Average at some things, below average at others",
+    "I want to say yes but my life does not always prove it",
+    "Depends who you compare me to",
+    "Better than average at noticing my own flaws",
   ],
 };
 
@@ -67,28 +76,7 @@ export function LandingPollsSection({ onSignupClick }: LandingPollsSectionProps)
   const commentInputWrapperRef = useRef<HTMLDivElement>(null);
   useKeyboardOffset(commentInputWrapperRef);
 
-  const { data: fetchedPolls } = useQuery({
-    queryKey: ["landing-polls-section"],
-    queryFn: async () => {
-      const polls = await fetchPolls(4);
-      if (polls.length === 0) return null;
-      return polls.slice(0, 4).map((poll) => {
-        const yesVotes = poll.options.find((o) => o.text.toLowerCase() === "yes")?.votes ?? 0;
-        const noVotes = poll.options.find((o) => o.text.toLowerCase() === "no")?.votes ?? 0;
-        const totalVotes = yesVotes + noVotes;
-        return {
-          id: poll.id,
-          question: poll.question,
-          yesPercent: totalVotes > 0 ? Math.round((yesVotes / totalVotes) * 100) : 50,
-          noPercent: totalVotes > 0 ? Math.round((noVotes / totalVotes) * 100) : 50,
-        } as PollItem;
-      });
-    },
-    retry: 1,
-    staleTime: 1000 * 60 * 5,
-  });
-
-  const polls: PollItem[] = fetchedPolls ?? FALLBACK;
+  const polls: PollItem[] = LANDING_POLLS;
   const total = polls.length;
   const canPrev = index > 0;
   const canNext = index < total - 1;
