@@ -15,17 +15,17 @@ export function buildSpinPrizes(mode: "light" | "dark", accentRgb: string): Whee
   const accentStrong = toRgba(accentRgb, isLight ? 0.38 : 0.32);
 
   return [
-    { id: "xp-50", label: "50 XP", shortLabel: "50 XP", color: neutralA, textColor: neutralText },
+    { id: "tokens-5", label: "5 Tokens", shortLabel: "5 TOKENS", color: neutralA, textColor: neutralText },
     { id: "try-1", label: "Try Again", shortLabel: "TRY AGAIN", color: neutralB, textColor: missText },
-    { id: "xp-100", label: "100 XP", shortLabel: "100 XP", color: accentSoft, textColor: neutralText },
+    { id: "tokens-10", label: "10 Tokens", shortLabel: "10 TOKENS", color: accentSoft, textColor: neutralText },
     { id: "try-2", label: "Try Again", shortLabel: "TRY AGAIN", color: neutralB, textColor: missText },
-    { id: "xp-200", label: "200 XP", shortLabel: "200 XP", color: accentStrong, textColor: neutralText },
+    { id: "profile-glow", label: "Profile Glow", shortLabel: "GLOW", color: accentStrong, textColor: neutralText },
     { id: "try-3", label: "Try Again", shortLabel: "TRY AGAIN", color: neutralB, textColor: missText },
     { id: "theme", label: "Avatar Theme", shortLabel: "THEME", color: accentStrong, textColor: neutralText },
-    { id: "xp-50b", label: "50 XP", shortLabel: "50 XP", color: neutralA, textColor: neutralText },
+    { id: "tokens-5b", label: "5 Tokens", shortLabel: "5 TOKENS", color: neutralA, textColor: neutralText },
     { id: "try-4", label: "Try Again", shortLabel: "TRY AGAIN", color: neutralB, textColor: missText },
-    { id: "xp-500", label: "500 XP Jackpot!", shortLabel: "500 XP", color: isLight ? "#efd98f" : "#1a1508", textColor: isLight ? "#6f4e00" : "#F1C42D" },
-    { id: "xp-100b", label: "100 XP", shortLabel: "100 XP", color: accentSoft, textColor: neutralText },
-    { id: "xp-50c", label: "50 XP", shortLabel: "50 XP", color: neutralA, textColor: neutralText },
+    { id: "tokens-50", label: "50 Token Jackpot!", shortLabel: "50 TOKENS", color: isLight ? "#efd98f" : "#1a1508", textColor: isLight ? "#6f4e00" : "#F1C42D" },
+    { id: "sticker-pack", label: "Sticker Pack", shortLabel: "STICKERS", color: accentSoft, textColor: neutralText },
+    { id: "tokens-5c", label: "5 Tokens", shortLabel: "5 TOKENS", color: neutralA, textColor: neutralText },
   ];
 }

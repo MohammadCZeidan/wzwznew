@@ -64,6 +64,7 @@ export function ProblemSection() {
 
   return (
     <section
+      id="problem"
       ref={sectionRef}
       className="landing-section relative px-4 py-14 sm:px-6 sm:py-20 md:py-28"
     >

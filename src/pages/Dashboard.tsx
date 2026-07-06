@@ -457,7 +457,7 @@ export default function Dashboard({
             onOpenCommunity={handleOpenCommunity}
             communities={dashboardCommunities}
             isAdmin={user.role === "admin"}
-            onAwardXP={handleDailySpinAward}
+            onAwardTokens={(amount) => addTokens(amount)}
             onAvatarWon={markAvatarOwned}
           />
         </DashboardSectionShell>
@@ -529,7 +529,7 @@ export default function Dashboard({
               <DashboardDailySpin
                 userId={user.id}
                 isAdmin={user.role === "admin"}
-                onAwardXP={handleDailySpinAward}
+                onAwardTokens={(amount) => addTokens(amount)}
                 onAvatarWon={markAvatarOwned}
               />
             </DashboardSectionShell>
@@ -628,7 +628,7 @@ export default function Dashboard({
               onOpenCommunity={handleOpenCommunity}
               communities={dashboardCommunities}
               isAdmin={user.role === "admin"}
-              onAwardXP={handleDailySpinAward}
+              onAwardTokens={(amount) => addTokens(amount)}
               onAvatarWon={markAvatarOwned}
             />
           </DashboardSectionShell>
