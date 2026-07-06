@@ -2,8 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTrackSectionView } from "@/lib/analytics/useTrackSectionView";
 import { getMessagesForCommunity, type ChatMessage } from "@/lib/communityMessages";
-import isItJustMeVideo from "@/assets/itisjustme.webm";
-import lebanonImage from "@/assets/LB.webp";
 import speakYourTruthVideo from "@/assets/speakyourheart.webm";
 import lateNightTalksVideo from "@/assets/2026-04-18 10_10_00.webm";
 
@@ -24,13 +22,14 @@ const communities = [
     title: "Is It Just Me?",
     description: "A quick-hit community for relatable thoughts, shared weirdness, and the relief of realizing it is not just you.",
     badge: "Active",
-    video: isItJustMeVideo,
+    video: "/assets/IIJM.webm",
+    videoType: "video/webm",
   },
   {
     title: "Lebanon Initiatives",
     description: "Join the waitlist for local action, support, and community-led initiatives.",
     badge: "Waitlist",
-    image: lebanonImage,
+    image: "/assets/community-covers/lebanese-initiatives.webp",
     waitlist: true,
   },
 ];
@@ -155,10 +154,9 @@ export function Communities({ onSignupClick }: CommunitiesProps) {
               >
               <div
                 className={
-                  `rounded-2xl p-5 sm:p-6 relative overflow-visible transition-colors duration-200 ` +
-                  (c.video
-                      ? "bg-transparent border-0 shadow-none"
-                      : "border border-raw-border/50 bg-raw-surface/50 overflow-hidden")
+                  c.video
+                    ? "relative overflow-visible"
+                    : "rounded-2xl p-5 sm:p-6 relative overflow-visible transition-colors duration-200 border border-raw-border/50 bg-raw-surface/50 overflow-hidden"
                 }
               >
                 {c.video || c.image ? (
@@ -167,10 +165,24 @@ export function Communities({ onSignupClick }: CommunitiesProps) {
                       <video
                         className="rounded-xl w-full h-32 object-cover mb-3"
                         autoPlay
-                        loop
                         muted
                         playsInline
                         preload="metadata"
+                        onEnded={(e) => {
+                          const video = e.currentTarget;
+                          video.currentTime = 0;
+                          video.play().catch(() => {
+                            video.currentTime = 0;
+                            video.play();
+                          });
+                        }}
+                        onTimeUpdate={(e) => {
+                          const video = e.currentTarget;
+                          if (video.duration && video.currentTime >= video.duration - 0.05) {
+                            video.currentTime = 0;
+                            video.play();
+                          }
+                        }}
                       >
                         <source src={c.video} type={c.videoType ?? "video/webm"} />
                         Your browser does not support this video format.

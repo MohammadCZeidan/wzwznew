@@ -24,9 +24,25 @@ const FALLBACK_POLLS: PollData[] = POLL_QUESTION_SEEDS.map((s) => ({
   noPercent: Math.round((s.noVotes / (s.yesVotes + s.noVotes)) * 100),
 }));
 
+const SKIP_SHOWCASE_KEY = "raw.skip-poll-showcase-once";
+
+function consumeSkipPollShowcaseFlag(): boolean {
+  if (typeof window === "undefined") return false;
+
+  try {
+    const shouldSkip = window.sessionStorage.getItem(SKIP_SHOWCASE_KEY) === "1";
+    if (shouldSkip) {
+      window.sessionStorage.removeItem(SKIP_SHOWCASE_KEY);
+    }
+    return shouldSkip;
+  } catch {
+    return false;
+  }
+}
+
 export function PollShowcase({ initialOpen = false, onResolved, onOpenChange }: PollShowcaseProps) {
   const [index, setIndex] = useState(0);
-  const [open, setOpen] = useState(initialOpen);
+  const [open, setOpen] = useState(() => initialOpen && !consumeSkipPollShowcaseFlag());
   const [mounted, setMounted] = useState(false);
   const [selectedByPoll, setSelectedByPoll] = useState<Record<number, "yes" | "no">>({});
 
@@ -38,6 +54,22 @@ export function PollShowcase({ initialOpen = false, onResolved, onOpenChange }: 
     window.addEventListener("open-poll-showcase", handler);
     return () => window.removeEventListener("open-poll-showcase", handler);
   }, []);
+
+  useEffect(() => {
+    const closeIfReturningFromDonate = () => {
+      if (!consumeSkipPollShowcaseFlag()) return;
+      setOpen(false);
+      onResolved?.();
+    };
+
+    closeIfReturningFromDonate();
+    window.addEventListener("pageshow", closeIfReturningFromDonate);
+    window.addEventListener("focus", closeIfReturningFromDonate);
+    return () => {
+      window.removeEventListener("pageshow", closeIfReturningFromDonate);
+      window.removeEventListener("focus", closeIfReturningFromDonate);
+    };
+  }, [onResolved]);
 
   useEffect(() => {
     onOpenChange?.(open);

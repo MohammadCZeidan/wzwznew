@@ -4,12 +4,16 @@ import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { audit } from "../lib/audit";
 import { applyVote, buildBootstrap, canVote, recordPollVote } from "../lib/store";
-import { fetchActivePolls } from "../lib/pollRepository";
-import { getUserRepository } from "../lib/userRepository";
+import { fetchActivePolls, randomize } from "../lib/pollRepository";
+import { userRepository } from "../lib/userRepository";
 import type { AuthSessionData } from "../types";
 
 const voteBodySchema = z.object({
   optionId: z.string().min(1).max(64),
+});
+
+const pollParamsSchema = z.object({
+  pollId: z.string().min(1).max(64).regex(/^[a-zA-Z0-9_-]+$/),
 });
 
 const randomPollsQuerySchema = z.object({
@@ -21,7 +25,6 @@ function getSessionData(req: Request): AuthSessionData {
 }
 
 export const pollsRouter = Router();
-const userRepository = getUserRepository();
 
 const voteLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -51,12 +54,7 @@ async function handleRandomPolls(req: Request, res: Response) {
   const sessionData = getSessionData(req);
   const user = sessionData.userId ? await userRepository.findById(sessionData.userId) : null;
   const bootstrap = buildBootstrap(user, sessionData);
-  const fallbackPolls = bootstrap.polls
-    .filter((poll) => !poll.locked)
-    .map((poll) => ({ poll, sort: Math.random() }))
-    .sort((a, b) => a.sort - b.sort)
-    .slice(0, parsed.data.limit)
-    .map(({ poll }) => poll);
+  const fallbackPolls = randomize(bootstrap.polls.filter((poll) => !poll.locked)).slice(0, parsed.data.limit);
   const remotePolls = await fetchActivePolls(parsed.data.limit);
   const polls = remotePolls && remotePolls.length > 0 ? remotePolls : fallbackPolls;
 
@@ -68,6 +66,11 @@ async function handleRandomPolls(req: Request, res: Response) {
 }
 
 async function handleVote(req: Request, res: Response) {
+  const parsedParams = pollParamsSchema.safeParse(req.params);
+  if (!parsedParams.success) {
+    return res.status(400).json({ error: "Invalid poll ID." });
+  }
+
   const parsed = voteBodySchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid vote payload." });
@@ -75,7 +78,7 @@ async function handleVote(req: Request, res: Response) {
 
   const sessionData = getSessionData(req);
   const user = sessionData.userId ? await userRepository.findById(sessionData.userId) : null;
-  const { pollId } = req.params;
+  const { pollId } = parsedParams.data;
 
   const permission = canVote(user, sessionData, pollId);
   if (!permission.ok) {

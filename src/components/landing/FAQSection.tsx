@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
 import { useTheme } from "@/providers/useTheme";
+import { highlightRawWordmark } from "@/components/ui/highlightRawWordmark";
 
 const FAQ_ITEMS = [
   {
@@ -34,6 +35,16 @@ const FAQ_ITEMS = [
   },
 ];
 
+const faqStructuredData = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQ_ITEMS.map((item) => ({
+    "@type": "Question",
+    name: item.question,
+    acceptedAnswer: { "@type": "Answer", text: item.answer },
+  })),
+});
+
 export function FAQSection() {
   const [name, setName] = useState("");
   const [question, setQuestion] = useState("");
@@ -50,11 +61,12 @@ export function FAQSection() {
 
     const subject = encodeURIComponent("raW FAQ question");
     const body = encodeURIComponent(`Name: ${name.trim() || "Anonymous"}\n\nQuestion:\n${trimmedQuestion}`);
-    window.location.href = `mailto:support@theartofraw.me?subject=${subject}&body=${body}`;
+    window.location.href = `mailto:info@myraw.app?subject=${subject}&body=${body}`;
   };
 
   return (
     <section id="faq" className="px-4 py-12 sm:px-6 sm:py-16 md:py-20">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqStructuredData }} />
       <div
         className="mx-auto max-w-6xl rounded-2xl border p-4 shadow-[0_20px_50px_rgba(0,0,0,0.18)] sm:rounded-[2rem] sm:p-6 md:p-8"
         style={{
@@ -67,7 +79,7 @@ export function FAQSection() {
         <div className="mb-8 flex flex-col gap-2">
           <p className="text-[11px] uppercase tracking-[0.2em] text-raw-gold/75">FAQ</p>
           <h2 className={`font-display text-2xl tracking-wide sm:text-3xl md:text-4xl ${isLight ? "text-[#1a1400]" : "text-raw-text"}`}>
-            Questions before you enter raW?
+            {highlightRawWordmark("Questions before you enter raW?")}
           </h2>
           <p className={`text-sm ${isLight ? "text-stone-500" : "text-raw-silver/55"}`}>
             Start here if you are wondering how anonymous polls, avatars, and community chats work.
@@ -84,8 +96,8 @@ export function FAQSection() {
                 borderColor: isLight ? "rgba(180,140,0,0.18)" : "rgba(var(--raw-border-rgb,120,120,120)/0.35)",
               }}
             >
-              <h3 className={`text-base font-semibold ${isLight ? "text-[#1a1400]" : "text-raw-text"}`}>{item.question}</h3>
-              <p className={`mt-2 text-sm leading-relaxed ${isLight ? "text-stone-600" : "text-raw-silver/60"}`}>{item.answer}</p>
+              <h3 className={`text-base font-semibold ${isLight ? "text-[#1a1400]" : "text-raw-text"}`}>{highlightRawWordmark(item.question)}</h3>
+              <p className={`mt-2 text-sm leading-relaxed ${isLight ? "text-stone-600" : "text-raw-silver/60"}`}>{highlightRawWordmark(item.answer)}</p>
             </article>
           ))}
         </div>

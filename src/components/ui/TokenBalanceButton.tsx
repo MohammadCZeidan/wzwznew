@@ -1,31 +1,25 @@
-import { useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import tokenImg from "@/assets/tokens.webp";
 import { useRawStore } from "@/store/useRawStore";
 import { useTheme } from "@/providers/useTheme";
-import { PACKAGES, PaymentModal } from "@/components/dashboard/DashboardWallet";
+import { PACKAGES } from "@/lib/wallet-packages";
+
+const PaymentModal = lazy(() =>
+  import("@/components/dashboard/DashboardWallet").then((m) => ({ default: m.PaymentModal }))
+);
 
 
 export function TokenBalanceButton() {
   const { tokenBalance: balance } = useRawStore();
   const { mode } = useTheme();
   const [open, setOpen] = useState(false);
-  const [spinning, setSpinning] = useState(false);
   const [selectedPackId, setSelectedPackId] = useState<string | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"card" | "apple-pay" | "google-pay" | null>(null);
-  const [cardDetails, setCardDetails] = useState({ number: "", expiry: "", cvc: "" });
-  const spinTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const isLight = mode === "light";
 
   function handleClick() {
-    if (spinning) return;
-    setSpinning(true);
-    if (spinTimerRef.current) clearTimeout(spinTimerRef.current);
-    spinTimerRef.current = setTimeout(() => {
-      setSpinning(false);
-      setOpen((o) => !o);
-    }, 420);
+    setOpen((o) => !o);
   }
 
   function handleBuy(packId: string) {
@@ -36,8 +30,6 @@ export function TokenBalanceButton() {
 
   function handleClosePayment() {
     setPaymentOpen(false);
-    setPaymentMethod(null);
-    setCardDetails({ number: "", expiry: "", cvc: "" });
   }
 
   useEffect(() => {
@@ -60,35 +52,13 @@ export function TokenBalanceButton() {
 
   return (
     <div ref={wrapperRef} className="relative">
-      <style>{`
-        @keyframes token-spin {
-          0%   { transform: rotateY(0deg) scale(1); }
-          40%  { transform: rotateY(180deg) scale(1.15); }
-          80%  { transform: rotateY(320deg) scale(1.05); }
-          100% { transform: rotateY(360deg) scale(1); }
-        }
-        .token-spin-anim {
-          animation: token-spin 0.42s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-          transform-style: preserve-3d;
-        }
-        @keyframes balance-text-in {
-          from { opacity: 0; max-width: 0; }
-          to   { opacity: 1; max-width: 80px; }
-        }
-        .balance-text-in {
-          animation: balance-text-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-          overflow: hidden;
-          white-space: nowrap;
-        }
-      `}</style>
-
       <button
         type="button"
         onClick={handleClick}
         aria-label="Token balance"
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex items-center gap-1.5 rounded-xl border px-2 py-1 transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-raw-gold/50"
+        className="relative flex items-center gap-1.5 rounded-xl border px-2 py-1 transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-raw-gold/50"
         style={{
           borderColor: open
             ? isLight ? "rgba(148,163,184,0.55)" : "rgba(250,204,21,0.45)"
@@ -97,7 +67,7 @@ export function TokenBalanceButton() {
             ? isLight ? "rgba(255,255,255,0.92)" : "rgba(0,0,0,0.85)"
             : "transparent",
           boxShadow: open
-            ? isLight ? "0 6px 16px rgba(15,23,42,0.1)" : "0 0 12px rgba(250,204,21,0.12)"
+            ? isLight ? "0 6px 16px rgba(15,23,42,0.1)" : "0 0 16px rgba(250,204,21,0.15)"
             : "none",
           backdropFilter: open ? "blur(8px)" : "none",
         }}
@@ -108,20 +78,20 @@ export function TokenBalanceButton() {
           width={26}
           height={26}
           draggable={false}
-          className={`shrink-0 select-none object-contain${spinning ? " token-spin-anim" : ""}`}
-          style={{ filter: "drop-shadow(0 0 4px rgba(250,204,21,0.45))" }}
+          className="shrink-0 select-none object-contain"
+          style={{ filter: "drop-shadow(0 0 5px rgba(250,204,21,0.5))" }}
         />
-        {open && !spinning && (
-          <span className="balance-text-in font-display text-xs tracking-wide text-raw-gold">
+        {open && (
+          <span className="font-display text-xs tracking-wide text-raw-gold">
             {balance}
           </span>
         )}
       </button>
 
-      {open && !spinning && (
+      {open && (
         <div
           role="menu"
-          className={`absolute right-0 top-[calc(100%+8px)] z-50 w-64 rounded-2xl border p-3 shadow-xl ${
+          className={`dropdown-in absolute right-0 top-[calc(100%+8px)] z-50 w-64 rounded-2xl border p-3 shadow-xl ${
             isLight ? "border-slate-200 bg-white text-slate-900" : "border-raw-gold/25 bg-raw-black/95 text-raw-text"
           }`}
           style={{
@@ -162,20 +132,18 @@ export function TokenBalanceButton() {
             ))}
           </div>
           <p className={`mt-3 text-[10px] leading-relaxed ${isLight ? "text-slate-500" : "text-raw-silver/40"}`}>
-            Token purchases process through a secure checkout. Earn free tokens daily from the spin and challenges.
+            Token purchases are coming soon. Earn free tokens daily from the spin and challenges.
           </p>
         </div>
       )}
       {paymentOpen && selectedPackId && (
-        <PaymentModal
-          selectedPackage={PACKAGES.find((p) => p.id === selectedPackId)!}
-          paymentMethod={paymentMethod}
-          cardDetails={cardDetails}
-          onPaymentMethodChange={setPaymentMethod}
-          onCardDetailsChange={setCardDetails}
-          onBack={handleClosePayment}
-          onClose={handleClosePayment}
-        />
+        <Suspense fallback={null}>
+          <PaymentModal
+            selectedPackage={PACKAGES.find((p) => p.id === selectedPackId)!}
+            onBack={handleClosePayment}
+            onClose={handleClosePayment}
+          />
+        </Suspense>
       )}
     </div>
   );

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useTheme } from "@/providers/useTheme";
+import { pngFallbackForAvatarWebp } from "@/lib/avatarImageFallback";
 
 // Keep in sync with WHEEL_REWARD_POOL in WheelReward.tsx.
 const IMAGE_SCALE_BY_SRC: Record<string, number> = {
@@ -11,7 +12,6 @@ const IMAGE_SCALE_BY_SRC: Record<string, number> = {
   "/avatars/6.webp": 1.0,                     // Crimson Muse
   "/avatars/landing/solar-flame.webp": 1.45,  // Solar Flame
   "/avatars/landing/pink-circuit.webp": 1.22, // Pink Circuit
-  "/avatars/landing/blu-fifer.webp": 1.42,    // Blu Fifer
 };
 
 export interface WheelPrize {
@@ -36,7 +36,7 @@ interface WheelOfFortuneProps {
   disabledLabel?: React.ReactNode;
 }
 
-const SPIN_DURATION = 5000;
+const SPIN_DURATION = 6500;
 const MIN_ROTATIONS = 5;
 const MAX_ROTATIONS = 8;
 
@@ -69,19 +69,25 @@ function getTextPosition(index: number, total: number, radius: number): { x: num
   };
 }
 
-function getLabelLines(label: string): string[] {
-  const parts = label.trim().split(/\s+/);
-  if (parts.length <= 1) {
-    return [label];
+function readablePrizeTextColor(textColor: string, isLight: boolean): string {
+  if (!isLight) {
+    return textColor;
   }
 
-  if (parts.length === 2) {
-    return [parts[0], parts[1]];
+  const hexMatch = /^#([0-9a-f]{6})$/i.exec(textColor.trim());
+  if (!hexMatch) {
+    return textColor;
   }
 
-  const midpoint = Math.ceil(parts.length / 2);
-  return [parts.slice(0, midpoint).join(" "), parts.slice(midpoint).join(" ")];
+  const value = hexMatch[1];
+  const red = parseInt(value.slice(0, 2), 16);
+  const green = parseInt(value.slice(2, 4), 16);
+  const blue = parseInt(value.slice(4, 6), 16);
+  const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
+
+  return luminance > 0.72 ? "#334155" : textColor;
 }
+
 
 export function WheelOfFortune({ prizes, onSpinEnd, onSpinStart, disabled = false, prizeWeights, forcedPrizeId = null, radius: radiusProp = 200, previewOnly = false, disabledLabel }: WheelOfFortuneProps) {
   const { mode } = useTheme();
@@ -101,6 +107,7 @@ export function WheelOfFortune({ prizes, onSpinEnd, onSpinStart, disabled = fals
   const accentSoft = "rgb(var(--raw-accent) / 0.3)";
   const pointerGradientId = `pointerGrad-${pointerId}`;
   const pointerShadowId = `pointerShadow-${pointerId}`;
+  const wheelDisplaySize = `min(${size}px, calc(100vw - 3rem), calc(100svh - 12rem))`;
 
   useEffect(() => {
     onSpinEndRef.current = onSpinEnd;
@@ -194,17 +201,18 @@ export function WheelOfFortune({ prizes, onSpinEnd, onSpinStart, disabled = fals
       </div>
 
       <div
-        className={`relative aspect-square w-full max-w-[min(400px,calc(100vw-3rem))] rounded-full p-1.5 shadow-[0_0_45px_rgb(var(--raw-accent)/0.18)] ${
+        className={`relative aspect-square w-full rounded-full p-1.5 shadow-[0_0_45px_rgb(var(--raw-accent)/0.18)] ${
           isLight
             ? "border border-raw-border/70 bg-[linear-gradient(160deg,rgb(246_249_255),rgb(221_229_241))]"
             : "border border-raw-gold/30 bg-black/30"
         }`}
+        style={{ maxWidth: wheelDisplaySize }}
       >
         {/* Center SPIN button — mobile only, sits inside the SVG center circle */}
         <button
           onClick={handleSpin}
           disabled={isSpinning || disabled}
-          className={`hidden absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full px-4 py-1.5 font-display text-[10px] uppercase tracking-[0.18em] transition-all whitespace-nowrap ${
+          className={`absolute left-1/2 top-1/2 z-10 flex h-[42px] w-[42px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full font-display text-[8px] uppercase tracking-[0.04em] transition-all sm:hidden ${
             isSpinning || disabled
               ? "cursor-not-allowed bg-raw-surface/90 text-raw-silver/40"
               : "bg-raw-gold text-raw-black active:scale-95 shadow-[0_0_16px_rgb(var(--raw-accent)/0.5)]"
@@ -226,6 +234,7 @@ export function WheelOfFortune({ prizes, onSpinEnd, onSpinStart, disabled = fals
             const clipId = `wheel-clip-${baseId}-${index}`;
             const scale = (prize.imageSrc && IMAGE_SCALE_BY_SRC[prize.imageSrc]) || 1;
             const scaledSize = imgSize * scale;
+            const textColor = readablePrizeTextColor(prize.textColor, isLight);
             return (
               <g key={prize.id}>
                 <path d={getSegmentPath(index, total, radius)} fill={prize.color} stroke={isLight ? "#9ca9bb" : "#1f1f1f"} strokeWidth="1" />
@@ -239,6 +248,12 @@ export function WheelOfFortune({ prizes, onSpinEnd, onSpinStart, disabled = fals
                     <circle cx={textPosition.x} cy={textPosition.y} r={imgSize / 2} fill={isLight ? "#1a1a1a" : "#000000"} />
                     <image
                       href={prize.imageSrc}
+                      onError={(event) => {
+                        const fallback = pngFallbackForAvatarWebp(prize.imageSrc);
+                        if (fallback && event.currentTarget.getAttribute("href") !== fallback) {
+                          event.currentTarget.setAttribute("href", fallback);
+                        }
+                      }}
                       x={textPosition.x - scaledSize / 2}
                       y={textPosition.y - scaledSize / 2}
                       width={scaledSize}
@@ -246,12 +261,24 @@ export function WheelOfFortune({ prizes, onSpinEnd, onSpinStart, disabled = fals
                       preserveAspectRatio="xMidYMid slice"
                       clipPath={`url(#${clipId})`}
                     />
+                    <text
+                      x={textPosition.x}
+                      y={textPosition.y + imgSize / 2 + 10}
+                      fill={textColor}
+                      fontSize={9}
+                      fontWeight="700"
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      letterSpacing="0.5"
+                    >
+                      {prize.shortLabel}
+                    </text>
                   </g>
                 ) : (
                   <text
                     x={textPosition.x}
                     y={textPosition.y}
-                    fill={prize.textColor}
+                    fill={textColor}
                     fontSize={prize.shortLabel.length > 7 ? 9 : 11}
                     fontWeight="700"
                     textAnchor="middle"
@@ -285,7 +312,7 @@ export function WheelOfFortune({ prizes, onSpinEnd, onSpinStart, disabled = fals
         <button
           onClick={handleSpin}
           disabled={isSpinning || disabled}
-          className={`mt-6 sm:mt-8 relative overflow-hidden rounded-full px-10 py-3.5 font-display text-sm uppercase tracking-[0.2em] transition-all ${
+          className={`mt-4 hidden overflow-hidden rounded-full px-10 py-3.5 font-display text-sm uppercase tracking-[0.2em] transition-all sm:relative sm:mt-8 sm:block ${
             isSpinning || disabled
               ? "cursor-not-allowed border border-raw-border/30 bg-raw-surface text-raw-silver/30"
               : "bg-raw-gold text-raw-black hover:scale-105 hover:shadow-[0_0_30px_rgb(var(--raw-accent)/0.3)] active:scale-95"

@@ -12,7 +12,7 @@ export function useRawStore() {
   const polls = usePolls(auth.isLoggedIn, auth.user?.id);
   const rewards = useRewards(auth.user);
   const onboarding = useOnboarding(auth.isLoggedIn, auth.user);
-  const communities = useCommunities(auth.user?.username);
+  const communities = useCommunities(auth.user?.username, auth.user?.id);
 
   return useMemo(() => ({
     user: auth.user,
@@ -33,6 +33,7 @@ export function useRawStore() {
     ownedAvatarIds: rewards.ownedAvatarIds,
     unlockAvatarLevel: rewards.unlockAvatarLevel,
     markAvatarOwned: rewards.markAvatarOwned,
+    markAvatarOwnedById: rewards.markAvatarOwnedById,
     avatarPricesByLevel: rewards.avatarPricesByLevel,
     onboardingStep: onboarding.onboardingStep,
     setOnboardingStep: onboarding.setOnboardingStep,
@@ -51,12 +52,12 @@ export function useRawStore() {
     isDailyPollLimitReached: polls.isDailyPollLimitReached,
     tokenBalance: polls.tokenBalance,
     addTokens: polls.addTokens,
+    setTokenBalance: polls.setTokenBalance,
     unlockExtraPolls: polls.unlockExtraPolls,
     completeOnboarding: onboarding.completeOnboarding,
     resetOnboardingProgress: onboarding.resetOnboardingProgress,
     vote: polls.vote,
-    requestSignupOtp: auth.requestSignupOtp,
-    verifySignupOtp: auth.verifySignupOtp,
+    signup: auth.signup,
     login: auth.login,
     logout: auth.logout,
   }), [auth, communities, onboarding, polls, rewards]);

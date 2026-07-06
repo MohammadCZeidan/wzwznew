@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Gift, Sparkles, Star, Zap, Clock } from "lucide-react";
 import { WheelOfFortune, type WheelPrize } from "@/components/wheel/WheelOfFortune";
+import { buildSpinPrizes } from "@/lib/spin-prizes";
 import { useTheme } from "@/providers/useTheme";
 import {
   Dialog,
@@ -15,7 +16,7 @@ import {
   type DailySpinAvatarPoolItem,
 } from "@/lib/dailySpinAvatarPool";
 import { grantDailySpinAvatarOnceForUser } from "@/lib/avatarCatalog";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "@/hooks/use-toast";
 
 const SPIN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
@@ -26,36 +27,6 @@ interface DashboardDailySpinProps {
   onAvatarWon?: (level: number) => void;
 }
 
-function toRgba(rgbSpaceSeparated: string, alpha: number): string {
-  const [r, g, b] = rgbSpaceSeparated.split(" ").map((value) => Number(value));
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-// eslint-disable-next-line react-refresh/only-export-components -- prize-table builder colocated with the spin component; splitting would just add a one-line file
-export function buildSpinPrizes(mode: "light" | "dark", accentRgb: string): WheelPrize[] {
-  const isLight = mode === "light";
-  const neutralA = isLight ? "#c9d7ea" : "#1d2533";
-  const neutralB = isLight ? "#b8c7dc" : "#131b29";
-  const neutralText = isLight ? "#223247" : "#d7e1f2";
-  const missText = isLight ? "#4e5f78" : "#6f7d93";
-  const accentSoft = toRgba(accentRgb, isLight ? 0.28 : 0.24);
-  const accentStrong = toRgba(accentRgb, isLight ? 0.38 : 0.32);
-
-  return [
-    { id: "xp-50", label: "50 XP", shortLabel: "50 XP", color: neutralA, textColor: neutralText },
-    { id: "try-1", label: "Try Again", shortLabel: "TRY AGAIN", color: neutralB, textColor: missText },
-    { id: "xp-100", label: "100 XP", shortLabel: "100 XP", color: accentSoft, textColor: neutralText },
-    { id: "try-2", label: "Try Again", shortLabel: "TRY AGAIN", color: neutralB, textColor: missText },
-    { id: "xp-200", label: "200 XP", shortLabel: "200 XP", color: accentStrong, textColor: neutralText },
-    { id: "try-3", label: "Try Again", shortLabel: "TRY AGAIN", color: neutralB, textColor: missText },
-    { id: "theme", label: "Avatar Theme", shortLabel: "THEME", color: accentStrong, textColor: neutralText },
-    { id: "xp-50b", label: "50 XP", shortLabel: "50 XP", color: neutralA, textColor: neutralText },
-    { id: "try-4", label: "Try Again", shortLabel: "TRY AGAIN", color: neutralB, textColor: missText },
-    { id: "xp-500", label: "500 XP Jackpot!", shortLabel: "500 XP", color: isLight ? "#efd98f" : "#1a1508", textColor: isLight ? "#6f4e00" : "#F1C42D" },
-    { id: "xp-100b", label: "100 XP", shortLabel: "100 XP", color: accentSoft, textColor: neutralText },
-    { id: "xp-50c", label: "50 XP", shortLabel: "50 XP", color: neutralA, textColor: neutralText },
-  ];
-}
 
 const PRIZE_WEIGHTS: Partial<Record<string, number>> = {
   "xp-500": 0.01,
@@ -94,7 +65,11 @@ export function DashboardDailySpin({ userId, isAdmin = false, onAwardXP, onAvata
     () => accentPresets.find((preset) => preset.id === accent)?.rgb ?? "241 196 45",
     [accent, accentPresets],
   );
-  const prizes = useMemo(() => buildSpinPrizes(mode, accentRgb), [accentRgb, mode]);
+  // buildSpinPrizes only distinguishes light vs dark; dusk renders as dark.
+  const prizes = useMemo(
+    () => buildSpinPrizes(mode === "light" ? "light" : "dark", accentRgb),
+    [accentRgb, mode],
+  );
   const adminRewardOptions = useMemo(
     () => [
       { id: "random", label: "Random (weighted)" },
@@ -107,7 +82,7 @@ export function DashboardDailySpin({ userId, isAdmin = false, onAwardXP, onAvata
     ],
     [],
   );
-  const [selectedRewardId, setSelectedRewardId] = useState<string | null>(null);
+  const [, setSelectedRewardId] = useState<string | null>(null);
   const [lastSpinAt, setLastSpinAt] = useState<number | null>(() => {
     try {
       const stored = localStorage.getItem(storageKey);
@@ -179,7 +154,6 @@ export function DashboardDailySpin({ userId, isAdmin = false, onAwardXP, onAvata
     return () => window.clearInterval(timer);
   }, [updateCountdown]);
 
-  const selectedPrize = prizes.find((prize) => prize.id === selectedRewardId) ?? null;
 
   const handleSpinStart = useCallback(() => {
     if (isAdmin) return;
@@ -253,7 +227,6 @@ export function DashboardDailySpin({ userId, isAdmin = false, onAwardXP, onAvata
     setPrizeModal(null);
   };
 
-  const selectedMessage = selectedPrize ? prizeMessages[selectedPrize.id] : null;
   const modalMessage = prizeModal ? prizeMessages[prizeModal.id] : null;
   const jackpotCoins = useMemo(
     () =>
@@ -273,7 +246,7 @@ export function DashboardDailySpin({ userId, isAdmin = false, onAwardXP, onAvata
   const forcedPrizeId = isAdmin && adminSelectedRewardId !== "random" ? adminSelectedRewardId : null;
 
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <div className="space-y-4 sm:space-y-8">
 
       {isAdmin && (
         <div className="mx-auto flex w-full max-w-md flex-col gap-2 rounded-2xl border border-raw-border/45 bg-raw-surface/35 p-3">
@@ -295,13 +268,13 @@ export function DashboardDailySpin({ userId, isAdmin = false, onAwardXP, onAvata
       )}
 
       <div
-        className={`rounded-2xl border p-4 sm:rounded-[2rem] sm:p-6 md:p-8 ${
+        className={`rounded-2xl border p-3 sm:rounded-[2rem] sm:p-6 md:p-8 ${
           mode === "light"
             ? "border-raw-border/70 bg-[radial-gradient(circle_at_50%_10%,rgba(241,196,45,0.2),rgba(224,231,242,0.96)_58%)]"
             : "border-raw-border/35 bg-[radial-gradient(circle_at_50%_10%,rgba(241,196,45,0.08),rgba(0,0,0,0.8)_48%)]"
         }`}
       >
-        <div className="flex justify-center pt-2">
+        <div className="flex justify-center pt-1 sm:pt-2">
           <WheelOfFortune
             prizes={prizes}
             onSpinEnd={handleSpinEnd}
@@ -309,7 +282,7 @@ export function DashboardDailySpin({ userId, isAdmin = false, onAwardXP, onAvata
             disabled={isSpinDisabled}
             prizeWeights={PRIZE_WEIGHTS}
             forcedPrizeId={forcedPrizeId}
-            radius={160}
+            radius={typeof window !== "undefined" && window.innerWidth < 640 ? 100 : 160}
             disabledLabel={isCooldownActive && !isAdmin ? countdown : undefined}
           />
         </div>

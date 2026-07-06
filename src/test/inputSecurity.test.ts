@@ -1,12 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   assertUserTextAllowed,
   moderateUserText,
   parseUserTextDenylist,
   UserTextModerationError,
 } from "@/lib/inputSecurity";
+import { writeBlockedWords } from "@/lib/adminData";
 
 describe("user text moderation", () => {
+  afterEach(() => {
+    writeBlockedWords([]);
+  });
+
   it("allows normal public text and normalizes whitespace", () => {
     const result = moderateUserText("  hello   everyone  ", { denylist: [] });
 
@@ -33,7 +38,51 @@ describe("user text moderation", () => {
     expect(parseUserTextDenylist("Alpha, beta\nalpha")).toEqual(["alpha", "beta"]);
   });
 
+  it("blocks admin-managed denylist terms by default", () => {
+    writeBlockedWords(["adminterm"]);
+
+    const result = moderateUserText("please hide adminterm");
+
+    expect(result.allowed).toBe(false);
+    expect(result.violations[0]).toMatchObject({ type: "denylist", value: "adminterm" });
+  });
+
   it("throws a moderation error from assertUserTextAllowed", () => {
     expect(() => assertUserTextAllowed("https://example.com", { denylist: [] })).toThrow(UserTextModerationError);
+  });
+
+  // --- surface-specific coverage ---
+
+  it("blocked word rejects chat text (simulated via memory store)", () => {
+    writeBlockedWords(["badword"]);
+    const result = moderateUserText("hey this is badword ok?");
+    expect(result.allowed).toBe(false);
+    expect(result.violations[0]).toMatchObject({ type: "denylist" });
+  });
+
+  it("blocked word rejects poll comment", () => {
+    writeBlockedWords(["slur"]);
+    expect(moderateUserText("my comment has slur in it").allowed).toBe(false);
+  });
+
+  it("clean text passes moderation", () => {
+    writeBlockedWords(["badword"]);
+    expect(moderateUserText("this is a clean message").allowed).toBe(true);
+  });
+
+  it("links are blocked in public text", () => {
+    expect(moderateUserText("check www.example.com").allowed).toBe(false);
+    expect(moderateUserText("check example.com").allowed).toBe(false);
+    expect(moderateUserText("check https://example.com").allowed).toBe(false);
+  });
+
+  it("phone-like numbers are blocked", () => {
+    expect(moderateUserText("call 555-123-4567").allowed).toBe(false);
+    expect(moderateUserText("my number is 12345678").allowed).toBe(false);
+  });
+
+  it("links and numbers behavior is unchanged for short numbers and plain text", () => {
+    expect(moderateUserText("I have 5 cats").allowed).toBe(true);
+    expect(moderateUserText("score was 99.5%").allowed).toBe(true);
   });
 });

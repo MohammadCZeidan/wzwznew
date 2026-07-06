@@ -1,7 +1,10 @@
 import { supabase } from "@/lib/supabase";
 import type { AvatarRarity } from "@/lib/avatarRarity";
+import { RANK_TIER_PRICING } from "@/lib/avatarRarity";
+import { getAvatarRank } from "@/lib/avatarRank";
 import { GENERATED_AVATAR_ENTRIES } from "@/lib/generatedAvatarEntries";
 import { avatarDisplayName, avatarIdFromImageSrc } from "@/config/avatarNames";
+import { timeSupabaseQuery } from "@/lib/devPerf";
 
 export type AvatarCatalogItem = {
   id: string;
@@ -15,7 +18,7 @@ export type AvatarCatalogItem = {
   glow: string;
   isActive?: boolean;
   isNew?: boolean;
-  showIn?: "landing" | "app" | "both";
+  showIn?: "landing" | "app" | "both" | "admin";
   rarity?: AvatarRarity;
   dropWeight?: number;
   /** Optional explicit frame color tier, e.g. "grey" / "platinum" / "rainbow". */
@@ -32,6 +35,7 @@ const DAILY_SPIN_AVATAR_CLAIM_PREFIX = "raw.daily-spin.avatar-claim.v1.";
 export const LANDING_WHEEL_SPIN_KEY = "raw.landing-wheel.spin.v1";
 let avatarBackendMissingTables = false;
 let avatarCatalogLocalWriteFailed = false;
+let _catalogCache: AvatarCatalogItem[] | null = null;
 
 function withNumberedAvatarName(item: AvatarCatalogItem): AvatarCatalogItem {
   const imageId = avatarIdFromImageSrc(item.imageSrc);
@@ -63,22 +67,23 @@ function markBackendMissingIfNeeded(error: unknown): void {
 }
 
 export const DEFAULT_AVATAR_CATALOG: readonly AvatarCatalogItem[] = [
-  { id: "ember", level: 1, name: "Ember", price: "50", imageSrc: "/avatars/avatar-3.svg", bg: "#1f0a05", figure: "#ff8a1f", ring: "#ff8a1f", glow: "#ff8a1f80", isActive: true, showIn: "both", rarity: "common" },
-  { id: "verdant", level: 2, name: "Verdant", price: "50", imageSrc: "/avatars/avatar-1.svg", bg: "#08160b", figure: "#22c55e", ring: "#22c55e", glow: "#22c55e80", isActive: true, showIn: "both", rarity: "common" },
-  { id: "horned", level: 3, name: "Horned", price: "50", imageSrc: "/avatars/avatar-5.svg", bg: "#1f0808", figure: "#ff2d3d", ring: "#ff2d3d", glow: "#ff2d3d80", isActive: true, showIn: "both", rarity: "common" },
-  { id: "pharaoh", level: 4, name: "Pharaoh", price: "50", imageSrc: "/avatars/avatar-6.svg", bg: "#1f1605", figure: "#f2d21a", ring: "#f2d21a", glow: "#f2d21a80", isActive: true, showIn: "both", rarity: "common" },
-  { id: "violet", level: 5, name: "Violet", price: "50", imageSrc: "/avatars/avatar-2.svg", bg: "#150a22", figure: "#b84dff", ring: "#b84dff", glow: "#b84dff80", isActive: true, showIn: "both", rarity: "common" },
-  { id: "rose", level: 6, name: "Rose", price: "50", imageSrc: "/avatars/avatar-4.svg", bg: "#1f0a14", figure: "#f43f5e", ring: "#f43f5e", glow: "#f43f5e80", isActive: true, showIn: "both", rarity: "common" },
-  { id: "black", level: 7, name: "Black", price: "50", imageSrc: "/avatars/avatar-7.svg", bg: "#0a0a0a", figure: "#cfd3da", ring: "#cfd3da", glow: "#cfd3da80", isActive: true, showIn: "both", rarity: "common" },
-  { id: "blue", level: 8, name: "Blue", price: "50", imageSrc: "/avatars/avatar-10.svg", bg: "#0a1424", figure: "#3b82f6", ring: "#3b82f6", glow: "#3b82f680", isActive: true, showIn: "both", rarity: "common" },
+  { id: "ember", level: 1, name: "Ash Wraith", price: "50", imageSrc: "/avatars/avatar-3.svg", bg: "#1f0a05", figure: "#cbd5e1", ring: "#cbd5e1", glow: "#cbd5e180", isActive: true, showIn: "both", rarity: "common", frame_color: "grey" },
+  { id: "verdant", level: 2, name: "Verdant Echo", price: "50", imageSrc: "/avatars/avatar-1.svg", bg: "#08160b", figure: "#3b82f6", ring: "#3b82f6", glow: "#3b82f680", isActive: true, showIn: "both", rarity: "common", frame_color: "blue" },
+  { id: "horned", level: 3, name: "Horned Specter", price: "50", imageSrc: "/avatars/avatar-5.svg", bg: "#1f0808", figure: "#d946ef", ring: "#d946ef", glow: "#d946ef80", isActive: true, showIn: "both", rarity: "common", frame_color: "purple" },
+  { id: "pharaoh", level: 4, name: "Desert Pharaoh", price: "50", imageSrc: "/avatars/avatar-6.svg", bg: "#1f1605", figure: "#fb923c", ring: "#fb923c", glow: "#fb923c80", isActive: true, showIn: "both", rarity: "common", frame_color: "orange" },
+  { id: "violet", level: 5, name: "Scarlet Wraith", price: "50", imageSrc: "/avatars/avatar-2.svg", bg: "#150a22", figure: "#ef4444", ring: "#ef4444", glow: "#ef444480", isActive: true, showIn: "both", rarity: "common", frame_color: "red" },
+  { id: "rose", level: 6, name: "Rose Phantom", price: "50", imageSrc: "/avatars/avatar-4.svg", bg: "#1f0a14", figure: "#fb7185", ring: "#fb7185", glow: "#fb718580", isActive: true, showIn: "both", rarity: "common", frame_color: "pink" },
+  { id: "black", level: 7, name: "Shadow Herald", price: "50", imageSrc: "/avatars/avatar-7.svg", bg: "#0a0a0a", figure: "#fbbf24", ring: "#fbbf24", glow: "#fbbf2490", isActive: true, showIn: "both", rarity: "common", frame_color: "rose" },
+  { id: "blue", level: 8, name: "Azure Oracle", price: "50", imageSrc: "/avatars/avatar-10.svg", bg: "#0a1424", figure: "#fbbf24", ring: "#fbbf24", glow: "#fbbf2490", isActive: true, showIn: "both", rarity: "common", frame_color: "gold" },
   { id: "silver-void", level: 9, name: avatarDisplayName(1), price: "50", imageSrc: "/avatars/1.webp", bg: "#111827", figure: "#cbd5e1", ring: "#cbd5e1", glow: "#cbd5e180", isActive: true, showIn: "both", rarity: "common" },
-  { id: "neon-lynx", level: 10, name: avatarDisplayName(18), price: "50", imageSrc: "/avatars/18.png", bg: "#170f2e", figure: "#a855f7", ring: "#c084fc", glow: "#a855f780", isActive: true, showIn: "both", rarity: "common" },
-  { id: "blue-signal", level: 11, name: avatarDisplayName(23), price: "50", imageSrc: "/avatars/23.png", bg: "#06131f", figure: "#22d3ee", ring: "#22d3ee", glow: "#22d3ee80", isActive: true, showIn: "both", rarity: "common" },
-  { id: "violet-mask", level: 12, name: avatarDisplayName(24), price: "50", imageSrc: "/avatars/24.png", bg: "#1a1028", figure: "#d946ef", ring: "#d946ef", glow: "#d946ef80", isActive: true, showIn: "both", rarity: "common" },
-  { id: "horned-iron", level: 13, name: avatarDisplayName(5), price: "50", imageSrc: "/avatars/5.png", bg: "#1f0a05", figure: "#fb923c", ring: "#fb923c", glow: "#fb923c80", isActive: true, showIn: "both", rarity: "common" },
+  { id: "neon-lynx", level: 10, name: avatarDisplayName(18), price: "50", imageSrc: "/avatars/18.webp", bg: "#170f2e", figure: "#a855f7", ring: "#c084fc", glow: "#a855f780", isActive: true, showIn: "both", rarity: "common" },
+  { id: "blue-signal", level: 11, name: avatarDisplayName(23), price: "50", imageSrc: "/avatars/23.webp", bg: "#16100a", figure: "#facc15", ring: "#facc15", glow: "#facc1590", isActive: true, showIn: "both", rarity: "common", frame_color: "gold", rank_tier: 9 },
+  { id: "violet-mask", level: 12, name: avatarDisplayName(24), price: "50", imageSrc: "/avatars/24.webp", bg: "#1a1028", figure: "#d946ef", ring: "#d946ef", glow: "#d946ef80", isActive: true, showIn: "both", rarity: "common" },
+  { id: "horned-iron", level: 13, name: avatarDisplayName(5), price: "50", imageSrc: "/avatars/5.webp", bg: "#1f0a05", figure: "#fb923c", ring: "#fb923c", glow: "#fb923c80", isActive: true, showIn: "both", rarity: "common" },
   { id: "crimson-muse", level: 14, name: avatarDisplayName(6), price: "50", imageSrc: "/avatars/6.webp", bg: "#2a0b0b", figure: "#f97316", ring: "#f97316", glow: "#f9731680", isActive: true, showIn: "both", rarity: "common" },
-  { id: "solar-flame", level: 15, name: avatarDisplayName(7), price: "50", imageSrc: "/avatars/7.png", bg: "#241005", figure: "#facc15", ring: "#facc15", glow: "#facc1590", isActive: true, showIn: "both", rarity: "common" },
-  { id: "pink-circuit", level: 16, name: avatarDisplayName(35), price: "50", imageSrc: "/avatars/35.png", bg: "#2a0b1c", figure: "#fb7185", ring: "#fb7185", glow: "#fb718580", isActive: true, showIn: "both", rarity: "common" },
+  { id: "solar-flame", level: 15, name: avatarDisplayName(7), price: "50", imageSrc: "/avatars/landing/solar-flame.webp", bg: "#241005", figure: "#facc15", ring: "#facc15", glow: "#facc1590", isActive: true, showIn: "both", rarity: "common" },
+  { id: "pink-circuit", level: 16, name: "Pink Circuit", price: "50", imageSrc: "/avatars/landing/pink-circuit.webp", bg: "#2a0b1c", figure: "#fb7185", ring: "#fb7185", glow: "#fb718580", isActive: true, showIn: "both", rarity: "common" },
+  { id: "s1-custom", level: 100, name: "S1 Custom", price: "40000", bg: "#0a0a0a", figure: "#ffd700", ring: "#ffd700", glow: "#ffd700cc", isActive: true, showIn: "admin", rarity: "legendary", rank_tier: 11, frame_color: "gold" },
   ...Array.from({ length: 18 }, (_, index): AvatarCatalogItem | null => {
     const level = index + 17;
     // Skip image ids already represented by a semantic alias above
@@ -89,7 +94,7 @@ export const DEFAULT_AVATAR_CATALOG: readonly AvatarCatalogItem[] = [
       level,
       name: avatarDisplayName(level),
       price: "50",
-      imageSrc: `/avatars/${level}.png`,
+      imageSrc: `/avatars/${level}.webp`,
       bg: "#111827",
       figure: "#cbd5e1",
       ring: "#cbd5e1",
@@ -102,18 +107,6 @@ export const DEFAULT_AVATAR_CATALOG: readonly AvatarCatalogItem[] = [
   ...GENERATED_AVATAR_ENTRIES.map(withNumberedAvatarName),
 ];
 
-const WHEEL_AVATAR_IDS = new Set([
-  "silver-void",
-  "neon-lynx",
-  "blue-signal",
-  "violet-mask",
-  "horned-iron",
-  "crimson-muse",
-  "solar-flame",
-  "pink-circuit",
-  "blu-fifer",
-]);
-
 const LANDING_WHEEL_PRIZE_TO_AVATAR_ID: Record<string, string> = {
   "wheel-avatar-1": "silver-void",
   "wheel-avatar-2": "neon-lynx",
@@ -123,7 +116,6 @@ const LANDING_WHEEL_PRIZE_TO_AVATAR_ID: Record<string, string> = {
   "wheel-avatar-6": "crimson-muse",
   "wheel-avatar-7": "solar-flame",
   "wheel-avatar-8": "pink-circuit",
-  "wheel-avatar-10": "blu-fifer",
 };
 
 export type DailySpinAvatarGrantResult =
@@ -173,12 +165,8 @@ function sanitizeCatalog(items: AvatarCatalogItem[]): AvatarCatalogItem[] {
   return ordered.length > 0 ? ordered : cloneCatalog(DEFAULT_AVATAR_CATALOG);
 }
 
-function isBrowser(): boolean {
-  return typeof window !== "undefined";
-}
-
 function dispatchCatalogUpdated(): void {
-  if (!isBrowser()) return;
+  if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent("raw:avatar-catalog-updated"));
 }
 
@@ -187,22 +175,38 @@ export function getDefaultAvatarCatalog(): AvatarCatalogItem[] {
 }
 
 export function readAvatarCatalogLocal(): AvatarCatalogItem[] {
-  if (!isBrowser()) return cloneCatalog(DEFAULT_AVATAR_CATALOG);
+  if (_catalogCache) return _catalogCache;
+  if (typeof window === "undefined") return cloneCatalog(DEFAULT_AVATAR_CATALOG);
 
   try {
     const raw = window.localStorage.getItem(CATALOG_STORAGE_KEY);
-    if (!raw) return cloneCatalog(DEFAULT_AVATAR_CATALOG);
+    if (!raw) { _catalogCache = cloneCatalog(DEFAULT_AVATAR_CATALOG); return _catalogCache; }
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return cloneCatalog(DEFAULT_AVATAR_CATALOG);
-    return includeMissingDefaultAvatars(sanitizeCatalog(parsed as AvatarCatalogItem[]));
+    if (!Array.isArray(parsed)) { _catalogCache = cloneCatalog(DEFAULT_AVATAR_CATALOG); return _catalogCache; }
+    const items = includeMissingDefaultAvatars(sanitizeCatalog(parsed as AvatarCatalogItem[]));
+    _catalogCache = items.map((item) => ({
+      ...item,
+      imageSrc: DEFAULT_IMAGE_SRC_BY_ID.get(item.id) ?? item.imageSrc,
+      ...CANONICAL_OVERRIDES_BY_ID[item.id],
+    }));
+    return _catalogCache;
   } catch {
-    return cloneCatalog(DEFAULT_AVATAR_CATALOG);
+    _catalogCache = cloneCatalog(DEFAULT_AVATAR_CATALOG);
+    return _catalogCache;
   }
+}
+
+/** O(1) catalog lookup by avatar id. Pass the result of readAvatarCatalogLocal(). */
+export function buildAvatarIdToLevelMap(catalog: AvatarCatalogItem[]): Map<string, number> {
+  const map = new Map<string, number>();
+  catalog.forEach((item, index) => map.set(item.id, index + 1));
+  return map;
 }
 
 export function writeAvatarCatalogLocal(items: AvatarCatalogItem[]): AvatarCatalogItem[] {
   const next = sanitizeCatalog(items);
-  if (isBrowser()) {
+  if (typeof window !== "undefined") {
+    _catalogCache = null;
     avatarCatalogLocalWriteFailed = false;
     try {
       window.localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify(next));
@@ -220,6 +224,78 @@ export function readAvatarThemesFromCache(): AvatarCatalogItem[] {
   return readAvatarCatalogLocal();
 }
 
+// Correct image paths from local source code always win over whatever
+// Supabase has stored — guards against stale .png paths in the DB when
+// the actual file on disk is .webp (or vice-versa).
+const DEFAULT_IMAGE_SRC_BY_ID = new Map(
+  DEFAULT_AVATAR_CATALOG.filter((i) => i.imageSrc).map((i) => [i.id, i.imageSrc!])
+);
+
+// Supabase avatar_catalog is the source of truth. Keep these overrides as a
+// temporary guard only for users with stale local/Supabase cache data; new
+// avatar corrections should be fixed in migrations first, not added here by
+// default.
+export const CANONICAL_OVERRIDES_BY_ID: Record<string, Partial<Pick<AvatarCatalogItem, "name" | "frame_color" | "rank_tier" | "ring" | "glow" | "showIn">>> = {
+  "s1-custom": { showIn: "admin" },
+  "blue-signal": { name: "Gold Specter", frame_color: "gold", rank_tier: 9 },
+  "blu-fifer":   { name: "Red Fifer",    frame_color: "red",  rank_tier: 6, ring: "#ef4444", glow: "#ef444480" },
+  "crimson-muse": { frame_color: "orange", rank_tier: 4 },
+  "avatar-17": { frame_color: "orange", rank_tier: 4 },
+  "avatar-42": { frame_color: "orange", rank_tier: 4 },
+  "violet-mask": { frame_color: "purple", rank_tier: 5 },
+  "horned-iron": { frame_color: "purple", rank_tier: 5 },
+  "avatar-32": { frame_color: "purple", rank_tier: 5 },
+  "avatar-37": { frame_color: "purple", rank_tier: 5 },
+  "avatar-41": { frame_color: "purple", rank_tier: 5 },
+  "avatar-46": { frame_color: "purple", rank_tier: 5 },
+  "avatar-49": { frame_color: "purple", rank_tier: 5 },
+  "avatar-57": { frame_color: "purple", rank_tier: 5 },
+  "avatar-58": { frame_color: "purple", rank_tier: 5 },
+  "avatar-27": { frame_color: "red", rank_tier: 6 },
+  "avatar-39": { frame_color: "red", rank_tier: 6 },
+  "avatar-16": { frame_color: "pink", rank_tier: 7 },
+  "avatar-47": { frame_color: "pink", rank_tier: 7 },
+  "avatar-51": { frame_color: "pink", rank_tier: 7 },
+  "avatar-21": { frame_color: "rose", rank_tier: 8 },
+  "avatar-29": { frame_color: "rose", rank_tier: 8 },
+  "avatar-31": { frame_color: "gold", rank_tier: 9, ring: "#facc15", glow: "#facc1580" },
+  "avatar-54": { frame_color: "rose", rank_tier: 8 },
+  "avatar-55": { frame_color: "rose", rank_tier: 8 },
+  "avatar-23": { frame_color: "gold", rank_tier: 9 },
+  "avatar-38": { frame_color: "gold", rank_tier: 9 },
+  "avatar-22": { frame_color: "green", rank_tier: 3 },
+};
+
+export const CANONICAL_OVERRIDE_MIGRATIONS_BY_ID: Record<keyof typeof CANONICAL_OVERRIDES_BY_ID, string> = {
+  "blue-signal": "20260630124500_avatar_catalog_authoritative_backfill.sql",
+  "blu-fifer": "20260630124500_avatar_catalog_authoritative_backfill.sql",
+  "crimson-muse": "20260630133000_avatar_r4_authoritative_backfill.sql",
+  "avatar-17": "20260630133000_avatar_r4_authoritative_backfill.sql",
+  "avatar-42": "20260630133000_avatar_r4_authoritative_backfill.sql",
+  "violet-mask": "20260630134500_avatar_r5_authoritative_backfill.sql",
+  "horned-iron": "20260630134500_avatar_r5_authoritative_backfill.sql",
+  "avatar-32": "20260630134500_avatar_r5_authoritative_backfill.sql",
+  "avatar-37": "20260630134500_avatar_r5_authoritative_backfill.sql",
+  "avatar-41": "20260630134500_avatar_r5_authoritative_backfill.sql",
+  "avatar-46": "20260630134500_avatar_r5_authoritative_backfill.sql",
+  "avatar-49": "20260630134500_avatar_r5_authoritative_backfill.sql",
+  "avatar-57": "20260630134500_avatar_r5_authoritative_backfill.sql",
+  "avatar-58": "20260630134500_avatar_r5_authoritative_backfill.sql",
+  "avatar-27": "20260630140000_avatar_r6_authoritative_backfill.sql",
+  "avatar-39": "20260630140000_avatar_r6_authoritative_backfill.sql",
+  "avatar-16": "20260630141500_avatar_r7_authoritative_backfill.sql",
+  "avatar-47": "20260630141500_avatar_r7_authoritative_backfill.sql",
+  "avatar-51": "20260630141500_avatar_r7_authoritative_backfill.sql",
+  "avatar-21": "20260630143000_avatar_r8_authoritative_backfill.sql",
+  "avatar-29": "20260630143000_avatar_r8_authoritative_backfill.sql",
+  "avatar-31": "20260630143000_avatar_r8_authoritative_backfill.sql",
+  "avatar-54": "20260630143000_avatar_r8_authoritative_backfill.sql",
+  "avatar-55": "20260630143000_avatar_r8_authoritative_backfill.sql",
+  "avatar-23": "20260630144500_avatar_r9_authoritative_backfill.sql",
+  "avatar-38": "20260630144500_avatar_r9_authoritative_backfill.sql",
+  "avatar-22": "20260630150000_avatar_r3_night_prism_backfill.sql",
+};
+
 async function refreshAvatarCatalogFromSupabase(): Promise<void> {
   try {
     let data: Record<string, unknown>[] | null = null;
@@ -229,26 +305,30 @@ async function refreshAvatarCatalogFromSupabase(): Promise<void> {
         .select(cols)
         .eq("is_active", true)
         .order("level", { ascending: true });
-      if (!error) { data = d as Record<string, unknown>[]; break; }
+      if (!error) { data = d as unknown as Record<string, unknown>[]; break; }
       markBackendMissingIfNeeded(error);
       if (cols === BASE_COLS) return;
     }
 
-    const mapped = (data ?? []).map((row) => ({
-      id: row.id as string,
-      level: row.level as number,
-      name: row.name as string,
-      price: row.price as string,
-      imageSrc: (row.image_src as string | undefined) ?? undefined,
-      bg: row.bg as string,
-      figure: row.figure as string,
-      ring: row.ring as string,
-      glow: row.glow as string,
-      isActive: row.is_active as boolean,
-      isNew: false,
-      rarity: (row.rarity as AvatarRarity | undefined) ?? "common",
-      dropWeight: (row.drop_weight as number | undefined) ?? 100,
-    }));
+    const mapped = (data ?? []).map((row) => {
+      const id = row.id as string;
+      return {
+        id,
+        level: row.level as number,
+        name: (row.name as string),
+        price: row.price as string,
+        imageSrc: DEFAULT_IMAGE_SRC_BY_ID.get(id) ?? (row.image_src as string | undefined) ?? undefined,
+        bg: row.bg as string,
+        figure: row.figure as string,
+        ring: row.ring as string,
+        glow: row.glow as string,
+        isActive: row.is_active as boolean,
+        isNew: false,
+        rarity: (row.rarity as AvatarRarity | undefined) ?? "common",
+        dropWeight: (row.drop_weight as number | undefined) ?? 100,
+        ...CANONICAL_OVERRIDES_BY_ID[id],
+      };
+    });
 
     if (mapped.length > 0) writeAvatarCatalogLocal(mapped);
   } catch { /* stay on local cache */ }
@@ -271,7 +351,7 @@ export async function loadAvatarCatalogSupabaseOnly(): Promise<AvatarCatalogItem
       .select(cols)
       .eq("is_active", true)
       .order("level", { ascending: true });
-    if (!error) { data = d as Record<string, unknown>[]; break; }
+    if (!error) { data = d as unknown as Record<string, unknown>[]; break; }
     if (cols === BASE_COLS) throw new Error(error.message || "Could not load avatar catalog from Supabase.");
   }
 
@@ -300,7 +380,7 @@ export async function loadAvatarCatalogSupabaseOnly(): Promise<AvatarCatalogItem
 }
 
 export function readFullAvatarCatalogLocal(): AvatarCatalogItem[] {
-  if (!isBrowser()) return [];
+  if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(FULL_CATALOG_STORAGE_KEY);
     if (!raw) return [];
@@ -314,7 +394,7 @@ export function readFullAvatarCatalogLocal(): AvatarCatalogItem[] {
 }
 
 function writeFullAvatarCatalogLocal(items: AvatarCatalogItem[]): void {
-  if (!isBrowser()) return;
+  if (typeof window === "undefined") return;
   try { window.localStorage.setItem(FULL_CATALOG_STORAGE_KEY, JSON.stringify(items)); } catch { /* ignore */ }
 }
 
@@ -325,7 +405,7 @@ export async function loadFullAvatarCatalog(): Promise<AvatarCatalogItem[]> {
       .from("avatar_catalog")
       .select(cols)
       .order("level", { ascending: true });
-    if (!error) { data = d as Record<string, unknown>[]; break; }
+    if (!error) { data = d as unknown as Record<string, unknown>[]; break; }
     if (cols === BASE_COLS) throw new Error(error.message || "Could not load full avatar catalog from Supabase.");
   }
 
@@ -460,17 +540,17 @@ function dailySpinAvatarClaimKey(userId: string): string {
 }
 
 function readDailySpinAvatarClaimLocal(userId: string): string | null {
-  if (!isBrowser()) return null;
+  if (typeof window === "undefined") return null;
   return window.localStorage.getItem(dailySpinAvatarClaimKey(userId));
 }
 
 function writeDailySpinAvatarClaimLocal(userId: string, avatarId: string): void {
-  if (!isBrowser()) return;
+  if (typeof window === "undefined") return;
   window.localStorage.setItem(dailySpinAvatarClaimKey(userId), avatarId);
 }
 
 function readLandingWheelAvatarIdLocal(catalog: AvatarCatalogItem[]): string | null {
-  if (!isBrowser()) return null;
+  if (typeof window === "undefined") return null;
 
   try {
     const raw = window.localStorage.getItem(LANDING_WHEEL_SPIN_KEY);
@@ -489,7 +569,7 @@ function readLandingWheelAvatarIdLocal(catalog: AvatarCatalogItem[]): string | n
 }
 
 function clearLandingWheelAvatarLocal(): void {
-  if (!isBrowser()) return;
+  if (typeof window === "undefined") return;
   window.localStorage.removeItem(LANDING_WHEEL_SPIN_KEY);
 }
 
@@ -503,7 +583,7 @@ function defaultOwnedIds(catalog: AvatarCatalogItem[]): string[] {
 }
 
 export function readOwnedAvatarIdsLocal(userId: string, catalog: AvatarCatalogItem[]): string[] {
-  if (!isBrowser()) return defaultOwnedIds(catalog);
+  if (typeof window === "undefined") return defaultOwnedIds(catalog);
 
   try {
     const raw = window.localStorage.getItem(inventoryKey(userId));
@@ -518,12 +598,12 @@ export function readOwnedAvatarIdsLocal(userId: string, catalog: AvatarCatalogIt
 }
 
 export function writeOwnedAvatarIdsLocal(userId: string, ownedAvatarIds: string[]): void {
-  if (!isBrowser()) return;
+  if (typeof window === "undefined") return;
   window.localStorage.setItem(inventoryKey(userId), JSON.stringify(Array.from(new Set(ownedAvatarIds))));
 }
 
 export function readSelectedAvatarIdLocal(userId: string, catalog: AvatarCatalogItem[], ownedAvatarIds: string[]): string {
-  if (!isBrowser()) return ownedAvatarIds[0] ?? catalog[0]?.id ?? "avatar-1";
+  if (typeof window === "undefined") return ownedAvatarIds[0] ?? catalog[0]?.id ?? "avatar-1";
 
   const fallback = ownedAvatarIds[0] ?? catalog[0]?.id ?? "avatar-1";
   try {
@@ -537,7 +617,7 @@ export function readSelectedAvatarIdLocal(userId: string, catalog: AvatarCatalog
 }
 
 export function writeSelectedAvatarIdLocal(userId: string, avatarId: string): void {
-  if (!isBrowser()) return;
+  if (typeof window === "undefined") return;
   window.localStorage.setItem(selectedKey(userId), avatarId);
 }
 
@@ -554,9 +634,18 @@ export async function loadUserAvatarState(
 
   try {
     const [{ data: inventoryRows, error: inventoryError }, { data: selectedRow, error: selectedError }] = await Promise.all([
-      supabase.from("user_avatar_inventory").select("avatar_id").eq("user_id", userId),
-      supabase.from("user_avatar_selection").select("avatar_id").eq("user_id", userId).maybeSingle(),
+      timeSupabaseQuery(
+        "avatar inventory load",
+        supabase.from("user_avatar_inventory").select("avatar_id").eq("user_id", userId),
+      ),
+      timeSupabaseQuery(
+        "avatar selection load",
+        supabase.from("user_avatar_selection").select("avatar_id").eq("user_id", userId).maybeSingle(),
+      ),
     ]);
+    if (import.meta.env.DEV) {
+      console.info("[perf] avatar inventory load", { ownedCount: inventoryRows?.length ?? 0 });
+    }
 
     if (inventoryError || selectedError) {
       markBackendMissingIfNeeded(inventoryError ?? selectedError);
@@ -588,10 +677,55 @@ export async function loadUserAvatarState(
   }
 }
 
+/**
+ * Returns a map of rank → total ownership records in Supabase,
+ * excluding admin avatars so they don't count against supply caps.
+ */
+export async function fetchRankSupplyCounts(catalog: AvatarCatalogItem[]): Promise<Record<number, number>> {
+  const nonAdminIds = catalog.filter((i) => i.showIn !== "admin").map((i) => i.id);
+  if (nonAdminIds.length === 0) return {};
+
+  const { data, error } = await supabase
+    .from("user_avatar_inventory")
+    .select("avatar_id")
+    .in("avatar_id", nonAdminIds);
+
+  if (error || !data) return {};
+
+  const idToRank: Record<string, number> = {};
+  for (const item of catalog) {
+    if (item.showIn !== "admin") idToRank[item.id] = getAvatarRank(item);
+  }
+
+  const counts: Record<number, number> = {};
+  for (const row of data) {
+    const rank = idToRank[row.avatar_id as string];
+    if (rank !== undefined) counts[rank] = (counts[rank] ?? 0) + 1;
+  }
+  return counts;
+}
+
 export async function purchaseAvatarForUser(userId: string, avatarId: string): Promise<void> {
   const catalog = readAvatarCatalogLocal();
-  if (!catalog.some((item) => item.id === avatarId)) {
-    throw new Error(`Unknown avatar id: ${avatarId}`);
+  const avatar = catalog.find((item) => item.id === avatarId);
+  if (!avatar) throw new Error(`Unknown avatar id: ${avatarId}`);
+
+  // Supply cap check — admin avatars are exempt.
+  if (avatar.showIn !== "admin" && !avatarBackendMissingTables) {
+    const rank = getAvatarRank(avatar);
+    const cap = RANK_TIER_PRICING[rank]?.maxOwners;
+    if (cap !== null && cap !== undefined) {
+      const counts = await fetchRankSupplyCounts(catalog);
+      const existing = counts[rank] ?? 0;
+      // The user may already own one in this tier — don't count their existing ownership against the cap.
+      const localInventory = readOwnedAvatarIdsLocal(userId, catalog);
+      const userAlreadyOwnsThisTier = catalog.some(
+        (i) => i.showIn !== "admin" && getAvatarRank(i) === rank && localInventory.includes(i.id)
+      );
+      if (!userAlreadyOwnsThisTier && existing >= cap) {
+        throw new Error(`SUPPLY_EXHAUSTED:${rank}`);
+      }
+    }
   }
 
   const localInventory = readOwnedAvatarIdsLocal(userId, catalog);
@@ -664,7 +798,20 @@ export async function claimPendingLandingWheelAvatarForUser(userId: string): Pro
   // columns get set. Idempotent on the server, safe to retry.
   try {
     const { claimFreeSpinAvatar } = await import("@/backend/supabase/controllers/avatarRewardsController");
-    await claimFreeSpinAvatar(userId, avatarId);
+    const claim = await claimFreeSpinAvatar(userId, avatarId);
+    if (claim.ok && claim.avatarId) {
+      const claimedAvatar = catalog.find((item) => item.id === claim.avatarId);
+      clearLandingWheelAvatarLocal();
+      if (!claimedAvatar) {
+        return { status: "unknown_avatar" };
+      }
+      await purchaseAvatarForUser(userId, claimedAvatar.id);
+      return {
+        status: claim.alreadyClaimed ? "already_claimed" : "granted",
+        avatarId: claimedAvatar.id,
+        level: claimedAvatar.level,
+      };
+    }
   } catch {
     // Best-effort — fall back to the legacy local-first grant below.
   }

@@ -58,8 +58,7 @@ function renderTimeline(overrides: Partial<React.ComponentProps<typeof Community
       },
     ],
     activeMessageCount: 2,
-    messagesLoading: false,
-    messagesError: false,
+    isLoading: false,
     canManagePolls: false,
     userId: "user-me",
     username: "me",
@@ -71,9 +70,6 @@ function renderTimeline(overrides: Partial<React.ComponentProps<typeof Community
     onOpenSenderProfile: vi.fn(),
     onOpenMessageReport: vi.fn(),
     onBlockMessageSender: vi.fn(),
-    pinnedMessageIds: new Set<string>(),
-    onPinMessageToProfile: vi.fn(),
-    onUnpinMessageFromProfile: vi.fn(),
     ...overrides,
   };
 
@@ -104,7 +100,7 @@ describe("CommunityMessageTimeline", () => {
   it("calls the like callback when liking a message", () => {
     const props = renderTimeline();
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Like message" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Like" })[0]);
 
     expect(props.onLikeMessage).toHaveBeenCalledWith(ownMessage);
   });
@@ -119,14 +115,10 @@ describe("CommunityMessageTimeline", () => {
     expect(props.onRetryMessage).toHaveBeenCalledWith(failedMessage);
   });
 
-  it("message actions can report, block, and pin another sender", async () => {
+  it("message actions can report and block another sender", async () => {
     const props = renderTimeline({
       groupedMessages: [{ label: "Today", messages: [otherMessage] }],
     });
-
-    fireEvent.pointerDown(screen.getByRole("button", { name: "Message actions" }));
-    fireEvent.click(await screen.findByRole("menuitem", { name: /Pin to my profile/i }));
-    expect(props.onPinMessageToProfile).toHaveBeenCalledWith(otherMessage);
 
     fireEvent.pointerDown(screen.getByRole("button", { name: "Message actions" }));
     fireEvent.click(await screen.findByRole("menuitem", { name: /Report/i }));
@@ -137,34 +129,29 @@ describe("CommunityMessageTimeline", () => {
     expect(props.onBlockMessageSender).toHaveBeenCalledWith(otherMessage);
   });
 
-  it("does not offer pinning for messages held in moderation review", async () => {
+  it("does not show message actions for own messages held in moderation review", () => {
     renderTimeline({
-      groupedMessages: [{ label: "Today", messages: [{ ...ownMessage, moderationStatus: "hold" }] }],
+      groupedMessages: [{ label: "Today", messages: [{ ...ownMessage, moderationStatus: "hold" } as typeof ownMessage] }],
     });
 
-    fireEvent.pointerDown(screen.getByRole("button", { name: "Message actions" }));
-    expect(screen.queryByRole("menuitem", { name: /Pin to my profile/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Message actions" })).not.toBeInTheDocument();
   });
 
-  it("can unpin the pinned profile message", async () => {
-    const props = renderTimeline({
+  it("does not show message actions for own messages", () => {
+    renderTimeline({
       groupedMessages: [{ label: "Today", messages: [ownMessage] }],
-      pinnedMessageIds: new Set([ownMessage.id]),
     });
 
-    fireEvent.pointerDown(screen.getByRole("button", { name: "Message actions" }));
-    fireEvent.click(await screen.findByRole("menuitem", { name: /Unpin from profile/i }));
-
-    expect(props.onUnpinMessageFromProfile).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Message actions" })).not.toBeInTheDocument();
   });
 
-  it("renders the empty loading state", () => {
+  it("renders the empty quiet state", () => {
     renderTimeline({
       groupedMessages: [],
       activeMessageCount: 0,
-      messagesLoading: true,
+      isLoading: false,
     });
 
-    expect(screen.getByText("Loading messages...")).toBeInTheDocument();
+    expect(screen.getByText("This group is quiet right now. Join and start the first real conversation.")).toBeInTheDocument();
   });
 });

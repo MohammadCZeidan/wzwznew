@@ -1,39 +1,49 @@
-import { Suspense, lazy, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { BrandName } from "@/components/ui/brand-name";
+import { highlightRawWordmark } from "@/components/ui/highlightRawWordmark";
 import { motion } from "framer-motion";
 import MatrixBackground from "@/components/ui/matrix-background";
 import { Navbar } from "@/components/landing/Navbar";
+import { LaunchCountdown } from "@/components/ui/LaunchCountdown";
 import { ProblemSection } from "@/components/landing/ProblemSection";
 const GlobeHero = lazy(() =>
   import("@/components/landing/GlobeHero").then((m) => ({ default: m.GlobeHero }))
 );
-import { HowItWorks } from "@/components/landing/HowItWorks";
 import { PollShowcase } from "@/components/landing/PollShowcase";
 import { Communities } from "@/components/landing/Communities";
 import { PersonalityInsightsSection } from "@/components/landing/PersonalityInsightsSection";
 import { AvatarShowcaseSection } from "@/components/landing/AvatarShowcaseSection";
 import { LandingPollsSection } from "@/components/landing/LandingPollsSection";
-import { WhyAnonymity } from "@/components/landing/WhyAnonymity";
-const TestimonialsSection = lazy(() =>
-  import("@/components/landing/TestimonialsSection").then((m) => ({ default: m.TestimonialsSection }))
-);
-import { EarnedWarUpgradesSection } from "@/components/landing/EarnedWarUpgradesSection";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 import { FAQSection } from "@/components/landing/FAQSection";
 import PerforatedBackground from "@/components/ui/perforated-background";
 import type { AuthResult, User } from "@/store/types";
+import { INVITE_PARAM } from "@/lib/inviteLink";
 
 const SignupModalLazy = lazy(() =>
   import("@/components/landing/SignupModal").then((module) => ({ default: module.SignupModal }))
 );
+
+const SKIP_SHOWCASE_KEY = "raw.skip-poll-showcase-once";
+
+function shouldSkipPollShowcase(): boolean {
+  if (typeof window === "undefined") return false;
+
+  try {
+    return window.sessionStorage.getItem(SKIP_SHOWCASE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 export interface LandingShellProps {
   user: User | null;
   isLoggedIn: boolean;
   showSignup: boolean;
   setShowSignup: (open: boolean) => void;
-  requestSignupOtp: (email: string) => Promise<AuthResult>;
-  verifySignupOtp: (email: string, otp: string, username: string) => Promise<AuthResult>;
-  login: (email: string, otp: string) => Promise<AuthResult>;
+  signup: (username: string, password: string, referralCode: string) => Promise<AuthResult>;
+  login: (username: string, password: string) => Promise<AuthResult>;
 }
 
 export default function LandingShell({
@@ -41,16 +51,28 @@ export default function LandingShell({
   isLoggedIn,
   showSignup,
   setShowSignup,
-  requestSignupOtp,
-  verifySignupOtp,
+  signup,
   login,
 }: LandingShellProps) {
-  const [siteReady, setSiteReady] = useState(false);
+  const navigate = useNavigate();
+  const [skipPollShowcase] = useState(shouldSkipPollShowcase);
+  const [siteReady, setSiteReady] = useState(skipPollShowcase);
+  const [pendingInviteCode, setPendingInviteCode] = useState("");
+
+  // An invite link (?invite=CODE) pre-fills the code and opens signup.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const code = new URLSearchParams(window.location.search).get(INVITE_PARAM);
+    if (code) {
+      setPendingInviteCode(code.toUpperCase().replace(/\s+/g, ""));
+      setShowSignup(true);
+    }
+  }, [setShowSignup]);
 
   return (
     <div className="landing-page-shell min-h-screen overflow-x-hidden bg-raw-black">
       <PollShowcase
-        initialOpen
+        initialOpen={!skipPollShowcase}
         onOpenChange={(open) => {
           if (open) setSiteReady(false);
         }}
@@ -61,8 +83,11 @@ export default function LandingShell({
         isLoggedIn={isLoggedIn}
         username={user?.username}
         onSignupClick={() => setShowSignup(true)}
+        onDonateClick={() => navigate("/why-donate")}
       />
-
+      <div className="mt-16">
+        <LaunchCountdown variant="banner" />
+      </div>
       <div className="relative min-h-screen overflow-x-hidden">
         {!siteReady && (
           <div className="fixed inset-0 z-0 bg-raw-black">
@@ -70,12 +95,13 @@ export default function LandingShell({
           </div>
         )}
 
-        <motion.div
-          className="relative overflow-x-hidden"
-          initial={{ opacity: 0, filter: "blur(14px)" }}
-          animate={{ opacity: siteReady ? 1 : 0.18, filter: siteReady ? "blur(0px)" : "blur(14px)" }}
-          transition={{ duration: 0.75, ease: "easeOut" }}
-        >
+        {siteReady && (
+          <motion.div
+            className="relative overflow-x-hidden"
+            initial={{ opacity: 0, filter: "blur(14px)" }}
+            animate={{ opacity: 1, filter: "blur(0px)" }}
+            transition={{ duration: 0.75, ease: "easeOut" }}
+          >
           <PerforatedBackground />
           <MatrixBackground />
 
@@ -84,14 +110,9 @@ export default function LandingShell({
               <GlobeHero onSignupClick={() => setShowSignup(true)} />
             </Suspense>
             <ProblemSection />
-            <HowItWorks />
-            <AvatarShowcaseSection onSignupClick={() => setShowSignup(true)} />
             <LandingPollsSection onSignupClick={() => setShowSignup(true)} />
             <Communities onSignupClick={() => setShowSignup(true)} />
-            <WhyAnonymity />
-            <Suspense fallback={<div className="h-16" />}>
-              <TestimonialsSection />
-            </Suspense>
+            <AvatarShowcaseSection onSignupClick={() => setShowSignup(true)} />
 
             <section className="landing-section px-4 py-8 sm:px-6 sm:py-12">
               <div
@@ -101,15 +122,14 @@ export default function LandingShell({
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-raw-gold/70 to-transparent" />
                 <div className="px-6 pb-2 pt-2 text-center sm:pb-6">
                   <h3 className="landing-heading text-raw-gold">
-                    What raW is building next
+                    {highlightRawWordmark("What raW is building next")}
                   </h3>
                   <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-raw-silver/55">
-                    See how raW turns anonymous answers into sharper insights, better rewards, and safer community matching.
+                    {highlightRawWordmark("Personality Insight is coming soon: anonymous answers turned into sharper self-understanding.")}
                   </p>
                 </div>
 
                 <PersonalityInsightsSection />
-                <EarnedWarUpgradesSection />
               </div>
             </section>
 
@@ -122,33 +142,37 @@ export default function LandingShell({
               >
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-raw-gold/70 to-transparent" />
                 <h2 className="landing-heading">
-                  Ready to be ra<span className="raw-word-w">W</span>?
+                  Ready to be <BrandName />?
                 </h2>
                 <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-raw-silver/55 sm:text-base">
                   Join with just a username and password. No email, no phone, no real name — your people are already talking.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => setShowSignup(true)}
-                  className="mt-7 inline-flex min-h-11 items-center justify-center rounded-xl border border-raw-gold/45 bg-raw-gold px-8 py-3.5 text-base font-semibold text-raw-ink transition hover:bg-raw-gold/90 sm:text-lg"
-                >
-                  Join Now — Free
-                </button>
+
+                <div className="mx-auto mt-8 flex w-full justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setShowSignup(true)}
+                    className="inline-flex min-h-11 items-center justify-center rounded-xl border border-raw-gold/45 bg-raw-gold px-7 py-3 text-base font-semibold text-raw-ink transition hover:bg-raw-gold/90 sm:whitespace-nowrap"
+                  >
+                    Join Now
+                  </button>
+                </div>
               </div>
             </section>
 
             <LandingFooter />
           </div>
-        </motion.div>
+          </motion.div>
+        )}
       </div>
 
       <Suspense fallback={null}>
         <SignupModalLazy
           open={showSignup}
           onClose={() => setShowSignup(false)}
-          onRequestSignupOtp={requestSignupOtp}
-          onVerifySignupOtp={verifySignupOtp}
+          onSignup={signup}
           onLogin={login}
+          initialReferralCode={pendingInviteCode}
         />
       </Suspense>
     </div>

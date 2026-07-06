@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
+import { BrandName } from "@/components/ui/brand-name";
 import { Link } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { ThemeCustomizer } from "@/components/theme/ThemeCustomizer";
 import { ThemeModeSwitcher } from "@/components/theme/ThemeModeSwitcher";
 import { track } from "@/lib/analytics";
-import { useTheme } from "@/providers/useTheme";
 
 const RAW_LOGO_SRC = "/raw-logo-96.png";
 
@@ -12,12 +12,11 @@ interface NavbarProps {
   isLoggedIn: boolean;
   username?: string;
   onSignupClick: () => void;
+  onDonateClick?: () => void;
 }
 
-export function Navbar({ isLoggedIn, username, onSignupClick }: NavbarProps) {
+export function Navbar({ isLoggedIn, username, onSignupClick, onDonateClick }: NavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { mode } = useTheme();
-  const isLightMode = mode === "light";
   const [navVisible, setNavVisible] = useState(true);
 
   useEffect(() => {
@@ -61,14 +60,14 @@ export function Navbar({ isLoggedIn, username, onSignupClick }: NavbarProps) {
 
   return (
     <nav
-      className="landing-navbar fixed top-0 left-0 right-0 z-50 overflow-hidden border-b border-raw-border/50 bg-raw-black/80 backdrop-blur-xl transition-transform duration-300 ease-in-out"
+      className="landing-navbar fixed top-0 left-0 right-0 z-40 overflow-hidden border-b border-raw-border/50 bg-raw-black/80 backdrop-blur-xl transition-transform duration-300 ease-in-out pointer-events-auto"
       style={{ transform: navVisible ? "translateY(0)" : "translateY(-100%)" }}
     >
       <div className="flex h-16 w-full items-center justify-between px-4 sm:px-6 lg:px-10">
         <Link
           to="/"
           aria-label="raW — go to home"
-          className="flex items-center gap-2 font-display text-xl tracking-[0.3em] text-raw-text transition-opacity hover:opacity-90 sm:gap-3"
+          className="flex items-center gap-2 font-display text-xl tracking-[0.06em] text-raw-text transition-opacity hover:opacity-90 sm:gap-3"
         >
           <img
             src={RAW_LOGO_SRC}
@@ -77,11 +76,11 @@ export function Navbar({ isLoggedIn, username, onSignupClick }: NavbarProps) {
             width={36}
             height={36}
             decoding="async"
-            fetchpriority="high"
+            fetchPriority="high"
             className="h-8 w-8 shrink-0 sm:h-9 sm:w-9"
           />
           <span>
-            ra<span className="text-raw-gold">W</span>
+            <BrandName />
           </span>
         </Link>
 
@@ -110,6 +109,21 @@ export function Navbar({ isLoggedIn, username, onSignupClick }: NavbarProps) {
             <>
               <ThemeModeSwitcher />
               <ThemeCustomizer placement="inline" triggerStyle="compact" accentAccess="free" className="flex shrink-0" />
+              {onDonateClick && (
+                <button
+                  onClick={() => {
+                    track("landing_cta_clicked", {
+                      cta_id: "navbar_donate",
+                      cta_text: "Why Donate?",
+                      source_section: "navbar",
+                    });
+                    onDonateClick();
+                  }}
+                  className="hidden rounded-full border border-raw-gold/40 px-3 py-2.5 text-xs font-semibold text-raw-gold transition-all hover:bg-raw-gold/10 sm:px-5 sm:text-sm lg:inline-block"
+                >
+                  Why Donate?
+                </button>
+              )}
               <button
                 onClick={handleSignupClick}
                 className="min-h-11 rounded-full bg-raw-gold px-3 py-2.5 text-xs font-semibold text-raw-black transition-all hover:bg-raw-gold/90 hover:shadow-lg hover:shadow-raw-gold/20 sm:px-5 sm:text-sm"

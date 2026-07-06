@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Poll } from "@/store/useRawStore";
+import { getDailyResetStartMs, getTodayKey } from "@/store/useRawStore.storage";
 import { useTheme } from "@/providers/useTheme";
 import { PremiumPollCard } from "@/components/polls/PremiumPollCard";
-import { ShareButton } from "@/components/ui/share-button";
 import {
   Dialog,
   DialogContent,
@@ -20,169 +20,25 @@ import {
   resolvePollShareCode,
 } from "@/lib/pollShare";
 import {
-  Check,
   ChevronLeft,
   ChevronRight,
   Coins,
-  Copy,
   Download,
-  Facebook,
   History,
-  Link2,
-  Instagram,
+  Reply,
   SendHorizontal,
-  Share2,
-  Smartphone,
+  X as XIcon,
 } from "lucide-react";
 
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
-
-function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
-  const words = text.split(" ");
-  const lines: string[] = [];
-  let line = "";
-  for (const word of words) {
-    const test = line ? `${line} ${word}` : word;
-    if (ctx.measureText(test).width > maxWidth && line) {
-      lines.push(line);
-      line = word;
-    } else {
-      line = test;
-    }
-  }
-  if (line) lines.push(line);
-  return lines;
-}
-
-async function generatePollImage(question: string, opt1: string, opt2: string, url: string): Promise<Blob> {
-  const W = 1080, H = 1920;
-  const canvas = document.createElement("canvas");
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext("2d")!;
-
-  // Background
-  ctx.fillStyle = "#050505";
-  ctx.fillRect(0, 0, W, H);
-
-  // Dot grid
-  ctx.fillStyle = "rgba(235,235,235,0.07)";
-  for (let x = 18; x < W; x += 18) {
-    for (let y = 18; y < H; y += 18) {
-      ctx.beginPath();
-      ctx.arc(x, y, 1.5, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-
-  // Gold top accent
-  const topGrad = ctx.createLinearGradient(0, 0, W, 0);
-  topGrad.addColorStop(0, "rgba(241,196,45,0)");
-  topGrad.addColorStop(0.3, "#F1C42D");
-  topGrad.addColorStop(0.7, "#F1C42D");
-  topGrad.addColorStop(1, "rgba(241,196,45,0)");
-  ctx.fillStyle = topGrad;
-  ctx.fillRect(0, 0, W, 6);
-
-  // "raW" brand
-  ctx.fillStyle = "#F1C42D";
-  ctx.font = "bold 90px Arial, sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("raW", W / 2, 170);
-
-  ctx.fillStyle = "rgba(241,196,45,0.6)";
-  ctx.font = "38px Arial, sans-serif";
-  ctx.fillText("Community Poll", W / 2, 255);
-
-  // Divider
-  const divGrad = ctx.createLinearGradient(120, 0, W - 120, 0);
-  divGrad.addColorStop(0, "rgba(241,196,45,0)");
-  divGrad.addColorStop(0.3, "rgba(241,196,45,0.4)");
-  divGrad.addColorStop(0.7, "rgba(241,196,45,0.4)");
-  divGrad.addColorStop(1, "rgba(241,196,45,0)");
-  ctx.strokeStyle = divGrad;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(120, 310);
-  ctx.lineTo(W - 120, 310);
-  ctx.stroke();
-
-  // Question
-  ctx.fillStyle = "#EBEBEB";
-  ctx.font = "bold 64px Arial, sans-serif";
-  ctx.textAlign = "center";
-  const qLines = wrapText(ctx, question, 860);
-  const qStartY = 520 - ((qLines.length - 1) * 84) / 2;
-  qLines.forEach((line, i) => ctx.fillText(line, W / 2, qStartY + i * 84));
-
-  const optY = qStartY + qLines.length * 84 + 100;
-  const btnW = 450, btnH = 130, gap = 36;
-  const btn1X = (W - btnW * 2 - gap) / 2;
-  const btn2X = btn1X + btnW + gap;
-
-  // Option 1 (neutral/silver)
-  ctx.fillStyle = "rgba(180,180,180,0.15)";
-  ctx.strokeStyle = "rgba(180,180,180,0.55)";
-  ctx.lineWidth = 3;
-  roundRect(ctx, btn1X, optY, btnW, btnH, 14);
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = "#EBEBEB";
-  ctx.font = "bold 52px Arial, sans-serif";
-  ctx.textBaseline = "middle";
-  ctx.fillText(opt1, btn1X + btnW / 2, optY + btnH / 2);
-
-  // Option 2 (gold)
-  ctx.fillStyle = "rgba(241,196,45,0.15)";
-  ctx.strokeStyle = "rgba(241,196,45,0.8)";
-  roundRect(ctx, btn2X, optY, btnW, btnH, 14);
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = "#F1C42D";
-  ctx.fillText(opt2, btn2X + btnW / 2, optY + btnH / 2);
-
-  // "Vote anonymously" text
-  ctx.fillStyle = "rgba(235,235,235,0.35)";
-  ctx.font = "36px Arial, sans-serif";
-  ctx.textBaseline = "middle";
-  ctx.fillText("Vote anonymously — see what everyone thinks", W / 2, optY + btnH + 80);
-
-  // URL at bottom
-  ctx.fillStyle = "rgba(241,196,45,0.55)";
-  ctx.font = "38px Arial, sans-serif";
-  ctx.fillText(url, W / 2, H - 110);
-
-  // Gold bottom accent
-  ctx.fillStyle = topGrad;
-  ctx.fillRect(0, H - 6, W, 6);
-
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob);
-      else reject(new Error("Canvas toBlob failed"));
-    }, "image/png");
-  });
-}
 
 function getNextUnlockTime(): string {
   const now = new Date();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(22, 0, 0, 0);
-  return tomorrow.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }) + " at 10:00 PM";
+  const nextReset = new Date(now);
+  nextReset.setHours(22, 0, 0, 0);
+  if (now.getTime() >= nextReset.getTime()) {
+    nextReset.setDate(nextReset.getDate() + 1);
+  }
+  return nextReset.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }) + " at 10:00 PM";
 }
 
 interface PollProgressProps {
@@ -221,6 +77,8 @@ interface PollHistoryComment {
   author: string;
   content: string;
   createdAt: string;
+  parentCommentId?: string | null;
+  parentAuthor?: string | null;
 }
 
 interface PollHistoryItem {
@@ -253,11 +111,6 @@ function resolveYesNoOptions(poll: Poll) {
   return yesOption && noOption ? { yesOption, noOption } : null;
 }
 
-function optionPercent(optionVotes: number, totalVotes: number): number {
-  if (totalVotes <= 0) return 0;
-  return Math.round((optionVotes / totalVotes) * 100);
-}
-
 function readStoredAnswerHistory(storageKey: string): Record<string, string> {
   try {
     const raw = window.localStorage.getItem(storageKey);
@@ -278,22 +131,19 @@ function readStoredAnswerTimestamps(storageKey: string): Record<string, number> 
   }
 }
 
-function startOfTodayMs(): number {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
+function hashString(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  }
+  return hash;
 }
 
-function buildPollShareText(poll: Poll): string {
-  return `Vote anonymously on raW: ${poll.question}`;
-}
-
-function buildPollShareUrl(pollId: string): string {
-  const url = new URL(window.location.href);
-  url.pathname = "/dashboard";
-  url.search = "";
-  url.searchParams.set(POLL_SHARE_PARAM, getPollShareCode(pollId));
-  return url.toString();
+function rotatePollsForDay(polls: Poll[], dayKey: string, limit: number): Poll[] {
+  if (polls.length === 0) return [];
+  const safeLimit = Math.min(Math.max(limit, 0), polls.length);
+  const offset = hashString(dayKey) % polls.length;
+  return [...polls.slice(offset), ...polls.slice(0, offset)].slice(0, safeLimit);
 }
 
 function csvEscape(value: string): string {
@@ -334,13 +184,14 @@ export function DashboardPolls({
   const [historyComments, setHistoryComments] = useState<Record<string, PollHistoryComment[]>>({});
   const [commentDraft, setCommentDraft] = useState("");
   const [commentModerationError, setCommentModerationError] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<{ commentId: string; author: string } | null>(null);
+  const commentInputRef = useRef<HTMLInputElement>(null);
   const [currentPollIndex, setCurrentPollIndex] = useState(0);
   const [hasSeenVoteHint, setHasSeenVoteHint] = useState(false);
   const [lockedPollId, setLockedPollId] = useState<string | null>(null);
   const [sharedPollId, setSharedPollId] = useState<string | null>(null);
-  const [shareCopied, setShareCopied] = useState(false);
-  const [sharePickerOpen, setSharePickerOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const dailyPollDayKey = getTodayKey();
 
   const commentsEndRef = useRef<HTMLDivElement>(null);
 
@@ -356,7 +207,7 @@ export function DashboardPolls({
     window.localStorage.setItem(answerTimestampsStorageKey, JSON.stringify(answerTimestamps));
   }, [answerTimestamps, answerTimestampsStorageKey, answersStorageKey, loadedAnswersStorageKey]);
 
-  const todayStart = useMemo(() => startOfTodayMs(), []);
+  const todayStart = getDailyResetStartMs();
   const answeredTodayIds = useMemo(() => {
     const ids = new Set<string>();
     for (const [pollId, ts] of Object.entries(answerTimestamps)) {
@@ -395,14 +246,14 @@ export function DashboardPolls({
     }
   }, [hasSeenVoteHint, voteHintStorageKey]);
 
-  const unseenPolls = useMemo(
-    () => polls.filter((p) => !answeredTodayIds.has(p.id)),
-    [polls, answeredTodayIds]
+  const dailyPolls = useMemo(
+    () => rotatePollsForDay(polls, dailyPollDayKey, dailyPollLimit),
+    [dailyPollDayKey, dailyPollLimit, polls]
   );
 
   const answeredPolls = useMemo(
-    () => polls.filter((p) => answeredTodayIds.has(p.id)),
-    [polls, answeredTodayIds]
+    () => dailyPolls.filter((p) => answeredTodayIds.has(p.id)),
+    [dailyPolls, answeredTodayIds]
   );
   const answeredPollHistory = useMemo<PollHistoryItem[]>(() => {
     return polls
@@ -427,15 +278,11 @@ export function DashboardPolls({
   const localAnsweredCount = answeredTodayIds.size;
   const showMorePollsPaywall = (isDailyPollLimitReached || localAnsweredCount >= dailyPollLimit) && dailyPollLimit > 0;
 
-  // Once the daily limit is hit (server or local skips), show today's answered polls.
-  // While still under the limit, show unseen polls capped at the daily limit.
-  const displayPolls = showMorePollsPaywall && answeredPolls.length > 0
-    ? answeredPolls.slice(0, dailyPollLimit)
-    : unseenPolls.length > 0
-      ? unseenPolls.slice(0, dailyPollLimit)
-      : answeredPolls.length > 0
-        ? answeredPolls
-        : polls;
+  // The day's polls are a fixed deck you can move through freely (answered or
+  // not); only once every poll is answered does the paywall/unlock CTA take
+  // over. Filtering to unanswered here made the deck shrink mid-navigation and
+  // stranded users before they could reach 7/7.
+  const displayPolls = showMorePollsPaywall ? answeredPolls : dailyPolls;
 
   useEffect(() => {
     if (currentPollIndex >= displayPolls.length && displayPolls.length > 0) {
@@ -489,6 +336,10 @@ export function DashboardPolls({
     fetchPollComments(currentPoll.id)
       .then((comments) => {
         if (!isMounted) return;
+        const authorById = new Map<string, string>();
+        for (const c of comments) {
+          authorById.set(c.id, c.author_name?.trim() || "Anonymous");
+        }
         setHistoryComments((previous) => ({
           ...previous,
           [currentPoll.id]: comments.map((comment) => ({
@@ -499,6 +350,8 @@ export function DashboardPolls({
               hour: "2-digit",
               minute: "2-digit",
             }),
+            parentCommentId: comment.parent_comment_id ?? null,
+            parentAuthor: comment.parent_comment_id ? authorById.get(comment.parent_comment_id) ?? null : null,
           })),
         }));
       })
@@ -511,15 +364,13 @@ export function DashboardPolls({
     };
   }, [currentPoll?.id, username]);
 
-  const selectedOptionId = currentPoll ? answerHistory[currentPoll.id] : undefined;
+  const selectedOptionId = currentPoll && answeredTodayIds.has(currentPoll.id) ? answerHistory[currentPoll.id] : undefined;
   const hasVotedCurrent = Boolean(selectedOptionId);
   const showSharedPollAnswerPrompt = Boolean(sharedPollId && currentPoll?.id === sharedPollId && hasVotedCurrent);
   const currentComments = currentPoll ? historyComments[currentPoll.id] ?? [] : [];
   const currentOptions = currentPoll ? resolveYesNoOptions(currentPoll) : null;
   const showVoteHint = currentPollIndex === 0 && !hasVotedCurrent && !hasSeenVoteHint;
-  const progressIndex = showMorePollsPaywall
-    ? Math.min(currentPollIndex, dailyPollLimit - 1)
-    : Math.min(localAnsweredCount + currentPollIndex, dailyPollLimit - 1);
+  const progressIndex = Math.min(currentPollIndex, dailyPollLimit - 1);
 
   const handleVote = (pollId: string, optionId: string) => {
     setHasSeenVoteHint(true);
@@ -557,11 +408,15 @@ export function DashboardPolls({
     }
     setCommentModerationError(null);
 
+    const parentSnapshot = replyingTo;
+    const optimisticId = `${currentPoll.id}-${Date.now()}`;
     const nextComment: PollHistoryComment = {
-      id: `${currentPoll.id}-${Date.now()}`,
+      id: optimisticId,
       author: username,
       content: moderation.text,
       createdAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      parentCommentId: parentSnapshot?.commentId ?? null,
+      parentAuthor: parentSnapshot?.author ?? null,
     };
 
     setHistoryComments((previous) => ({
@@ -570,76 +425,38 @@ export function DashboardPolls({
     }));
 
     setCommentDraft("");
+    setReplyingTo(null);
     setTimeout(() => commentsEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
 
     try {
-      await addPollComment(currentPoll.id, moderation.text, { id: userId, name: username });
+      const saved = await addPollComment(
+        currentPoll.id,
+        moderation.text,
+        { id: userId, name: username },
+        parentSnapshot?.commentId ?? null,
+      );
+      setHistoryComments((previous) => ({
+        ...previous,
+        [currentPoll.id]: (previous[currentPoll.id] ?? []).map((c) =>
+          c.id === optimisticId ? { ...c, id: saved.id } : c,
+        ),
+      }));
     } catch (error) {
       console.error("Failed to save dashboard comment to Supabase", error);
     }
+  };
+
+  const handleStartReply = (commentId: string, author: string) => {
+    setReplyingTo({ commentId, author });
+    setCommentDraft((current) => current.trim() ? current : `@${author} `);
+    setCommentModerationError(null);
+    setTimeout(() => commentInputRef.current?.focus(), 30);
   };
 
   const handleCommentKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== "Enter") return;
     event.preventDefault();
     handleCommentAdd();
-  };
-
-  const copyShareLink = async (poll: Poll) => {
-    const text = `${buildPollShareText(poll)}\n${buildPollShareUrl(poll.id)}`;
-    await navigator.clipboard?.writeText(text);
-    setShareCopied(true);
-    window.setTimeout(() => setShareCopied(false), 1600);
-  };
-
-  const handleShare = async (poll: Poll) => {
-    const shareData = {
-      title: "raW poll",
-      text: buildPollShareText(poll),
-      url: buildPollShareUrl(poll.id),
-    };
-
-    if (navigator.share) {
-      await navigator.share(shareData).catch(() => undefined);
-      return;
-    }
-
-    await copyShareLink(poll);
-  };
-
-  const handleFacebookShare = (poll: Poll) => {
-    const url = encodeURIComponent(buildPollShareUrl(poll.id));
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, "_blank", "noopener,noreferrer");
-  };
-
-  const handleWhatsAppShare = (poll: Poll) => {
-    const text = encodeURIComponent(`${buildPollShareText(poll)}\n${buildPollShareUrl(poll.id)}`);
-    window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
-  };
-
-  const handleInstagramShare = async (poll: Poll) => {
-    const resolved = resolveYesNoOptions(poll);
-    const opt1 = resolved?.yesOption.text ?? poll.options[0]?.text ?? "";
-    const opt2 = resolved?.noOption.text ?? poll.options[1]?.text ?? "";
-    const shareUrl = buildPollShareUrl(poll.id);
-
-    try {
-      const blob = await generatePollImage(poll.question, opt1, opt2, shareUrl);
-      const file = new File([blob], "raw-poll.png", { type: "image/png" });
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: "raW Poll", text: poll.question });
-        return;
-      }
-      // Fallback: download the image
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = "raw-poll.png";
-      a.click();
-      URL.revokeObjectURL(blobUrl);
-    } catch {
-      await handleShare(poll);
-    }
   };
 
   const downloadHistoryCsv = () => {
@@ -819,29 +636,6 @@ export function DashboardPolls({
             />
           )}
 
-          <div className="mt-4 flex justify-center">
-            <ShareButton
-              links={[
-                { icon: Smartphone, onClick: () => handleWhatsAppShare(currentPoll), label: "Share on WhatsApp" },
-                { icon: Instagram, onClick: () => handleInstagramShare(currentPoll), label: "Share on Instagram" },
-                { icon: Facebook, onClick: () => handleFacebookShare(currentPoll), label: "Share on Facebook" },
-                { icon: SendHorizontal, onClick: () => handleShare(currentPoll), label: "More apps" },
-                { icon: Link2, onClick: () => copyShareLink(currentPoll), label: "Copy link" },
-              ]}
-              className="w-full border-raw-gold/45 bg-raw-gold/10 text-[11px] font-semibold uppercase tracking-[0.16em] text-raw-gold hover:bg-raw-gold/15 dark:border-raw-gold/45 dark:bg-raw-gold/10 dark:text-raw-gold dark:hover:bg-raw-gold/15"
-            >
-              <Share2 className="size-3.5" />
-              Share
-            </ShareButton>
-          </div>
-
-          {shareCopied && (
-            <p className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-raw-gold/75">
-              <Check className="size-3" />
-              Copied share text
-            </p>
-          )}
-
           {showSharedPollAnswerPrompt && (
             <div className="mt-3 border border-raw-gold/30 bg-raw-gold/10 px-4 py-3 text-center shadow-[0_0_24px_rgba(241,196,45,0.08)]">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-raw-gold/80">
@@ -880,18 +674,69 @@ export function DashboardPolls({
                 </p>
               ) : (
                 currentComments.map((comment) => (
-                  <article key={comment.id} className="border border-raw-border/35 bg-raw-black/50 px-3.5 py-2.5">
+                  <article
+                    key={comment.id}
+                    className={`border border-raw-border/35 bg-raw-black/50 px-3.5 py-2.5 ${
+                      comment.parentCommentId ? "ml-4 border-l-2 border-l-raw-gold/50" : ""
+                    }`}
+                  >
+                    {comment.parentCommentId && comment.parentAuthor && (
+                      <p className={`mb-1 text-[10px] uppercase tracking-[0.1em] ${
+                        isLightMode ? "text-amber-700/70" : "text-raw-gold/55"
+                      }`}>
+                        ↳ Replying to @{comment.parentAuthor}
+                      </p>
+                    )}
                     <div className="flex items-center justify-between text-[11px] text-raw-silver/50">
                       <span>@{comment.author}</span>
                       <span>{comment.createdAt}</span>
                     </div>
                     <p className="mt-1 text-sm text-raw-silver/85">{comment.content}</p>
+                    <button
+                      type="button"
+                      onClick={() => handleStartReply(comment.id, comment.author)}
+                      className={`mt-1.5 inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.12em] transition ${
+                        isLightMode
+                          ? "text-slate-500 hover:text-amber-600"
+                          : "text-raw-silver/45 hover:text-raw-gold"
+                      }`}
+                    >
+                      <Reply className="size-3" />
+                      Reply
+                    </button>
                   </article>
                 ))
               )}
               <div ref={commentsEndRef} />
             </div>
 
+            {replyingTo && (
+              <div
+                className={`mb-2 flex items-center justify-between gap-2 border-l-2 px-3 py-1.5 text-[11px] ${
+                  isLightMode
+                    ? "border-amber-500 bg-amber-50 text-slate-700"
+                    : "border-raw-gold/65 bg-raw-gold/[0.08] text-raw-silver/70"
+                }`}
+              >
+                <span>
+                  Replying to <span className={isLightMode ? "font-semibold text-amber-700" : "font-semibold text-raw-gold"}>@{replyingTo.author}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const mention = `@${replyingTo.author} `;
+                    setReplyingTo(null);
+                    setCommentDraft((current) => current === mention ? "" : current);
+                  }}
+                  className={`inline-flex size-5 items-center justify-center rounded-full transition ${
+                    isLightMode ? "text-slate-500 hover:bg-slate-200" : "text-raw-silver/55 hover:bg-raw-surface/40 hover:text-raw-silver"
+                  }`}
+                  aria-label="Cancel reply"
+                >
+                  <XIcon className="size-3" />
+                </button>
+              </div>
+            )}
             <form
               onSubmit={(event) => {
                 event.preventDefault();
@@ -902,13 +747,14 @@ export function DashboardPolls({
               }`}
             >
               <input
+                ref={commentInputRef}
                 value={commentDraft}
                 onChange={(event) => {
                   setCommentDraft(event.target.value);
                   setCommentModerationError(null);
                 }}
                 onKeyDown={handleCommentKeyDown}
-                placeholder="Add a comment..."
+                placeholder={replyingTo ? `Reply to @${replyingTo.author}...` : "Add a comment..."}
                 className={`flex-1 bg-transparent text-sm focus:outline-none ${
                   isLightMode ? "text-slate-800 placeholder:text-slate-400" : "text-raw-text placeholder:text-raw-silver/35"
                 }`}

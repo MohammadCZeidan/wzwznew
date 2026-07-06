@@ -11,7 +11,15 @@ import {
   readAvatarCatalogLocal,
 } from "@/lib/avatarCatalog";
 import { setAvatarThemes } from "@/lib/avataridentity";
+import { RANK_TIER_PRICING } from "@/lib/avatarRarity";
+import { getAvatarRank, hasAvatarRank } from "@/lib/avatarRank";
 import type { User } from "@/store/types";
+
+function avatarRankPrice(item: AvatarCatalogItem): string {
+  if (item.price === "Free" || item.price === "0" || Number(item.price) <= 0) return item.price;
+  const rank = hasAvatarRank(item) ? getAvatarRank(item) : 1;
+  return String(RANK_TIER_PRICING[rank]?.price ?? (Number(item.price) || 0));
+}
 
 export function useRewards(user: User | null) {
   const activeUserIdRef = useRef<string | null>(user?.id ?? null);
@@ -22,8 +30,9 @@ export function useRewards(user: User | null) {
 
   useEffect(() => {
     const apply = (catalog: AvatarCatalogItem[]) => {
-      setAvatarCatalog(catalog);
-      setAvatarThemes(catalog.map((item) => ({
+      const pricedCatalog = catalog.map((item) => ({ ...item, price: avatarRankPrice(item) }));
+      setAvatarCatalog(pricedCatalog);
+      setAvatarThemes(pricedCatalog.map((item) => ({
         bg: item.bg,
         figure: item.figure,
         ring: item.ring,
@@ -117,7 +126,8 @@ export function useRewards(user: User | null) {
       await purchaseAvatarForUser(user.id, candidate.id);
       setOwnedAvatarIds((previous) => (previous.includes(candidate.id) ? previous : [...previous, candidate.id]));
       return true;
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith("SUPPLY_EXHAUSTED")) throw err;
       return false;
     }
   }, [avatarCatalog, inventoryLoaded, ownedAvatarIds, user]);
@@ -127,6 +137,10 @@ export function useRewards(user: User | null) {
     if (!candidate) return;
     setOwnedAvatarIds((previous) => (previous.includes(candidate.id) ? previous : [...previous, candidate.id]));
   }, [avatarCatalog]);
+
+  const markAvatarOwnedById = useCallback((avatarId: string) => {
+    setOwnedAvatarIds((previous) => (previous.includes(avatarId) ? previous : [...previous, avatarId]));
+  }, []);
 
   const ownedAvatarLevels = useMemo(() => {
     if (ownedAvatarIds.length === 0) {
@@ -144,7 +158,7 @@ export function useRewards(user: User | null) {
 
   const avatarPricesByLevel = useMemo(() => {
     return avatarCatalog.reduce<Record<number, string>>((acc, item, index) => {
-      acc[index + 1] = item.price;
+      acc[index + 1] = avatarRankPrice(item);
       return acc;
     }, {});
   }, [avatarCatalog]);
@@ -175,6 +189,7 @@ export function useRewards(user: User | null) {
     ownedAvatarIds: ownedAvatarIdSet,
     unlockAvatarLevel,
     markAvatarOwned,
+    markAvatarOwnedById,
     avatarPricesByLevel,
-  }), [avatarCatalog, avatarLevel, avatarPricesByLevel, changeAvatarLevel, markAvatarOwned, ownedAvatarIdSet, ownedAvatarLevels, selectAvatarForOnboarding, setAvatarLevel, unlockAvatarLevel]);
+  }), [avatarCatalog, avatarLevel, avatarPricesByLevel, changeAvatarLevel, markAvatarOwned, markAvatarOwnedById, ownedAvatarIdSet, ownedAvatarLevels, selectAvatarForOnboarding, setAvatarLevel, unlockAvatarLevel]);
 }

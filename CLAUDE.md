@@ -4,6 +4,22 @@ Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-s
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
+**Ponytail mode is active.** Lazy-senior-dev philosophy (simplest solution that works — YAGNI, reuse, stdlib/native before deps, shortest working diff) is injected every session by the `SessionStart` hook from `.claude/ponytail/PONYTAIL.md`. Tune it with `/ponytail lite|full|ultra|off`; review with `/ponytail-review`, `/ponytail-audit`, `/ponytail-debt`. See `/ponytail-help`.
+
+## Brand wordmark rule
+
+The product name "raW" must always render with its capital **W** in the active
+theme accent color. Never hand-write the colored span. Instead:
+
+- In JSX, use `<BrandName />` from `@/components/ui/brand-name` (renders `ra` +
+  accent-colored `W`).
+- For prose strings that may contain "raW", use `highlightRawWordmark(...)` from
+  `@/components/ui/highlightRawWordmark` (many section shells already do this).
+
+The accent color comes from `--primary` / `--accent` / `--raw-accent`, which
+ThemeProvider and ThemeCustomizer update when the user picks an accent — so the
+W follows the theme automatically. See `docs/avatars.md` for the avatar system.
+
 ## 0. Minimal File Inspection
 
 **Only inspect the exact files needed. Do not scan the whole repo.**
@@ -96,9 +112,11 @@ Available gstack skills:
 - `/design-review` - Design review
 - `/setup-browser-cookies` - Setup browser cookies
 - `/setup-deploy` - Setup deployment
+- `/setup-gbrain` - Setup gbrain
 - `/retro` - Retrospective
 - `/investigate` - Investigation
 - `/document-release` - Document release
+- `/document-generate` - Document generation
 - `/codex` - Codex
 - `/cso` - CSO
 - `/autoplan` - Auto planning

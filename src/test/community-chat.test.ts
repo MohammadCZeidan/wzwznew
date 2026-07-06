@@ -22,60 +22,42 @@ vi.mock("@/backend/supabase/client", () => ({
   },
 }));
 
-function successfulSingle(data: unknown) {
-  return {
-    insert: vi.fn(() => ({
-      select: vi.fn(() => ({
-        single: vi.fn(async () => ({ data, error: null })),
-      })),
-    })),
-  };
-}
-
-function successfulMutation() {
-  const query = {
-    upsert: vi.fn(async () => ({ error: null })),
-    insert: vi.fn(async () => ({ error: null })),
-    update: vi.fn(() => query),
-    delete: vi.fn(() => query),
-    eq: vi.fn(() => query),
-    then: vi.fn((resolve: (value: { error: null }) => unknown) => resolve({ error: null })),
-  };
-  return query;
-}
-
 describe("community chat Supabase persistence", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("sends community messages through the send_community_message RPC", async () => {
-    rpcMock.mockResolvedValueOnce({
-      data: {
-        id: "message-1",
-        community_id: "community-1",
-        sender_id: "user-alice",
-        sender_name: "alice",
-        text: "hello everyone",
-        created_at: "2026-06-02T09:00:00.000Z",
-        pinned: false,
-        liked_by: [],
-        sender_avatar_level: 3,
-      },
-      error: null,
-    });
+  it("sends community messages through POST /api/chat/send", async () => {
+    // Server-authoritative endpoint, not a browser-side RPC — identity comes
+    // from the session cookie (see src/backend/supabase/controllers/chatController.ts).
+    const fetchMock = vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          ok: true,
+          message: {
+            id: "message-1",
+            communityId: "community-1",
+            senderId: "user-alice",
+            senderName: "alice",
+            text: "hello everyone",
+            createdAt: "2026-06-02T09:00:00.000Z",
+            likedBy: [],
+            senderAvatarLevel: 3,
+          },
+        }),
+    } as Response);
 
     const message = await sendMessage("community-1", {
       text: "hello everyone",
     });
 
-    expect(rpcMock).toHaveBeenCalledWith("send_community_message", {
-      p_community_id: "community-1",
-      p_text: "hello everyone",
-      p_identity_alias: null,
-      p_avatar_level: null,
-      p_reply_to_message_id: null,
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/chat/send",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(rpcMock).not.toHaveBeenCalled();
     expect(message.text).toBe("hello everyone");
     expect(message.senderAvatarLevel).toBe(3);
   });
@@ -98,21 +80,29 @@ describe("community chat Supabase persistence", () => {
     });
   });
 
-  it("routes community membership writes through SECURITY DEFINER RPCs", async () => {
-    rpcMock.mockResolvedValue({ data: null, error: null });
+  it("routes community membership writes through server-authoritative /api/communities/* endpoints", async () => {
+    // None of join_community, leave_community, touch_member_activity,
+    // mark_community_read, or set_community_notifications exist as RPCs in
+    // supabase/migrations, and even if they did, browser-side RPC calls
+    // can't carry the app's session identity (see api/communities/join.ts).
+    const fetchMock = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({ ok: true }) } as Response);
 
     await joinCommunity("community-1", "user-alice", "alice");
     await leaveCommunity("community-1", "user-alice");
     await markCommunityRead("community-1", "user-alice");
     await setCommunityNotifications("community-1", "user-alice", false);
 
-    expect(rpcMock).toHaveBeenNthCalledWith(1, "join_community", { p_community_id: "community-1" });
-    expect(rpcMock).toHaveBeenNthCalledWith(2, "leave_community", { p_community_id: "community-1" });
-    expect(rpcMock).toHaveBeenNthCalledWith(3, "mark_community_read", { p_community_id: "community-1" });
-    expect(rpcMock).toHaveBeenNthCalledWith(4, "set_community_notifications", {
-      p_community_id: "community-1",
-      p_enabled: false,
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/communities/join", expect.objectContaining({ method: "POST" }));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/communities/leave", expect.objectContaining({ method: "POST" }));
+    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/communities/mark-read", expect.objectContaining({ method: "POST" }));
+    expect(fetchMock).toHaveBeenNthCalledWith(4, "/api/communities/notifications", expect.objectContaining({ method: "POST" }));
+    expect(JSON.parse((fetchMock.mock.calls[3][1] as RequestInit).body as string)).toEqual({
+      communityId: "community-1",
+      enabled: false,
     });
+    expect(rpcMock).not.toHaveBeenCalled();
     expect(fromMock).not.toHaveBeenCalled();
   });
 

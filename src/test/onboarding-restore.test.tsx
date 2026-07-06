@@ -19,32 +19,8 @@ vi.mock("@/components/landing/GlobeHero", () => ({
   GlobeHero: () => <div data-testid="landing-globe-hero" />,
 }));
 
-vi.mock("@/components/landing/HowItWorks", () => ({
-  HowItWorks: () => <div data-testid="landing-how-it-works" />,
-}));
-
-vi.mock("@/components/landing/PollSection", () => ({
-  PollSection: () => <div data-testid="landing-polls" />,
-}));
-
 vi.mock("@/components/landing/Communities", () => ({
   Communities: () => <div data-testid="landing-communities" />,
-}));
-
-vi.mock("@/components/landing/AvatarIdentity", () => ({
-  AvatarIdentity: () => <div data-testid="landing-avatar" />,
-}));
-
-vi.mock("@/components/landing/AvatarProgression", () => ({
-  AvatarProgression: () => <div data-testid="landing-avatar-progression" />,
-}));
-
-vi.mock("@/components/landing/WhyAnonymity", () => ({
-  WhyAnonymity: () => <div data-testid="landing-why" />,
-}));
-
-vi.mock("@/components/landing/FoundingProviders", () => ({
-  FoundingProviders: () => <div data-testid="landing-founders" />,
 }));
 
 vi.mock("@/components/landing/WheelReward", () => ({
@@ -53,10 +29,6 @@ vi.mock("@/components/landing/WheelReward", () => ({
 
 vi.mock("@/components/landing/LandingFooter", () => ({
   LandingFooter: () => <div data-testid="landing-footer" />,
-}));
-
-vi.mock("@/components/landing/FinalCTA", () => ({
-  FinalCTA: () => <div data-testid="landing-cta" />,
 }));
 
 vi.mock("@/components/landing/SignupModal", () => ({
@@ -104,8 +76,7 @@ vi.mock("@/store/useRawStore", () => ({
     isDailyPollLimitReached: false,
     completeOnboarding: vi.fn(),
     vote: vi.fn(),
-    requestSignupOtp: vi.fn(),
-    verifySignupOtp: vi.fn(),
+    signup: vi.fn(),
     login: vi.fn(),
     logout: vi.fn(),
   }),

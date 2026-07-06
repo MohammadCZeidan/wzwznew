@@ -1,17 +1,9 @@
--- Hide messages that are held for review, blocked, removed, or soft-deleted
--- from everyone except the sender and admins/moderators.
---
--- RESTRICTIVE policies AND with existing permissive policies, so this narrows
--- the existing "public_read" policy on community_messages without replacing it.
-
-DROP POLICY IF EXISTS "community_messages_hide_moderated" ON public.community_messages;
-CREATE POLICY "community_messages_hide_moderated"
-ON public.community_messages
-AS RESTRICTIVE
-FOR SELECT
-TO anon, authenticated
-USING (
-  (COALESCE(moderation_status, 'ok') IN ('ok', 'warn') AND COALESCE(is_deleted, false) = false)
-  OR sender_id = public.current_user_id()::text
-  OR public.is_admin()
-);
+-- No-op placeholder. This migration was part of a moderation feature that
+-- was later fully reverted on `main` ("Revert 'Add appeals/cookie-policy
+-- pages, route legal pages, hide moderated messages'"). If the remote
+-- Supabase project already recorded this version as applied before the file
+-- was deleted, its absence breaks migration-history reconciliation ("remote
+-- migration versions not found in local migrations directory"). Restoring
+-- an empty file with the same version marker fixes that without re-running
+-- any schema changes.
+SELECT 1;

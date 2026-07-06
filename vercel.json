@@ -3,30 +3,24 @@
   "framework": "vite",
   "buildCommand": "vite build",
   "outputDirectory": "dist",
-  "installCommand": "npm ci",
+  "installCommand": "npm ci --prefer-offline",
   "regions": ["iad1"],
   "redirects": [
     {
       "source": "/:path*",
-      "has": [{ "type": "host", "value": "theartofraw.me" }],
+      "has": [{ "type": "host", "value": "^(www\\.)?theartofraw\\.me$" }],
       "destination": "https://www.myraw.app/:path*",
       "permanent": true
     },
     {
       "source": "/:path*",
-      "has": [{ "type": "host", "value": "www.theartofraw.me" }],
+      "has": [{ "type": "host", "value": "^myraw\\.app$" }],
       "destination": "https://www.myraw.app/:path*",
       "permanent": true
-    },
-    {
-      "source": "/:path*",
-      "has": [{ "type": "host", "value": "myraw.app" }],
-      "destination": "https://www.myraw.app/:path*",
-      "statusCode": 308
     }
   ],
   "rewrites": [
-    { "source": "/((?!api/|assets/|avatars/|models/|images/|manifest\\.webmanifest$|favicon\\.ico$|robots\\.txt$|sitemap\\.xml$|og-card\\.svg$).*)", "destination": "/index.html" }
+    { "source": "/((?!api/|assets/|avatars/|models/|images/|manifest\\.webmanifest$|favicon\\.ico$|robots\\.txt$|sitemap\\.xml$|og-card\\.svg$|og-card\\.png$).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
@@ -59,6 +53,15 @@
       ]
     },
     {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "https://www.myraw.app" },
+        { "key": "Access-Control-Allow-Credentials", "value": "true" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, PUT, DELETE, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization, X-Requested-With" }
+      ]
+    },
+    {
       "source": "/assets/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
@@ -67,7 +70,7 @@
     {
       "source": "/avatars/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=604800, stale-while-revalidate=86400" }
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
       ]
     },
     {

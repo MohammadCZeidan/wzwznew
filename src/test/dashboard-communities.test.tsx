@@ -44,7 +44,7 @@ const testCommunity: PersistedCommunityRecord = {
   ],
 };
 
-vi.mock("@/components/ui/use-toast", () => ({
+vi.mock("@/hooks/use-toast", () => ({
   toast: vi.fn(),
 }));
 
@@ -113,15 +113,8 @@ vi.mock("@/backend/supabase/controllers/userController", () => ({
 
 vi.mock("@/backend/supabase/controllers/userExtrasController", () => ({
   MAX_FAVORITE_COMMUNITIES: 3,
-  MAX_PINNED_MESSAGES: 7,
-  PinnedMessageLimitError: class PinnedMessageLimitError extends Error {},
   getUserFavoriteCommunities: vi.fn(async () => []),
-  getUserPinnedMessages: vi.fn(async () => []),
   setUserFavoriteCommunities: vi.fn(),
-  addUserPinnedMessage: vi.fn(),
-  removeUserPinnedMessage: vi.fn(),
-  notifyMessagePinned: vi.fn(),
-  getPinNotifications: vi.fn(async () => []),
 }));
 
 vi.mock("@/lib/communityAccess", () => ({

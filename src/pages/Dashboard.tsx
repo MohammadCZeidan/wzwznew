@@ -1,24 +1,24 @@
 import { FloatingDock } from "@/components/ui/floating-dock";
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { readCommunityChats } from "@/lib/communityChat";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { getPrivateAvatarLevel } from "@/lib/avataridentity";
+import { CHAT_IDENTITY_CHANGED_EVENT, hydrateChatIdentityFromServer, readSelectedChatAlias, writeSelectedChatAlias } from "@/lib/identitySelection";
 import type { PersistedCommunityRecord } from "@/lib/communityChat.types";
 import { fetchCommunities } from "@/backend/supabase/controllers/communityController";
 import { readCachedCommunities, writeCachedCommunities } from "@/lib/communityCache";
-import { getUserFavoriteCommunities, getUserPinnedMessages, removeUserPinnedMessage, type PinnedMessageRecord } from "@/backend/supabase/controllers/userExtrasController";
-import { Home as HomeIcon, MessageCircle, Target, User as UserIcon, LogOut, Trophy, Sparkles, Moon, CloudMoon, Sun } from "lucide-react";
+import { getUserFavoriteCommunities } from "@/backend/supabase/controllers/userExtrasController";
+import { listUserAliases, setChatIdentity, type UserAliasRow } from "@/backend/supabase/controllers/userController";
+import { Home as HomeIcon, MessageCircle, Target, Trophy, Store } from "lucide-react";
 import LNTLogo from "@/assets/LNT.webp";
 import SYTLogo from "@/assets/logospeak.webp";
 import IIJMLogo from "@/assets/itisjustme.webp";
-import { useTheme } from "@/providers/useTheme";
-import type { ThemeMode } from "@/providers/theme-context";
 import { matchPath, useLocation, useNavigate } from "react-router-dom";
 import { DashboardNav, type DashboardTab } from "@/components/dashboard/DashboardNav";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { DashboardHome } from "@/components/dashboard/DashboardHome";
+import { DashboardStore } from "@/components/dashboard/DashboardStore";
 import { DashboardSectionShell } from "@/components/dashboard/DashboardSectionShell";
-import { CommunityHoldSwitcher, getCommunityHoldSwitcherTargets } from "@/components/dashboard/CommunityHoldSwitcher";
+import { CommunityHoldSwitcher } from "@/components/dashboard/CommunityHoldSwitcher";
 import { NotificationConsentPrompt } from "@/components/notifications/NotificationConsentPrompt";
-import { LevelUpCelebration } from "@/components/ui/LevelUpCelebration";
 import { useUserProgress } from "@/store/useUserProgress";
 import { XP_REWARDS } from "@/lib/userProgress";
 import { getTodayKey } from "@/store/useRawStore.storage";
@@ -43,9 +43,44 @@ const DashboardProfile = lazy(() =>
 const DashboardWallet = lazy(() =>
   import("@/components/dashboard/DashboardWallet").then((module) => ({ default: module.DashboardWallet }))
 );
+const DashboardSettings = lazy(() =>
+  import("@/components/dashboard/DashboardSettings").then((module) => ({ default: module.DashboardSettings }))
+);
 const DashboardInventory = lazy(() =>
   import("@/components/dashboard/DashboardInventory").then((module) => ({ default: module.DashboardInventory }))
 );
+
+// Eagerly preload the two most-visited tab chunks so they are ready before the
+// user taps. The remaining addon chunks are warmed during browser idle (see the
+// effect in Dashboard) so first-time switches stay instant without competing
+// with the initial paint.
+void import("@/components/dashboard/DashboardCommunities");
+void import("@/components/dashboard/DashboardPolls");
+// DashboardDailySpin is shown on the home tab (default view), so preload it
+// eagerly rather than deferring to idle — it needs to be ready immediately.
+void import("@/components/dashboard/DashboardDailySpin");
+
+// Remaining lazy addon chunks. Add new lazy addons here so they get the same
+// idle-preload treatment and never flash the Suspense fallback on first switch.
+const DEFERRED_ADDON_PRELOADERS: Array<() => Promise<unknown>> = [
+  () => import("@/components/dashboard/DashboardChallenges"),
+  () => import("@/components/dashboard/DashboardInventory"),
+  () => import("@/components/dashboard/DashboardProfile"),
+  () => import("@/components/dashboard/DashboardWallet"),
+  () => import("@/components/dashboard/DashboardSettings"),
+];
+
+const COMMUNITY_LOGOS: Record<string, string> = {
+  lnt: LNTLogo,
+  syt: SYTLogo,
+  iijm: IIJMLogo,
+};
+
+// Mobile long-press gesture tuning for the community dock switcher: how long a
+// press must be held to open the switcher, and how far a finger may drift
+// before the press is treated as a scroll/tap and cancelled.
+const LONG_PRESS_MS = 500;
+const MOVE_CANCEL_PX = 10;
 
 const dashboardSectionFallback = (
   <DashboardSectionShell>
@@ -71,6 +106,7 @@ interface DashboardProps {
   isDailyPollLimitReached: boolean;
   tokenBalance: number;
   addTokens: (amount: number) => void;
+  setTokenBalance: (balance: number) => void;
   unlockExtraPolls: () => void;
   vote: (pollId: string, optionId: string) => void;
   onLogout: () => void;
@@ -92,17 +128,14 @@ export default function Dashboard({
   isDailyPollLimitReached,
   tokenBalance,
   addTokens,
+  setTokenBalance,
   unlockExtraPolls,
   vote,
   onLogout,
 }: DashboardProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { mode, setMode } = useTheme();
-  const themeCycle: ThemeMode[] = ["dark", "dusk", "light"];
-  const nextMode = themeCycle[(themeCycle.indexOf(mode) + 1) % themeCycle.length];
-  const ModeIcon = mode === "dark" ? Moon : mode === "dusk" ? CloudMoon : Sun;
-  const { progress, leveledUpTo, clearLevelUp, award, awardOnce } = useUserProgress(user.id);
+  const { award, awardOnce, claimChallengeRewardOnce } = useUserProgress(user.id);
   const [activeTab, setActiveTab] = useState<DashboardTab>("home");
   // Seed from the persistent cache so the user sees their communities
   // instantly on remount instead of a cold spinner.
@@ -110,7 +143,8 @@ export default function Dashboard({
     () => readCachedCommunities()?.data ?? [],
   );
   const [favoriteCommunityIds, setFavoriteCommunityIds] = useState<string[]>([]);
-  const [pinnedMessages, setPinnedMessages] = useState<PinnedMessageRecord[]>([]);
+  const [selectedChatAlias, setSelectedChatAlias] = useState<string | null>(() => readSelectedChatAlias(user.id));
+  const [privateAliases, setPrivateAliases] = useState<UserAliasRow[]>([]);
   const [isHome, setIsHome] = useState(true);
   const [mobileCommunityPickerOpen, setMobileCommunityPickerOpen] = useState(false);
   const [mobileCommunityAnchorRect, setMobileCommunityAnchorRect] = useState<DOMRect | null>(null);
@@ -123,6 +157,11 @@ export default function Dashboard({
   const mobileCommunitySuppressClickRef = useRef(false);
   const communityRouteMatch = matchPath("/dashboard/communities/:communityId", location.pathname);
   const activeCommunityId = communityRouteMatch?.params.communityId ?? null;
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.getElementById("seo-landing")?.remove();
+  }, []);
 
   useEffect(() => {
     if (activeCommunityId) {
@@ -159,9 +198,51 @@ export default function Dashboard({
     // Run once on mount.
   }, []);
 
+  // Warm the remaining addon chunks during browser idle so a first-time tab
+  // switch never flashes the Suspense fallback. import() is cached, so each
+  // preloader is a no-op once its chunk has already loaded.
+  useEffect(() => {
+    const warm = () => {
+      for (const preload of DEFERRED_ADDON_PRELOADERS) void preload();
+    };
+    const idle = window as typeof window & {
+      requestIdleCallback?: (cb: () => void) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    if (typeof idle.requestIdleCallback === "function") {
+      const id = idle.requestIdleCallback(warm);
+      return () => idle.cancelIdleCallback?.(id);
+    }
+    const timer = window.setTimeout(warm, 1500);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   useEffect(() => {
     void awardOnce("daily-login", getTodayKey(), XP_REWARDS.DAILY_LOGIN);
   }, [awardOnce]);
+
+  // Pull the chat-identity selection + private avatar from Supabase so they
+  // follow the account across devices (both are otherwise localStorage-only).
+  useEffect(() => {
+    void hydrateChatIdentityFromServer(user.id);
+  }, [user.id]);
+
+  useEffect(() => {
+    setSelectedChatAlias(readSelectedChatAlias(user.id));
+    const handleIdentityChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ userId?: string; alias?: string | null }>).detail;
+      if (detail?.userId !== user.id) return;
+      setSelectedChatAlias(detail.alias ?? null);
+    };
+    window.addEventListener(CHAT_IDENTITY_CHANGED_EVENT, handleIdentityChange);
+    return () => window.removeEventListener(CHAT_IDENTITY_CHANGED_EVENT, handleIdentityChange);
+  }, [user.id]);
+
+  useEffect(() => {
+    listUserAliases(user.id)
+      .then((rows) => setPrivateAliases(rows.filter((row) => !row.is_public)))
+      .catch(() => setPrivateAliases([]));
+  }, [user.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -185,40 +266,18 @@ export default function Dashboard({
     };
   }, [user.id]);
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const messages = await getUserPinnedMessages(user.id);
-        if (!cancelled) setPinnedMessages(messages);
-      } catch {
-        // Pinned profile messages are best-effort; the profile still renders.
-      }
-    })();
-    const onChange = (event: Event) => {
-      const detail = (event as CustomEvent<{ userId?: string; messages?: PinnedMessageRecord[] }>).detail;
-      if (!detail || detail.userId !== user.id) return;
-      setPinnedMessages(detail.messages ?? []);
-    };
-    window.addEventListener("raw:pinned-message-updated", onChange);
-    return () => {
-      cancelled = true;
-      window.removeEventListener("raw:pinned-message-updated", onChange);
-    };
-  }, [user.id]);
 
-  const handleRemovePinnedMessage = async (messageId: string) => {
-    const previous = pinnedMessages;
-    const next = previous.filter((message) => message.messageId !== messageId);
-    setPinnedMessages(next);
-    try {
-      await removeUserPinnedMessage(user.id, messageId);
-      window.dispatchEvent(new CustomEvent("raw:pinned-message-updated", {
-        detail: { userId: user.id, messages: next },
-      }));
-    } catch {
-      setPinnedMessages(previous);
-    }
+  const activeIdentityMode = selectedChatAlias ? "private" : "public";
+  const activeIdentityName = selectedChatAlias ?? user.username;
+  const identityOptions = [
+    { label: user.username, mode: "public" as const, value: null },
+    ...privateAliases.map((alias) => ({ label: alias.alias, mode: "private" as const, value: alias.alias })),
+  ];
+
+  const handleIdentityChange = (alias: string | null) => {
+    setSelectedChatAlias(alias);
+    writeSelectedChatAlias(user.id, alias);
+    void setChatIdentity(alias, getPrivateAvatarLevel(user.id)).catch(() => {});
   };
 
   const handleTabChange = (tab: DashboardTab) => {
@@ -365,6 +424,11 @@ export default function Dashboard({
     navigate("/dashboard");
   };
 
+  const handleBackToDashboardHome = () => {
+    setIsHome(true);
+    navigate("/dashboard");
+  };
+
   const handleDailySpinAward = (amount: number) => {
     if (user.role === "admin") {
       return award(amount);
@@ -380,13 +444,15 @@ export default function Dashboard({
           <DashboardHome
             userId={user.id}
             username={user.username}
+            identityName={activeIdentityName}
+            identityMode={activeIdentityMode}
+            identityOptions={identityOptions}
+            onIdentityChange={handleIdentityChange}
             avatarLevel={avatarLevel}
             polls={polls}
             votedPolls={votedPolls}
             dailyAnsweredCount={dailyAnsweredCount}
             dailyPollLimit={dailyPollLimit}
-            xp={progress?.xp ?? 0}
-            xpLevel={progress?.level ?? 1}
             onNavigate={handleTabChange}
             onOpenCommunity={handleOpenCommunity}
             communities={dashboardCommunities}
@@ -426,7 +492,6 @@ export default function Dashboard({
               <DashboardCommunities
                 user={user}
                 avatarLevel={avatarLevel}
-                tokenBalance={tokenBalance}
                 activeCommunityId={activeCommunityId}
                 onOpenCommunity={handleOpenCommunity}
                 onBackToCommunities={handleBackToCommunities}
@@ -447,8 +512,11 @@ export default function Dashboard({
                 dailyAnsweredCount={dailyAnsweredCount}
                 dailyPollLimit={dailyPollLimit}
                 onAwardXP={handleDailySpinAward}
-                onClaimXP={(source, claimKey, amount) => awardOnce(source, claimKey, amount)}
+                onClaimXP={async (source, claimKey, xpAmount, tokenAmount) =>
+                  (await claimChallengeRewardOnce(source, claimKey, xpAmount, tokenAmount)) ?? false
+                }
                 onAwardTokens={(amount) => addTokens(amount)}
+                onTokenBalanceChange={setTokenBalance}
                 onAvatarWon={markAvatarOwned}
               />
             </DashboardSectionShell>
@@ -472,14 +540,25 @@ export default function Dashboard({
           <Suspense fallback={dashboardSectionFallback}>
             <DashboardSectionShell>
               <DashboardInventory
-                polls={polls}
-                votedPolls={votedPolls}
                 avatarLevel={avatarLevel}
+                onAvatarChange={setAvatarLevel}
+                ownedAvatarLevels={ownedAvatarLevels}
+                avatarCatalog={avatarCatalog}
+              />
+            </DashboardSectionShell>
+          </Suspense>
+        );
+      case "store":
+        return (
+          <Suspense fallback={dashboardSectionFallback}>
+            <DashboardSectionShell>
+              <DashboardStore
+                userName={user.username}
+                avatarCatalog={user.role === "admin" ? avatarCatalog : avatarCatalog.filter((a) => a.showIn !== "admin")}
                 ownedAvatarLevels={ownedAvatarLevels}
                 onUnlockAvatar={unlockAvatarLevel}
                 onAvatarPurchased={markAvatarOwned}
                 avatarPricesByLevel={avatarPricesByLevel}
-                avatarCatalog={avatarCatalog}
                 tokenBalance={tokenBalance}
                 userId={user.id}
               />
@@ -507,9 +586,25 @@ export default function Dashboard({
                 onUnlockAvatar={unlockAvatarLevel}
                 avatarPricesByLevel={avatarPricesByLevel}
                 pollsAnswered={votedPolls.size}
-                xp={progress?.xp ?? 0}
-                xpLevel={progress?.level ?? 1}
+                polls={polls}
+                tokenBalance={tokenBalance}
+                isAdmin={user.role === "admin"}
                 onLogout={onLogout}
+              />
+            </DashboardSectionShell>
+          </Suspense>
+        );
+      case "settings":
+        return (
+          <Suspense fallback={dashboardSectionFallback}>
+            <DashboardSectionShell>
+              <DashboardSettings
+                userId={user.id}
+                username={user.username}
+                isAdmin={user.role === "admin"}
+                isModerator={user.role === "moderator"}
+                onLogout={onLogout}
+                onBackToDashboard={handleBackToDashboardHome}
               />
             </DashboardSectionShell>
           </Suspense>
@@ -520,13 +615,15 @@ export default function Dashboard({
             <DashboardHome
               userId={user.id}
               username={user.username}
+              identityName={activeIdentityName}
+              identityMode={activeIdentityMode}
+              identityOptions={identityOptions}
+              onIdentityChange={handleIdentityChange}
               avatarLevel={avatarLevel}
               polls={polls}
               votedPolls={votedPolls}
               dailyAnsweredCount={dailyAnsweredCount}
               dailyPollLimit={dailyPollLimit}
-              xp={progress?.xp ?? 0}
-              xpLevel={progress?.level ?? 1}
               onNavigate={handleTabChange}
               onOpenCommunity={handleOpenCommunity}
               communities={dashboardCommunities}
@@ -543,9 +640,6 @@ export default function Dashboard({
     <div
       className="dashboard-enhanced-bg relative min-h-screen overflow-hidden bg-raw-black"
     >
-      {leveledUpTo !== null && (
-        <LevelUpCelebration newLevel={leveledUpTo} onClose={clearLevelUp} />
-      )}
       <NotificationConsentPrompt userId={user.id} />
       <DashboardNav
         userId={user.id}
@@ -558,8 +652,6 @@ export default function Dashboard({
         communityTitle={activeCommunityTitle}
         onBack={handleBackToCommunities}
         communities={dashboardCommunities}
-        xp={progress?.xp ?? 0}
-        level={progress?.level ?? 1}
       />
 
       <DashboardSidebar
@@ -575,23 +667,6 @@ export default function Dashboard({
         favoriteCommunityIds={favoriteCommunityIds}
         onOpenCommunity={handleOpenCommunity}
       />
-
-      {/* Mobile bottom nav replaced with FloatingDock */}
-      {/*
-      <nav
-        className="fixed bottom-0 left-0 right-0 z-40 lg:hidden"
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-      >
-        <div className="border-t border-raw-border/25 bg-raw-black/95 backdrop-blur-2xl px-2 pt-1 pb-2 flex items-center justify-around">
-          <MobileNavBtn label="Home"       icon={<HomeIcon className="h-5 w-5" />}       active={isHome}                                    onClick={handleHomeClick} />
-          <MobileNavBtn label="Polls"      icon={<Target className="h-5 w-5" />}          active={!isHome && activeTab === "polls"}           onClick={() => handleTabChange("polls")} />
-          <MobileNavBtn label="Challenges" icon={<Trophy className="h-5 w-5" />}          active={!isHome && activeTab === "challenges"}      onClick={() => handleTabChange("challenges")} />
-          <MobileNavBtn label="Spin"       icon={<Sparkles className="h-5 w-5" />}        active={!isHome && activeTab === "daily-spin"}      onClick={() => handleTabChange("daily-spin")} />
-          <MobileNavBtn label="Groups"     icon={<MessageCircle className="h-5 w-5" />}   active={!isHome && activeTab === "communities"}     onClick={() => handleTabChange("communities")} />
-          <MobileNavBtn label="Me"         icon={<UserIcon className="h-5 w-5" />}        active={!isHome && activeTab === "profile"}         onClick={() => handleTabChange("profile")} />
-        </div>
-      </nav>
-      */}
 
       {/* FloatingDock for mobile navigation */}
       <FloatingDock
@@ -643,6 +718,13 @@ export default function Dashboard({
             onClick: () => handleTabChange("challenges"),
             active: !isHome && activeTab === "challenges",
           },
+          {
+            title: "Store",
+            icon: <Store className="h-5 w-5" />,
+            href: "#",
+            onClick: () => handleTabChange("store"),
+            active: !isHome && activeTab === "store",
+          },
         ]}
       />
 
@@ -667,51 +749,5 @@ export default function Dashboard({
         </div>
       </main>
     </div>
-  );
-}
-
-function MobileNavLink({
-  label,
-  href,
-  icon,
-}: {
-  label: string;
-  href: string;
-  icon?: React.ReactNode;
-}) {
-  return (
-    <a href={href} className="flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg text-raw-gold/80 transition-all hover:text-raw-gold">
-      {icon}
-      <span className="text-[10px] font-medium leading-none">{label}</span>
-    </a>
-  );
-}
-
-function MobileNavBtn({
-  label,
-  active,
-  onClick,
-  icon,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-  icon?: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex flex-col items-center justify-center gap-1 px-3 py-1.5 min-w-[48px] transition-all"
-      aria-current={active ? "page" : undefined}
-    >
-      <div className={`transition-all duration-200 ${active ? "text-raw-gold scale-110" : "text-raw-silver/40"}`}>
-        {icon}
-      </div>
-      <span className={`text-[9px] font-semibold tracking-wide leading-none transition-colors ${active ? "text-raw-gold" : "text-raw-silver/35"}`}>
-        {label}
-      </span>
-      {active && <div className="h-0.5 w-4 rounded-full bg-raw-gold mt-0.5" />}
-    </button>
   );
 }

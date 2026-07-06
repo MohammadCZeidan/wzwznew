@@ -1,7 +1,7 @@
 export interface User {
   id: string;
   username: string;
-  role: "member" | "admin";
+  role: "member" | "moderator" | "admin";
   moderationStatus: "active" | "warned" | "banned";
   warnings: number;
   onboardingCompleted?: boolean;
@@ -26,4 +26,4 @@ export interface Poll {
   locked: boolean;
 }
 
-export type OnboardingStep = "spin" | "username" | "early-signup-reward" | "avatar" | "polls" | "profile" | "communities" | "marketplace" | "ready";
+export type OnboardingStep = "spin" | "username" | "voucher" | "early-signup-reward" | "avatar" | "polls" | "profile" | "communities" | "marketplace" | "ready";

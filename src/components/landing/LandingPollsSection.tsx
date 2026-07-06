@@ -1,12 +1,9 @@
 import { useCallback, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useTheme } from "@/providers/useTheme";
 import { ChevronLeft, ChevronRight, Send } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LandingSectionShell } from "@/components/landing/LandingSectionShell";
 import { useTrackSectionView } from "@/lib/analytics/useTrackSectionView";
-import { fetchPolls } from "@/lib/api/polls";
-import { POLL_QUESTION_SEEDS } from "@/features/polls/pollQuestions";
 import { PremiumPollCard } from "@/components/polls/PremiumPollCard";
 import { useKeyboardOffset } from "@/hooks/useKeyboardOffset";
 
@@ -17,33 +14,45 @@ interface PollItem {
   noPercent: number;
 }
 
-const FALLBACK: PollItem[] = POLL_QUESTION_SEEDS.slice(0, 4).map((s) => ({
-  question: s.question,
-  yesPercent: Math.round((s.yesVotes / (s.yesVotes + s.noVotes)) * 100),
-  noPercent: Math.round((s.noVotes / (s.yesVotes + s.noVotes)) * 100),
-}));
+const LANDING_POLLS: PollItem[] = [
+  {
+    question: "Does love end up fading?",
+    yesPercent: 61,
+    noPercent: 39,
+  },
+  {
+    question: "Do you think you are lacking self love?",
+    yesPercent: 54,
+    noPercent: 46,
+  },
+  {
+    question: "Would you consider yourself better than average?",
+    yesPercent: 48,
+    noPercent: 52,
+  },
+];
 
 const SEED_COMMENTS: Record<number, string[]> = {
   0: [
-    "100% — I drop all the masks when I'm alone",
-    "That's basically the only time I feel real",
-    "Honestly yes, social pressure is exhausting",
-    "Wish I could feel that way around people too",
-    "Not even close to the same person in public",
+    "It fades when nobody chooses it on purpose anymore",
+    "I think love changes shape more than it disappears",
+    "Sometimes comfort gets mistaken for fading",
+    "If both people stop trying, yes",
+    "The spark fades first, then the honesty if you're not careful",
   ],
   1: [
-    "Depends on the values, but probably yes",
-    "Already looking for something like this",
-    "The right community genuinely changes everything",
-    "Most communities talk values but don't live them",
-    "Yes, if it's honest and not performative",
+    "Yes, but I only notice it when I accept less than I deserve",
+    "Some days I talk to myself worse than anyone else would",
+    "Working on it, but it's not automatic yet",
+    "I confuse being useful with being lovable",
+    "Maybe not lacking, just inconsistent",
   ],
   2: [
-    "Absolutely — a static teacher stops being relevant",
-    "The best ones I had were still figuring things out",
-    "Growth goes both ways or it's just a transaction",
-    "Nothing worse than someone who stopped learning",
-    "Yes, that vulnerability builds real trust",
+    "Honestly yes, even if I know that sounds arrogant",
+    "Average at some things, below average at others",
+    "I want to say yes but my life does not always prove it",
+    "Depends who you compare me to",
+    "Better than average at noticing my own flaws",
   ],
 };
 
@@ -67,28 +76,7 @@ export function LandingPollsSection({ onSignupClick }: LandingPollsSectionProps)
   const commentInputWrapperRef = useRef<HTMLDivElement>(null);
   useKeyboardOffset(commentInputWrapperRef);
 
-  const { data: fetchedPolls } = useQuery({
-    queryKey: ["landing-polls-section"],
-    queryFn: async () => {
-      const polls = await fetchPolls(4);
-      if (polls.length === 0) return null;
-      return polls.slice(0, 4).map((poll) => {
-        const yesVotes = poll.options.find((o) => o.text.toLowerCase() === "yes")?.votes ?? 0;
-        const noVotes = poll.options.find((o) => o.text.toLowerCase() === "no")?.votes ?? 0;
-        const totalVotes = yesVotes + noVotes;
-        return {
-          id: poll.id,
-          question: poll.question,
-          yesPercent: totalVotes > 0 ? Math.round((yesVotes / totalVotes) * 100) : 50,
-          noPercent: totalVotes > 0 ? Math.round((noVotes / totalVotes) * 100) : 50,
-        } as PollItem;
-      });
-    },
-    retry: 1,
-    staleTime: 1000 * 60 * 5,
-  });
-
-  const polls: PollItem[] = fetchedPolls ?? FALLBACK;
+  const polls: PollItem[] = LANDING_POLLS;
   const total = polls.length;
   const canPrev = index > 0;
   const canNext = index < total - 1;
@@ -205,7 +193,7 @@ export function LandingPollsSection({ onSignupClick }: LandingPollsSectionProps)
                       onClick={onSignupClick}
                       className="mt-4 rounded-full border border-raw-gold/35 bg-raw-gold/10 px-5 py-2 font-display text-[10px] uppercase tracking-[0.2em] text-raw-gold/85 transition hover:bg-raw-gold/15"
                     >
-                      Join raW
+                      Join ra<span className="text-[hsl(var(--accent))]">W</span>
                     </button>
                   </div>
                 </div>
@@ -266,47 +254,75 @@ export function LandingPollsSection({ onSignupClick }: LandingPollsSectionProps)
                       Anonymous Comments
                     </p>
 
-                    <div ref={commentsContainerRef} className="max-h-36 space-y-2 overflow-y-auto pr-1">
+                    <div ref={commentsContainerRef} className="max-h-36 space-y-1.5 overflow-y-auto pr-1">
                       {allComments.map((comment, i) => (
-                        <div key={i} className="flex items-start gap-2">
-                          <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-raw-gold/15 text-[9px] font-bold text-raw-gold/70">
-                            ?
+                        <div
+                          key={i}
+                          className={`flex items-start gap-2 px-2.5 py-2 text-[11px] leading-[1.45] ${
+                            isLight ? "text-stone-600" : "text-white/60"
+                          }`}
+                          style={{
+                            clipPath: COMMENT_CLIP,
+                            background: isLight
+                              ? "rgba(0,0,0,0.04)"
+                              : "rgba(255,255,255,0.04)",
+                            borderLeft: "2px solid rgb(var(--raw-accent) / 0.25)",
+                          }}
+                        >
+                          <span className="mt-px flex h-4 w-4 flex-shrink-0 items-center justify-center text-[8px] font-black text-raw-gold/50">
+                            ◆
                           </span>
-                          <p className={`text-[12px] leading-[1.4] ${isLight ? "text-stone-600" : "text-white/55"}`}>
-                            {comment}
-                          </p>
+                          {comment}
                         </div>
                       ))}
                       <div ref={commentsEndRef} />
                     </div>
 
                     <div ref={commentInputWrapperRef} className="mt-3 flex items-center gap-2 pr-1">
-                      <input
-                        type="text"
-                        placeholder="Add anonymous comment…"
-                        value={commentInputs[index] ?? ""}
-                        onChange={(e) =>
-                          setCommentInputs((prev) => ({ ...prev, [index]: e.target.value }))
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleSubmitComment();
-                          }
+                      <div
+                        className="flex-1 p-px"
+                        style={{
+                          clipPath: COMMENT_CLIP,
+                          background: "linear-gradient(135deg, rgb(var(--raw-accent) / 0.3) 0%, rgb(var(--raw-accent) / 0.08) 100%)",
                         }}
-                        className={`min-w-0 flex-1 rounded px-3 py-1.5 text-[12px] outline-none transition ${
-                          isLight
-                            ? "border border-black/10 bg-black/5 text-stone-700 placeholder:text-stone-400 focus:border-raw-gold/50"
-                            : "border border-white/10 bg-white/5 text-white/70 placeholder:text-white/25 focus:border-raw-gold/40"
-                        }`}
-                      />
-                      <button
-                        type="button"
-                        onClick={handleSubmitComment}
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-raw-gold/30 bg-raw-gold/10 text-raw-gold/70 transition hover:bg-raw-gold/20"
                       >
-                        <Send className="h-3.5 w-3.5" />
-                      </button>
+                        <input
+                          type="text"
+                          placeholder="Add anonymous comment…"
+                          value={commentInputs[index] ?? ""}
+                          onChange={(e) =>
+                            setCommentInputs((prev) => ({ ...prev, [index]: e.target.value }))
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleSubmitComment();
+                            }
+                          }}
+                          className={`w-full px-3 py-1.5 text-[11px] outline-none ${
+                            isLight
+                              ? "bg-[#fdfaf0] text-stone-700 placeholder:text-stone-400"
+                              : "bg-[#111111] text-white/70 placeholder:text-white/25"
+                          }`}
+                          style={{ clipPath: COMMENT_CLIP }}
+                        />
+                      </div>
+                      <div
+                        className="p-px"
+                        style={{
+                          clipPath: COMMENT_CLIP,
+                          background: "linear-gradient(135deg, rgb(var(--raw-accent) / 0.6) 0%, rgb(var(--raw-accent) / 0.2) 100%)",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={handleSubmitComment}
+                          className="flex h-8 w-8 shrink-0 items-center justify-center bg-raw-gold/15 text-raw-gold transition hover:bg-raw-gold/25"
+                          style={{ clipPath: COMMENT_CLIP }}
+                        >
+                          <Send className="h-3 w-3" />
+                        </button>
+                      </div>
                     </div>
                       </>
                     )}

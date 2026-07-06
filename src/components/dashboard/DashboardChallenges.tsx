@@ -8,9 +8,10 @@ import {
   Trophy,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "@/hooks/use-toast";
 import { getTodayKey } from "@/store/useRawStore.storage";
 import { loadLocalLoginDays, loadUserXPClaimKeys } from "@/lib/userProgress";
+import { useTheme } from "@/providers/useTheme";
 
 interface DashboardChallengesProps {
   userId: string;
@@ -20,8 +21,14 @@ interface DashboardChallengesProps {
   dailyAnsweredCount: number;
   dailyPollLimit: number;
   onAwardXP?: (amount: number) => Promise<void>;
-  onClaimXP?: (source: string, claimKey: string, amount: number) => Promise<boolean>;
+  onClaimXP?: (
+    source: string,
+    claimKey: string,
+    xpAmount: number,
+    tokenAmount: number
+  ) => Promise<{ awarded: boolean; tokenBalance?: number } | boolean>;
   onAwardTokens?: (amount: number) => void;
+  onTokenBalanceChange?: (balance: number) => void;
   onAvatarWon?: (level: number) => void;
 }
 
@@ -148,8 +155,11 @@ export function DashboardChallenges({
   onAwardXP,
   onClaimXP,
   onAwardTokens,
+  onTokenBalanceChange,
   onAvatarWon,
 }: DashboardChallengesProps) {
+  const { mode } = useTheme();
+  const isLight = mode === "light";
   const [claimedChallenges, setClaimedChallenges] = useState<Set<string>>(new Set());
   const [dailyLoginClaimKeys, setDailyLoginClaimKeys] = useState<string[]>([]);
   const [testProgress, setTestProgress] = useState<Record<string, number>>({});
@@ -194,13 +204,19 @@ export function DashboardChallenges({
     }
 
     if (onClaimXP) {
-      void onClaimXP("challenge", claimKey, challenge.rewardXP).then((awarded) => {
+      const tokenReward = challenge.rewardXP + (challenge.rewardTokens ?? 0);
+      void onClaimXP("challenge", claimKey, challenge.rewardXP, tokenReward).then((claim) => {
+        const awarded = typeof claim === "boolean" ? claim : claim.awarded;
         if (awarded) {
-          awardTokens();
+          if (typeof claim !== "boolean" && typeof claim.tokenBalance === "number") {
+            onTokenBalanceChange?.(claim.tokenBalance);
+          } else {
+            awardTokens();
+          }
           setClaimedChallenges((previous) => new Set(previous).add(claimKey));
           toast({
             title: `${challenge.title} complete`,
-            description: `+${challenge.rewardXP} XP${challenge.rewardTokens ? ` and +${challenge.rewardTokens} tokens` : ""} claimed automatically.`,
+            description: `+${challenge.rewardXP + (challenge.rewardTokens ?? 0)} Tokens claimed automatically.`,
           });
         }
       }).finally(() => {
@@ -215,7 +231,7 @@ export function DashboardChallenges({
         setClaimedChallenges((previous) => new Set(previous).add(claimKey));
         toast({
           title: `${challenge.title} complete`,
-          description: `+${challenge.rewardXP} XP${challenge.rewardTokens ? ` and +${challenge.rewardTokens} tokens` : ""} claimed automatically.`,
+          description: `+${challenge.rewardXP + (challenge.rewardTokens ?? 0)} Tokens claimed automatically.`,
         });
       }).finally(() => {
         autoClaimingRef.current.delete(claimKey);
@@ -224,7 +240,7 @@ export function DashboardChallenges({
     }
 
     autoClaimingRef.current.delete(claimKey);
-  }, [claimedChallenges, isAdmin, onAwardTokens, onAwardXP, onClaimXP]);
+  }, [claimedChallenges, isAdmin, onAwardTokens, onAwardXP, onClaimXP, onTokenBalanceChange]);
 
   useEffect(() => {
     if (isAdmin) return;
@@ -265,7 +281,7 @@ export function DashboardChallenges({
         </div>
       </section>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-1">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {challengeDefinitions.map((challenge) => {
           const current = testProgress[challenge.id] ?? progressSourceMap[challenge.progressKey] ?? 0;
           const done = current >= challenge.target;
@@ -294,7 +310,7 @@ export function DashboardChallenges({
                 </div>
                 <div className="relative shrink-0 inline-flex items-center gap-0.5 rounded-full border border-raw-border/45 bg-raw-black/55 px-2 py-0.5 text-xs text-raw-text">
                   <Flame className="h-3 w-3 text-raw-gold/80" />
-                  +{challenge.rewardXP} XP{challenge.rewardTokens ? ` / +${challenge.rewardTokens} tokens` : ""}
+                  +{challenge.rewardXP + (challenge.rewardTokens ?? 0)} Tokens
                 </div>
               </div>
 
@@ -324,7 +340,9 @@ export function DashboardChallenges({
                     type="button"
                     onClick={() => handleClaimChallenge(challenge)}
                     disabled={claimed && !isAdmin}
-                    className="rounded-full border border-emerald-300/35 bg-emerald-400/20 px-2.5 py-0.5 text-[10px] font-medium text-emerald-100 transition hover:bg-emerald-400/30 disabled:cursor-default disabled:opacity-55"
+                    className={`rounded-full border border-emerald-300/35 bg-emerald-400/20 px-2.5 py-0.5 text-[10px] font-medium transition hover:bg-emerald-400/30 disabled:cursor-default disabled:opacity-55 ${
+                      isLight ? "text-emerald-800" : "text-emerald-100"
+                    }`}
                   >
                     {claimed && !isAdmin ? "Claimed" : "Claim"}
                   </button>

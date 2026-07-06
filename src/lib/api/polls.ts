@@ -9,11 +9,16 @@ export interface PollCommentRow {
   created_at: string;
   user_id?: string | null;
   author_name?: string | null;
+  parent_comment_id?: string | null;
 }
 
 export interface PollVoteResult {
   optionVotes: Record<string, number>;
 }
+
+const POLL_COMMENTS_CACHE_TTL_MS = 30_000;
+const pollCommentsCache = new Map<string, { expiresAt: number; comments: PollCommentRow[] }>();
+const pollCommentsRequests = new Map<string, Promise<PollCommentRow[]>>();
 
 export async function testPollConnection(): Promise<{ ok: boolean; message: string }> {
   try {
@@ -125,7 +130,7 @@ function parseOptionVotes(value: unknown): Record<string, number> {
 
   return Object.fromEntries(
     Object.entries(value as Record<string, unknown>)
-      .map(([key, count]) => [key, Number(count)])
+      .map(([key, count]) => [key, Number(count)] as [string, number])
       .filter(([, count]) => Number.isFinite(count) && count >= 0)
   );
 }
@@ -153,32 +158,100 @@ export async function submitPollVote(pollId: string, optionId: string): Promise<
   return { optionVotes: parseOptionVotes(payload?.optionVotes) };
 }
 
-export async function fetchPollComments(pollId: string): Promise<PollCommentRow[]> {
+export interface TrendingPoll {
+  id: string;
+  question: string;
+  commentCount: number;
+}
+
+type TrendingPollRow = {
+  id?: string;
+  question?: string;
+  status?: string;
+  poll_comments?: Array<{ count?: number }> | { count?: number } | null;
+};
+
+export async function fetchTrendingPolls(limit = 5): Promise<TrendingPoll[]> {
   const { data, error } = await supabase
-    .from("poll_comments")
-    .select("id, poll_id, text, created_at, user_id, author_name")
-    .eq("poll_id", pollId)
-    .order("created_at", { ascending: false })
+    .from("polls")
+    .select("id, question, status, poll_comments(count)")
+    .eq("status", "active")
     .limit(50);
   if (error) throw error;
-  return (data ?? []) as PollCommentRow[];
+
+  const rows = (data ?? []) as TrendingPollRow[];
+  return rows
+    .map((row) => {
+      const commentsField = row.poll_comments;
+      const rawCount = Array.isArray(commentsField)
+        ? commentsField[0]?.count
+        : commentsField?.count;
+      const commentCount = Number(rawCount ?? 0);
+      return {
+        id: String(row.id ?? ""),
+        question: String(row.question ?? ""),
+        commentCount: Number.isFinite(commentCount) ? commentCount : 0,
+      };
+    })
+    .filter((poll) => poll.id && poll.question.trim().length > 0 && poll.commentCount > 0)
+    .sort((a, b) => b.commentCount - a.commentCount)
+    .slice(0, limit);
+}
+
+export async function fetchPollComments(pollId: string): Promise<PollCommentRow[]> {
+  const now = Date.now();
+  const cached = pollCommentsCache.get(pollId);
+  if (cached && cached.expiresAt > now) {
+    return cached.comments;
+  }
+
+  const pending = pollCommentsRequests.get(pollId);
+  if (pending) return pending;
+
+  const request = (async () => {
+    const { data, error } = await supabase
+      .from("poll_comments")
+      .select("id, poll_id, text, created_at, user_id, author_name, parent_comment_id")
+      .eq("poll_id", pollId)
+      .order("created_at", { ascending: true })
+      .limit(50);
+    if (error) throw error;
+    const comments = (data ?? []) as PollCommentRow[];
+    pollCommentsCache.set(pollId, {
+      comments,
+      expiresAt: Date.now() + POLL_COMMENTS_CACHE_TTL_MS,
+    });
+    return comments;
+  })();
+
+  pollCommentsRequests.set(pollId, request);
+  try {
+    return await request;
+  } finally {
+    pollCommentsRequests.delete(pollId);
+  }
 }
 
 export async function addPollComment(
   pollId: string,
   text: string,
   author?: { id: string; name: string } | null,
+  parentCommentId?: string | null,
 ): Promise<PollCommentRow> {
   const payload: Record<string, unknown> = { poll_id: pollId, text };
   if (author) {
     payload.user_id = author.id;
     payload.author_name = author.name;
   }
+  if (parentCommentId) {
+    payload.parent_comment_id = parentCommentId;
+  }
   const { data, error } = await supabase
     .from("poll_comments")
     .insert(payload)
-    .select("id, poll_id, text, created_at, user_id, author_name")
+    .select("id, poll_id, text, created_at, user_id, author_name, parent_comment_id")
     .single();
   if (error || !data) throw error ?? new Error("Failed to create comment");
+  pollCommentsCache.delete(pollId);
   return data as PollCommentRow;
 }

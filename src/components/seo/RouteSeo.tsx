@@ -2,7 +2,9 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
 const SITE_URL = "https://www.myraw.app";
-const SOCIAL_IMAGE_URL = `${SITE_URL}/og-card.svg`;
+// Social scrapers (Facebook, X/Twitter, LinkedIn, Slack, WhatsApp) do not render
+// SVG OG images — they require a raster format. Use the 1200x630 PNG card.
+const SOCIAL_IMAGE_URL = `${SITE_URL}/og-card.png`;
 
 type StructuredData = Record<string, unknown>;
 type RouteSeoConfig = {
@@ -27,6 +29,17 @@ const routeSeo: Record<string, RouteSeoConfig> = {
           target: `${SITE_URL}/faq?q={search_term_string}`,
           "query-input": "required name=search_term_string",
         },
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "MobileApplication",
+        name: "raW",
+        url: canonicalUrl,
+        applicationCategory: "SocialNetworkingApplication",
+        operatingSystem: "iOS, Android, Web",
+        description: "Anonymous social app for live polls, avatar identities, and interest-based online communities where you can speak honestly and find where you belong.",
+        offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+        image: SOCIAL_IMAGE_URL,
       },
     ],
   },
@@ -78,11 +91,6 @@ const routeSeo: Record<string, RouteSeoConfig> = {
   "/security": { title: "Community Chat Safety & Privacy | raW", description: "Learn how raW protects people in anonymous online communities through privacy controls, moderation, reporting, and account security." },
   "/privacy": { title: "Privacy Policy | raW", description: "Read how raW handles account information, anonymous participation, privacy, and data security." },
   "/terms": { title: "Terms of Service | raW", description: "Read the terms for using raW's anonymous online community and group chat platform." },
-  "/community-guidelines": { title: "Community Guidelines | raW", description: "Read the community rules that keep raW's anonymous polls, avatars, and community chats safer and more respectful." },
-  "/safety": { title: "Safety Center | raW", description: "Learn how raW handles safety, moderation, reporting, and responsible participation in anonymous online communities." },
-  "/report-content": { title: "Report Content | raW", description: "Learn how to report unsafe or inappropriate content in raW's anonymous community chats." },
-  "/appeals": { title: "Appeals | raW", description: "Learn how raW members can appeal moderation decisions and request a review." },
-  "/cookie-policy": { title: "Cookie Policy | raW", description: "Read how raW uses cookies and similar technologies for security, analytics, and product functionality." },
 };
 
 function setMeta(selector: string, value: string) {

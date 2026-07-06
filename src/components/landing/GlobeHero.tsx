@@ -1,26 +1,82 @@
 "use client";
 
-import React, { Suspense, lazy } from "react";
-import { motion } from "motion/react";
-import { ArrowRight, ArrowDown } from "lucide-react";
+import { type ComponentType, useEffect, useRef, useState } from "react";
+import { BrandName } from "@/components/ui/brand-name";
+import { motion, useReducedMotion, useScroll, useTransform } from "motion/react";
+import { ShieldCheck } from "lucide-react";
 import { track } from "@/lib/analytics";
 
-import { TypewriterStack } from "@/components/ui/typewriter-stack";
 import { useTheme } from "@/providers/useTheme";
-
-// Lazy-load the Three.js scene so the ~500KB three+fiber+drei bundle
-// doesn't block initial paint on mobile.
-const LazyGlobeScene = lazy(() =>
-  import("./GlobeHeroScene").then((m) => ({ default: m.GlobeHeroScene })),
-);
 
 interface GlobeHeroProps {
   onSignupClick: () => void;
 }
 
+type GlobeQuality = "mobile" | "desktop";
+type GlobeSceneComponent = ComponentType<{
+  animate: boolean;
+  globeColor: string;
+  onReady: () => void;
+  quality: GlobeQuality;
+}>;
+
+const headlineLines = [
+  { text: "Your place.", accent: false },
+  { text: "Your people.", accent: false },
+  { text: "Your self.", accent: true },
+];
+
 export function GlobeHero({ onSignupClick }: GlobeHeroProps) {
   const { mode } = useTheme();
   const globeColor = mode === "light" ? "#0A0A0A" : "#F5F5F5";
+  const prefersReducedMotion = useReducedMotion();
+  const [GlobeScene, setGlobeScene] = useState<GlobeSceneComponent | null>(null);
+  const [realOrbReady, setRealOrbReady] = useState(false);
+  const [globeQuality, setGlobeQuality] = useState<GlobeQuality>("desktop");
+
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start start", "end start"],
+  });
+  const contentY = useTransform(scrollYProgress, [0, 1], [0, -56]);
+  const contentOpacity = useTransform(scrollYProgress, [0, 0.75], [1, 0]);
+
+  useEffect(() => {
+    const isMobile = !window.matchMedia("(min-width: 640px)").matches;
+    setGlobeQuality(isMobile ? "mobile" : "desktop");
+    setRealOrbReady(false);
+
+    let cancelled = false;
+    let timeoutId: number | null = null;
+    const loadOrb = () => {
+      import("./GlobeHeroScene")
+        .then((module) => {
+          if (!cancelled) setGlobeScene(() => module.GlobeHeroScene);
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setGlobeScene(null);
+            setRealOrbReady(false);
+          }
+        });
+    };
+
+    if (!isMobile && "requestIdleCallback" in window) {
+      const idleId = window.requestIdleCallback(loadOrb, { timeout: 1400 });
+      return () => {
+        cancelled = true;
+        window.cancelIdleCallback(idleId);
+        if (timeoutId !== null) window.clearTimeout(timeoutId);
+      };
+    }
+
+    timeoutId = window.setTimeout(loadOrb, isMobile ? 80 : 600);
+    return () => {
+      cancelled = true;
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+    };
+  }, [prefersReducedMotion]);
 
   const handlePrimaryClick = () => {
     track("landing_cta_clicked", {
@@ -40,141 +96,122 @@ export function GlobeHero({ onSignupClick }: GlobeHeroProps) {
   };
 
   return (
-    <div className="relative flex min-h-[620px] items-center justify-center overflow-hidden bg-gradient-to-br from-background via-background/95 to-muted/10 pb-8 pt-10 sm:min-h-[680px] sm:pt-14">
-      {/* Globe behind text, centered and smaller */}
-      <div className="absolute inset-0 flex items-center justify-center z-0 pointer-events-none">
-        <div className="w-[340px] h-[340px] md:w-[420px] md:h-[420px] lg:w-[520px] lg:h-[520px]">
-          <Suspense fallback={null}>
-            <LazyGlobeScene globeColor={globeColor} />
-          </Suspense>
+    <div
+      ref={sectionRef}
+      className="relative flex min-h-[620px] items-center justify-center overflow-hidden pb-12 pt-10 sm:min-h-[680px] sm:pt-14"
+    >
+      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_50%_28%,rgba(241,196,45,0.08),transparent_32%),linear-gradient(180deg,rgba(0,0,0,0.14),rgba(0,0,0,0.62))] sm:hidden" />
+      {/* Globe behind text, centered, melted into the dark */}
+      <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center opacity-100">
+        <div className="relative h-[340px] w-[340px] md:h-[440px] md:w-[440px] lg:h-[560px] lg:w-[560px]">
+          <div
+            className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_50%_45%,rgba(241,196,45,0.16),rgba(241,196,45,0.05)_32%,transparent_68%)] opacity-95 blur-[0.2px]"
+            aria-hidden="true"
+          />
+          {GlobeScene && (
+            <div className={`absolute inset-0 transition-opacity duration-300 ${realOrbReady ? "opacity-100" : "opacity-0"}`}>
+              <GlobeScene
+                animate={!prefersReducedMotion}
+                globeColor={globeColor}
+                onReady={() => setRealOrbReady(true)}
+                quality={globeQuality}
+              />
+            </div>
+          )}
         </div>
       </div>
-      <div className="relative z-10 mx-auto max-w-5xl space-y-9 px-4 py-10 pt-20 text-center sm:space-y-12 sm:px-6 sm:py-12 sm:pt-14">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          className="space-y-8"
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="relative inline-flex w-full max-w-none items-center justify-center gap-2 rounded-full border border-primary/30 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 px-4 py-3 backdrop-blur-xl shadow-2xl sm:gap-3 sm:px-6"
-          >
-            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-primary/10 via-transparent to-primary/10 animate-pulse" />
-            <div className="w-2 h-2 bg-primary rounded-full animate-ping" />
-            <span className="relative z-10 w-full text-center text-[0.69rem] font-bold uppercase tracking-[0.2em] text-primary sm:text-sm sm:tracking-wider">ANONYMOUS BY DESIGN • IDENTITY YOU BUILD • COMMUNITY DRIVEN</span>
-            <div
-              className="w-2 h-2 bg-primary rounded-full animate-ping"
-              style={{ animationDelay: "0.5s" }}
-            />
-          </motion.div>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-44 bg-gradient-to-t from-background to-transparent" />
 
-          <div className="space-y-6">
-            <motion.h1
+      <motion.div
+        style={{ y: contentY, opacity: contentOpacity }}
+        className="relative z-10 mx-auto w-full max-w-5xl px-4 pt-20 text-center sm:px-6 sm:pt-14"
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1.1, delay: 0.15 }}
+          className="flex items-center justify-center gap-3 sm:gap-4"
+        >
+          <span className="hidden h-px w-10 bg-gradient-to-r from-transparent to-primary/45 sm:block sm:w-16" aria-hidden="true" />
+          <span
+            className="inline-flex items-center gap-2 rounded-full border border-primary/35 bg-primary/[0.07] px-3.5 py-1.5 backdrop-blur-sm sm:px-4"
+            style={{ boxShadow: "0 0 28px hsl(var(--primary) / 0.22), inset 0 0 14px hsl(var(--primary) / 0.06)" }}
+          >
+            <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
+            <span
+              className="text-[0.62rem] font-semibold uppercase tracking-[0.38em] text-primary sm:text-[0.72rem]"
+              style={{ textShadow: "0 0 16px hsl(var(--primary) / 0.5)" }}
+            >
+              Anonymous by design
+            </span>
+          </span>
+          <span className="hidden h-px w-10 bg-gradient-to-l from-transparent to-primary/45 sm:block sm:w-16" aria-hidden="true" />
+        </motion.div>
+
+        <h1 className="mt-7 font-editorial text-[3.2rem] leading-[1.02] tracking-tight text-foreground sm:mt-9 sm:text-7xl md:text-[5.4rem] lg:text-[6.2rem]">
+          <span className="sr-only">
+            raW — anonymous group chats, live polls, and online communities. Your Place. Your People. Your Self.
+          </span>
+          {headlineLines.map((line, i) => (
+            <motion.span
+              key={line.text}
+              aria-hidden="true"
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1, delay: 0.3 }}
-              className="select-none text-[2.1rem] font-black leading-[0.9] tracking-tight sm:text-[2.6rem] md:text-[3.825rem] lg:text-[5.1rem] xl:text-[6.8rem]"
+              transition={{ duration: 0.85, delay: 0.3 + i * 0.18, ease: "easeOut" }}
+              className={`block ${line.accent ? "italic text-primary" : ""}`}
             >
-              <span className="block relative">
-                <span
-                  className="font-black relative z-10 block"
-                  style={{
-                    filter:
-                      "drop-shadow(0 0 24px hsl(var(--primary) / 0.45)) drop-shadow(0 0 48px hsl(var(--primary) / 0.25))",
-                  }}
-                >
-                  <TypewriterStack
-                    words={["Your Place", "Your People", "Your Self", "raW"]}
-                    lastWordDurationMs={1500}
-                    prefix="Your"
-                    prefixClassName="text-foreground font-black"
-                    startScale={0.6}
-                    endScale={1.15}
-                    textClassName="bg-gradient-to-br from-primary via-primary to-primary/60 bg-clip-text text-transparent font-black"
-                    firstWordClassName="text-metallic font-black"
-                    cursorClassName="bg-primary"
-                    highlightRawWord
-                    rawWordBaseClassName="raw-logo-ra font-display font-black"
-                    rawWClassName="raw-logo-w font-display font-black"
-                    lineClassNamesByIndex={{ 3: "mt-14" }}
-                  />
-                </span>
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: "100%" }}
-                  transition={{ duration: 1.5, delay: 1.2, ease: "easeOut" }}
-                  className="absolute -bottom-6 left-0 h-3 bg-gradient-to-r from-primary via-primary/80 to-transparent rounded-full shadow-lg shadow-primary/50"
-                />
-              </span>
-            </motion.h1>
-          </div>
+              {line.text}
+            </motion.span>
+          ))}
+        </h1>
 
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.8, delay: 0.8 }}
-            className="mx-auto max-w-3xl space-y-4 pt-6 sm:pt-8"
-          >
-            <p
-              className="font-display text-lg font-medium leading-relaxed text-foreground sm:text-xl md:text-2xl"
-            >
-              Anonymous online communities for honest conversation and real connection
-            </p>
-            <p
-              className="text-base font-semibold leading-relaxed text-primary sm:text-lg"
-              style={{
-                textShadow:
-                  "0 0 12px hsl(var(--primary) / 0.6), 0 0 28px hsl(var(--primary) / 0.35)",
-              }}
-            >
-              Join interest-based group chats with just a username and password — no email, no phone, no real name
-            </p>
-          </motion.div>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.9, delay: 1.05 }}
+          className="mx-auto mt-9 max-w-xl space-y-4 sm:mt-11"
+        >
+          <div className="mx-auto h-px w-16 bg-primary/60" aria-hidden="true" />
+          <p className="text-base leading-relaxed text-raw-silver/80 sm:text-lg">
+            This is <BrandName /> — rooms where you say what
+            you actually think, and meet the people who get it.
+          </p>
+          <p className="text-sm leading-relaxed text-raw-silver/50">
+            A username and a password. No email, no phone, no real name.
+          </p>
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 1 }}
-          className="flex flex-col items-center justify-center gap-4 pt-2 sm:flex-row sm:gap-6 sm:pt-4"
+          transition={{ duration: 0.8, delay: 1.3 }}
+          className="mt-10 flex flex-col items-center justify-center gap-5 sm:mt-12 sm:flex-row sm:gap-9"
         >
-          <motion.button
+          <button
             type="button"
             onClick={handlePrimaryClick}
-            whileHover={{
-              scale: 1.05,
-              boxShadow: "0 20px 40px rgba(0,0,0,0.2), 0 0 25px hsl(var(--primary) / 0.3)",
-              y: -2,
-            }}
-            whileTap={{ scale: 0.98 }}
-            className="group relative inline-flex min-h-11 w-full items-center justify-center gap-3 overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-r from-primary via-primary to-primary/90 px-6 py-3.5 text-base font-semibold text-primary-foreground shadow-xl transition-all duration-500 hover:shadow-primary/30 sm:w-auto sm:px-8 sm:py-4 sm:text-lg"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-primary px-10 py-3.5 text-base font-semibold tracking-wide text-primary-foreground transition-all duration-300 hover:bg-primary/90 hover:shadow-[0_0_40px_hsl(var(--primary)/0.25)] sm:w-auto"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-white/20 via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <motion.div
-              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
-              initial={{ x: "-100%" }}
-              whileHover={{ x: "100%" }}
-              transition={{ duration: 0.8 }}
-            />
-            <span className="relative z-10 tracking-wide">Join Now</span>
-            <ArrowRight className="relative z-10 w-5 h-5 group-hover:translate-x-2 transition-transform duration-300" />
-          </motion.button>
-
-          <motion.a
+            Join now
+          </button>
+          <a
             href="#how-it-works"
             onClick={handleSecondaryClick}
-            whileTap={{ scale: 0.98 }}
-            className="group relative inline-flex min-h-11 w-full items-center justify-center gap-3 overflow-hidden rounded-xl border-2 border-border/40 bg-background/60 px-6 py-3.5 text-base font-semibold shadow-lg backdrop-blur-xl transition-all duration-500 hover:border-primary/40 hover:bg-background/90 sm:w-auto sm:px-8 sm:py-4 sm:text-lg"
+            className="group inline-flex min-h-11 items-center gap-2 text-sm font-medium tracking-wide text-raw-silver/70 transition-colors hover:text-foreground"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <ArrowDown className="relative z-10 w-5 h-5 group-hover:translate-y-1 transition-transform duration-300" />
-            <span className="relative z-10 tracking-wide">Learn More</span>
-          </motion.a>
+            <span className="border-b border-raw-silver/30 pb-0.5 transition-colors group-hover:border-primary">
+              How it works
+            </span>
+            <span
+              aria-hidden="true"
+              className="transition-transform duration-300 group-hover:translate-y-0.5"
+            >
+              ↓
+            </span>
+          </a>
         </motion.div>
-      </div>
+      </motion.div>
     </div>
   );
 }

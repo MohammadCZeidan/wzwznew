@@ -1,7 +1,7 @@
 import { BrandName } from "@/components/ui/brand-name";
+import { highlightRawWordmark } from "@/components/ui/highlightRawWordmark";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import isItJustMeVideo from "@/assets/itisjustme.webm";
 import speakYourTruthVideo from "@/assets/speakyourheart.webm";
 import lntVideo from "@/assets/2026-04-18 10_10_00.webm";
 import { AvatarFigure } from "@/components/ui/avatar-figure";
@@ -12,13 +12,14 @@ import { fetchPolls } from "@/lib/api/polls";
 import type { AvatarCatalogItem } from "@/lib/avatarCatalog";
 import { LANDING_WHEEL_SPIN_KEY } from "@/lib/avatarCatalog";
 import { avatarDisplayName } from "@/config/avatarNames";
+import { LANDING_CHOOSER_AVATARS, getLandingUnlockableAvatars } from "@/lib/landingAvatarOrder";
 import { WheelOfFortune, type WheelPrize } from "@/components/wheel/WheelOfFortune";
-import { SpinWheelClaimBanner } from "@/components/wheel/SpinWheelClaimBanner";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { SwipeablePollCard } from "./SwipeablePollCard";
 import { EnterRawModal } from "./EnterRawModal";
+import { TermsAgreementModal } from "./TermsAgreementModal";
 import type { OnboardingStep, Poll, User } from "@/store/useRawStore";
 import { track } from "@/lib/analytics";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -53,13 +54,13 @@ interface OnboardingJourneyProps {
   onCompleteOnboarding: () => void | Promise<void>;
   onLogout: () => void;
   onClaimLandingWheelAvatar: () => Promise<void>;
-  markAvatarOwned: (level: number) => void;
+  markAvatarOwnedById: (avatarId: string) => void;
 }
 
 type WheelPoolEntry = { id: string; avatarId: string; name: string; imageSrc: string };
 
 // Ordered spin pool sourced from the shared config.
-import { SPIN_POOL, EARLY_SIGNUP_POOL } from "@/backend/supabase/controllers/avatarRewardsController";
+import { SPIN_POOL } from "@/backend/supabase/controllers/avatarRewardsController";
 
 const SPIN_WHEEL_POOL: readonly WheelPoolEntry[] = SPIN_POOL.map((entry, i) => ({
   id: `wheel-avatar-${i + 1}`,
@@ -68,41 +69,34 @@ const SPIN_WHEEL_POOL: readonly WheelPoolEntry[] = SPIN_POOL.map((entry, i) => (
   imageSrc: entry.imageSrc,
 }));
 
-const RANK_SEGMENT_COLORS: Record<number, { segment: string; text: string }> = {
-  1:  { segment: "#111111", text: "#9ca3af" },
-  2:  { segment: "#0a1525", text: "#60a5fa" },
-  3:  { segment: "#150825", text: "#c084fc" },
-  4:  { segment: "#251200", text: "#fb923c" },
-  5:  { segment: "#250808", text: "#f87171" },
-  6:  { segment: "#250814", text: "#f472b6" },
-  7:  { segment: "#1e1500", text: "#F1C42D" },
-  8:  { segment: "#101520", text: "#cbd5e1" },
-  9:  { segment: "#181818", text: "#f1f5f9" },
-  10: { segment: "#080e14", text: "#a78bfa" },
-};
-
-// Group spin pool entries by rank so onSpinEnd can randomly pick within a rank
-const SPIN_POOL_BY_RANK: ReadonlyMap<number, readonly WheelPoolEntry[]> = (() => {
-  const map = new Map<number, WheelPoolEntry[]>();
-  for (const entry of SPIN_WHEEL_POOL) {
-    const rank = getAvatarRank({ name: entry.name, id: entry.avatarId, imageSrc: entry.imageSrc });
-    const list = map.get(rank) ?? [];
-    list.push(entry);
-    map.set(rank, list);
-  }
-  return map;
-})();
+const WHEEL_AVATAR_SEGMENT_COLORS: Array<{ segment: string; text: string }> = [
+  { segment: "#101520", text: "#cbd5e1" },
+  { segment: "#071527", text: "#60a5fa" },
+  { segment: "#160926", text: "#c084fc" },
+  { segment: "#261208", text: "#fb923c" },
+  { segment: "#260812", text: "#f87171" },
+  { segment: "#250814", text: "#f472b6" },
+  { segment: "#1f1604", text: "#F1C42D" },
+  { segment: "#101820", text: "#93c5fd" },
+  { segment: "#0c0c10", text: "#f1f5f9" },
+  { segment: "#0b0f1f", text: "#a78bfa" },
+];
 
 function buildSpinPrizes(): WheelPrize[] {
-  const ranks = [...SPIN_POOL_BY_RANK.keys()].sort((a, b) => a - b);
-  return ranks.map((rank) => {
-    const theme = RANK_SEGMENT_COLORS[rank] ?? { segment: "#111111", text: "#9ca3af" };
+  return SPIN_WHEEL_POOL.map((entry, index) => {
+    const theme = WHEEL_AVATAR_SEGMENT_COLORS[index % WHEEL_AVATAR_SEGMENT_COLORS.length];
+    const rank = getAvatarRank({
+      id: entry.avatarId,
+      name: entry.name,
+      imageSrc: entry.imageSrc,
+    });
     return {
-      id: `rank-${rank}`,
-      label: `R${rank}`,
+      id: entry.id,
+      label: entry.name,
       shortLabel: `R${rank}`,
       color: theme.segment,
       textColor: theme.text,
+      imageSrc: entry.imageSrc,
     };
   });
 }
@@ -127,10 +121,9 @@ function readStoredSpinResult(): WheelPoolEntry | null {
   }
 }
 
-function findOwnedSpinResult(ownedAvatarLevels: Set<number>, avatarCatalog: AvatarCatalogItem[]): WheelPoolEntry | null {
+function findOwnedSpinResult(ownedAvatarIds: Set<string>): WheelPoolEntry | null {
   for (const entry of SPIN_WHEEL_POOL) {
-    const level = avatarCatalog.findIndex((avatar) => avatar.id === entry.avatarId) + 1;
-    if (level > 0 && ownedAvatarLevels.has(level)) {
+    if (ownedAvatarIds.has(entry.avatarId)) {
       return entry;
     }
   }
@@ -138,10 +131,12 @@ function findOwnedSpinResult(ownedAvatarLevels: Set<number>, avatarCatalog: Avat
   return null;
 }
 
-const STEP_ORDER: OnboardingStep[] = ["spin", "username", "avatar", "polls", "communities"];
+const STEP_ORDER: OnboardingStep[] = ["spin", "username", "polls", "communities", "avatar"];
 const STEP_LABELS: Record<OnboardingStep, string> = {
   spin: "spin",
   username: "username",
+  voucher: "voucher",
+  "early-signup-reward": "reward",
   avatar: "avatar",
   polls: "polls",
   profile: "profile",
@@ -154,33 +149,16 @@ const AVATAR_PAGE_SIZE = 8;
 const AGE_GATE_STORAGE_PREFIX = "raw.ageGateVerified";
 
 const LANDING_ONBOARDING_AVATARS: readonly AvatarCatalogItem[] = [
-  { id: "ember", level: 1, name: "Ember", price: "Free", imageSrc: "/avatars/avatar-3.svg", bg: "#1f0a05", figure: "#ff8a1f", ring: "#ff8a1f", glow: "#ff8a1f80", isActive: true, rarity: "common" },
-  { id: "verdant", level: 2, name: "Verdant", price: "Free", imageSrc: "/avatars/avatar-1.svg", bg: "#08160b", figure: "#22c55e", ring: "#22c55e", glow: "#22c55e80", isActive: true, rarity: "common" },
-  { id: "horned", level: 3, name: "Horned", price: "Free", imageSrc: "/avatars/avatar-5.svg", bg: "#1f0808", figure: "#ff2d3d", ring: "#ff2d3d", glow: "#ff2d3d80", isActive: true, rarity: "common" },
-  { id: "pharaoh", level: 4, name: "Pharaoh", price: "Free", imageSrc: "/avatars/avatar-6.svg", bg: "#1f1605", figure: "#f2d21a", ring: "#f2d21a", glow: "#f2d21a80", isActive: true, rarity: "common" },
-  { id: "violet", level: 5, name: "Violet", price: "Free", imageSrc: "/avatars/avatar-2.svg", bg: "#150a22", figure: "#b84dff", ring: "#b84dff", glow: "#b84dff80", isActive: true, rarity: "common" },
-  { id: "rose", level: 6, name: "Rose", price: "Free", imageSrc: "/avatars/avatar-4.svg", bg: "#1f0a14", figure: "#f43f5e", ring: "#f43f5e", glow: "#f43f5e80", isActive: true, rarity: "common" },
-  { id: "black", level: 7, name: "Black", price: "Free", imageSrc: "/avatars/avatar-7.svg", bg: "#0a0a0a", figure: "#cfd3da", ring: "#cfd3da", glow: "#cfd3da80", isActive: true, rarity: "common" },
-  { id: "blue", level: 8, name: "Blue", price: "Free", imageSrc: "/avatars/avatar-10.svg", bg: "#0a1424", figure: "#3b82f6", ring: "#3b82f6", glow: "#3b82f680", isActive: true, rarity: "common" },
-  // Preview-only tier: 8 free-spin avatars + 4 early-signup avatars,
-  // sourced from the shared config so order matches landing + wheel.
-  ...SPIN_POOL.map((entry, i): AvatarCatalogItem => ({
-    id: `preview-spin-${i + 1}`,
-    level: FREE_ONBOARDING_AVATAR_COUNT + 1 + i,
-    name: avatarDisplayName(entry.imageId),
-    price: "50",
-    imageSrc: entry.imageSrc,
-    bg: "#111827", figure: "#cbd5e1", ring: "#cbd5e1", glow: "#cbd5e180",
-    isActive: true, rarity: "common",
+  ...LANDING_CHOOSER_AVATARS.map((avatar, index): AvatarCatalogItem => ({
+    ...avatar,
+    level: index + 1,
+    price: "Free",
   })),
-  ...EARLY_SIGNUP_POOL.map((entry, i): AvatarCatalogItem => ({
-    id: `preview-signup-${i + 1}`,
-    level: FREE_ONBOARDING_AVATAR_COUNT + 1 + SPIN_POOL.length + i,
-    name: avatarDisplayName(entry.imageId),
+  ...getLandingUnlockableAvatars().map((avatar, index): AvatarCatalogItem => ({
+    ...avatar,
+    id: `preview-${avatar.id}`,
+    level: FREE_ONBOARDING_AVATAR_COUNT + 1 + index,
     price: "50",
-    imageSrc: entry.imageSrc,
-    bg: "#111827", figure: "#cbd5e1", ring: "#cbd5e1", glow: "#cbd5e180",
-    isActive: true, rarity: "common",
   })),
 ];
 
@@ -225,24 +203,12 @@ const FALLBACK_POLLS: OnboardingPoll[] = [
   },
 ];
 
-const EXTRA_ONBOARDING_POLLS: OnboardingPoll[] = [
-  {
-    id: "launch-feedback-loop",
-    question: "How often should raW ask members for product feedback during launch?",
-    options: ["Every week", "Every 2 weeks"],
-  },
-  {
-    id: "launch-community-priority",
-    question: "What matters most in your first community?",
-    options: ["Serious debate", "Constructive support"],
-  },
-];
 
 const ONBOARDING_COMMUNITIES = [
   {
     id: "lnt",
     title: "Late Night Talk",
-    description: "Honest conversation when the world gets quiet and people finally say what they actually mean.",
+    description: "Real talk after midnight.",
     members: "3",
     activeNow: "1 active",
     video: lntVideo,
@@ -251,7 +217,7 @@ const ONBOARDING_COMMUNITIES = [
   {
     id: "syt",
     title: "Speak Your Truth",
-    description: "A space to say what you've been holding back. No filters, no judgment — just real voices sharing real experiences.",
+    description: "Say what you've been holding back.",
     members: "3",
     activeNow: "1 active",
     video: speakYourTruthVideo,
@@ -260,20 +226,20 @@ const ONBOARDING_COMMUNITIES = [
   {
     id: "iijm",
     title: "Is It Just Me?",
-    description: "Relatable moments, shared observations, and the quiet comfort of realizing you're not the only one.",
+    description: "It's never just you.",
     members: "3",
     activeNow: "1 active",
-    video: isItJustMeVideo,
+    video: "/assets/IIJM.webm",
     image: undefined,
   },
   {
     id: "li",
     title: "Lebanon Initiatives",
-    description: "A space for Lebanese change-makers, community builders, and people driving impact inside Lebanon and across the diaspora.",
+    description: "Lebanese builders making real moves.",
     members: "0",
     activeNow: "Early Access",
     locked: true,
-    image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=900&q=80",
+    image: "/assets/community-covers/lebanese-initiatives.webp",
   },
 ];
 
@@ -320,12 +286,13 @@ function BackButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-function StepPill({ label, active, complete, onClick }: { label: string; active: boolean; complete: boolean; onClick?: () => void }) {
+function StepPill({ label, active, complete, disabled, onClick }: { label: string; active: boolean; complete: boolean; disabled?: boolean; onClick?: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.18em] transition-all hover:border-raw-gold/60 hover:text-raw-gold ${
+      disabled={disabled}
+      className={`rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.18em] transition-all hover:border-raw-gold/60 hover:text-raw-gold disabled:cursor-not-allowed disabled:hover:border-raw-border/40 disabled:hover:text-raw-silver/35 ${
         active
           ? "border-raw-gold/60 bg-raw-gold/15 text-raw-gold"
           : complete
@@ -360,7 +327,7 @@ export function OnboardingJourney({
   onCompleteOnboarding,
   onLogout,
   onClaimLandingWheelAvatar,
-  markAvatarOwned,
+  markAvatarOwnedById,
 }: OnboardingJourneyProps) {
   const { data: supabasePolls } = useQuery({
     queryKey: ["onboarding-landing-polls"],
@@ -385,6 +352,7 @@ export function OnboardingJourney({
   const [pollStats, setPollStats] = useState<Record<string, Record<string, number>>>({});
   const [currentPollIndex, setCurrentPollIndex] = useState(0);
   const [enterRawOpen, setEnterRawOpen] = useState(false);
+  const [termsAgreementOpen, setTermsAgreementOpen] = useState(false);
   const [isAgeVerified, setIsAgeVerified] = useState(false);
   const [isAgeVerifiedLoaded, setIsAgeVerifiedLoaded] = useState(false);
   const [communitySaveError, setCommunitySaveError] = useState<string | null>(null);
@@ -426,26 +394,26 @@ export function OnboardingJourney({
 
   useEffect(() => {
     if (!spinResult) return;
-    const idx = SPIN_POOL.findIndex((p) => p.catalogId === spinResult.avatarId);
-    if (idx >= 0) {
-      markAvatarOwned(FREE_ONBOARDING_AVATAR_COUNT + 1 + idx);
-    }
-  }, [spinResult, markAvatarOwned]);
+    markAvatarOwnedById(spinResult.avatarId);
+  }, [spinResult, markAvatarOwnedById]);
 
   useEffect(() => {
     const stepIndex = STEP_ORDER.indexOf(onboardingStep);
-    track("onboarding_step_viewed", { step: onboardingStep as "spin" | "avatar" | "polls" | "communities" | "ready", step_index: stepIndex });
+    track("onboarding_step_viewed", { step: onboardingStep as "spin" | "username" | "avatar" | "polls" | "communities" | "ready", step_index: stepIndex });
     stepStartTimeRef.current = Date.now();
   }, [onboardingStep]);
 
   const canContinueFromAvatar = avatarIndex >= 1 && (avatarIndex <= FREE_ONBOARDING_AVATAR_COUNT || ownedAvatarLevels.has(avatarIndex));
-  const canContinueFromPolls = answeredCount >= onboardingPolls.length;
+  const requiredPollCount = onboardingPolls.length;
+  const canContinueFromPolls = requiredPollCount > 0 && answeredCount >= requiredPollCount;
   const canContinueFromProfile = profilePublic !== null;
   const canContinueFromCommunities = selectedCommunityIds.length >= 1;
   const canCompleteOnboarding = canContinueFromAvatar && canContinueFromPolls && canContinueFromCommunities;
   const previewAvatar = onboardingAvatars[previewAvatarIndex - 1] ?? onboardingAvatars[0];
-  const canContinueFromUsername = isValidUsername(publicUsernameDraft) && isValidUsername(privateUsernameDraft);
-  const canSelectPreviewAvatar = previewAvatarIndex <= FREE_ONBOARDING_AVATAR_COUNT || ownedAvatarLevels.has(previewAvatarIndex);
+  const trimmedPrivateUsernameDraft = privateUsernameDraft.trim();
+  const canContinueFromUsername =
+    isValidUsername(publicUsernameDraft) &&
+    (trimmedPrivateUsernameDraft.length === 0 || isValidUsername(trimmedPrivateUsernameDraft));
   const freeAvatarChoices = onboardingAvatars.slice(0, FREE_ONBOARDING_AVATAR_COUNT);
   const previewAvatarChoices: AvatarCatalogItem[] = onboardingAvatars.slice(FREE_ONBOARDING_AVATAR_COUNT);
   // Reward catalog ids on the server are `spin-<imageId>` / `signup-<imageId>`.
@@ -460,7 +428,6 @@ export function OnboardingJourney({
     return ids;
   }, [ownedAvatarIds]);
   const isPreviewAvatarOwned = (avatar: AvatarCatalogItem): boolean => {
-    if (ownedAvatarLevels.has(avatar.level)) return true;
     if (avatar.imageSrc) {
       const match = /(\d+)\.(?:png|webp|jpg|jpeg|svg)$/.exec(avatar.imageSrc);
       if (match) {
@@ -470,8 +437,11 @@ export function OnboardingJourney({
     }
     return false;
   };
-  const ownedPreviewAvatarChoices = previewAvatarChoices.filter((avatar) => ownedAvatarLevels.has(avatar.level));
-  const claimedSpinResult = spinResult ?? findOwnedSpinResult(ownedAvatarLevels, onboardingAvatars);
+  const canSelectPreviewAvatar = previewAvatarIndex <= FREE_ONBOARDING_AVATAR_COUNT || isPreviewAvatarOwned(previewAvatar);
+  const claimedSpinResult = spinResult ?? findOwnedSpinResult(ownedAvatarIds);
+  const claimedSpinAvatarChoice = claimedSpinResult
+    ? previewAvatarChoices.find((avatar) => avatar.imageSrc === claimedSpinResult.imageSrc) ?? null
+    : null;
   const previewAvatarPageCount = Math.max(1, Math.ceil(previewAvatarChoices.length / AVATAR_PAGE_SIZE));
   const visiblePreviewAvatarChoices = previewAvatarChoices.slice(avatarPage * AVATAR_PAGE_SIZE, (avatarPage + 1) * AVATAR_PAGE_SIZE);
 
@@ -517,13 +487,54 @@ export function OnboardingJourney({
     setPollStats(stats);
   }, [onboardingPolls]);
 
+  const canLeaveStep = (step: OnboardingStep): boolean => {
+    switch (step) {
+      case "username":
+        return canContinueFromUsername;
+      case "avatar":
+        return canContinueFromAvatar;
+      case "polls":
+        return canContinueFromPolls;
+      case "profile":
+        return canContinueFromProfile;
+      case "communities":
+        return canContinueFromCommunities;
+      case "spin":
+      case "voucher":
+      case "early-signup-reward":
+      case "marketplace":
+      case "ready":
+      default:
+        return true;
+    }
+  };
+
+  const canNavigateToStep = (target: OnboardingStep): boolean => {
+    const targetIndex = STEP_ORDER.indexOf(target);
+    const currentIndex = STEP_ORDER.indexOf(onboardingStep);
+    if (targetIndex === -1) return false;
+    if (currentIndex === -1 || targetIndex <= currentIndex) return true;
+
+    for (let index = 0; index < targetIndex; index += 1) {
+      if (!canLeaveStep(STEP_ORDER[index])) return false;
+    }
+    return true;
+  };
+
+  const navigateToStep = (target: OnboardingStep): void => {
+    if (canNavigateToStep(target)) {
+      onSetOnboardingStep(target);
+    }
+  };
+
   const goToNextStep = async () => {
+    if (!canLeaveStep(onboardingStep)) return;
+
     if (onboardingStep === "username") {
-      if (!canContinueFromUsername) return;
       setIsSavingUsernames(true);
       setUsernameSaveError("");
       try {
-        await onSaveUsernames(publicUsernameDraft, privateUsernameDraft);
+        await onSaveUsernames(publicUsernameDraft, trimmedPrivateUsernameDraft);
       } catch (error) {
         setUsernameSaveError(error instanceof Error ? error.message : "Could not save usernames.");
         setIsSavingUsernames(false);
@@ -532,16 +543,16 @@ export function OnboardingJourney({
       setIsSavingUsernames(false);
     }
 
-    if (onboardingStep === "avatar" && canSelectPreviewAvatar && previewAvatarIndex !== avatarIndex) {
+    if (onboardingStep === "avatar" && previewAvatarIndex <= FREE_ONBOARDING_AVATAR_COUNT && previewAvatarIndex !== avatarIndex) {
       track("onboarding_avatar_selected", { avatar_level: previewAvatarIndex, attempts: 1 });
       onAvatarChange(previewAvatarIndex);
     }
 
     track("onboarding_step_completed", {
-      step: onboardingStep as "spin" | "avatar" | "polls" | "communities" | "ready",
+      step: onboardingStep as "spin" | "username" | "avatar" | "polls" | "communities" | "ready",
       duration_ms: Date.now() - stepStartTimeRef.current,
     });
-    onSetOnboardingStep(getNextStep(onboardingStep));
+    navigateToStep(getNextStep(onboardingStep));
   };
 
   const goToPreviousStep = () => {
@@ -558,7 +569,7 @@ export function OnboardingJourney({
           <div className="w-full rounded-2xl border border-raw-border/40 bg-raw-black/55 p-6 sm:p-8">
             <p className="text-[10px] uppercase tracking-[0.3em] text-raw-gold/70">Age confirmation</p>
             <h2 className="mt-3 font-display text-xl tracking-wide text-raw-text sm:text-2xl">Are you over 18?</h2>
-            <p className="mt-3 text-sm text-raw-silver/60">You need to confirm this before continuing to raW.</p>
+            <p className="mt-3 text-sm text-raw-silver/60">{highlightRawWordmark("You need to confirm this before continuing to raW.")}</p>
 
             <div className="mt-6 flex flex-col items-stretch gap-2 sm:flex-row sm:justify-center">
               <button
@@ -607,7 +618,8 @@ export function OnboardingJourney({
               label={STEP_LABELS[step]}
               active={step === onboardingStep}
               complete={index < currentStepIndex}
-              onClick={() => onSetOnboardingStep(step)}
+              disabled={!canNavigateToStep(step)}
+              onClick={() => navigateToStep(step)}
             />
           ))}
         </div>
@@ -623,10 +635,7 @@ export function OnboardingJourney({
                   disabled={!!claimedSpinResult || isClaimingSpin}
                   onSpinEnd={async (prize) => {
                     if (claimedSpinResult) return;
-                    const rankMatch = /^rank-(\d+)$/.exec(prize.id);
-                    const rank = rankMatch ? Number(rankMatch[1]) : 1;
-                    const rankPool = SPIN_POOL_BY_RANK.get(rank) ?? Array.from(SPIN_WHEEL_POOL);
-                    const entry = rankPool[Math.floor(Math.random() * rankPool.length)] ?? SPIN_WHEEL_POOL[0];
+                    const entry = SPIN_WHEEL_POOL.find((item) => item.id === prize.id) ?? SPIN_WHEEL_POOL[0];
                     setSpinResult(entry);
                     setSpinClaimError(null);
                     if (typeof window !== "undefined") {
@@ -643,14 +652,11 @@ export function OnboardingJourney({
                     } finally {
                       setIsClaimingSpin(false);
                     }
-                    const spinIdx = SPIN_POOL.findIndex((p) => p.catalogId === entry.avatarId);
-                    if (spinIdx >= 0) {
-                      markAvatarOwned(FREE_ONBOARDING_AVATAR_COUNT + 1 + spinIdx);
-                    }
+                    markAvatarOwnedById(entry.avatarId);
                     track("onboarding_step_completed", {
                       step: "spin" as never,
                       step_index: STEP_ORDER.indexOf("spin"),
-                      time_in_step: Date.now() - stepStartTimeRef.current,
+                      duration_ms: Date.now() - stepStartTimeRef.current,
                     });
                   }}
                 />
@@ -687,7 +693,7 @@ export function OnboardingJourney({
                 <div className="flex w-full max-w-md items-center justify-between gap-3">
                   <button
                     type="button"
-                    onClick={() => onSetOnboardingStep("username")}
+                    onClick={() => navigateToStep("username")}
                     className="rounded-full border border-raw-border/50 px-5 py-2 font-display text-[10px] uppercase tracking-[0.2em] text-raw-silver/70 transition hover:border-raw-gold/40 hover:text-raw-gold"
                   >
                     Skip
@@ -695,7 +701,7 @@ export function OnboardingJourney({
                   <button
                     type="button"
                     disabled={isClaimingSpin}
-                    onClick={() => onSetOnboardingStep("username")}
+                    onClick={() => navigateToStep("username")}
                     className={`rounded-full px-6 py-2 font-display text-xs uppercase tracking-[0.2em] transition ${
                       isClaimingSpin
                         ? "cursor-not-allowed border border-raw-border/40 bg-raw-surface/40 text-raw-silver/35"
@@ -712,7 +718,7 @@ export function OnboardingJourney({
           {onboardingStep === "username" && (
             <section>
               <h2 className="font-display text-lg tracking-wide text-raw-text sm:text-xl">Choose your usernames</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-raw-silver/55">Your public username is how people know you across raW. Your private username is only for you.</p>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-raw-silver/55">{highlightRawWordmark("Your public username is how people know you across raW. Your private username is only for you.")}</p>
               <div className="mx-auto mt-8 max-w-xl space-y-5">
                 <label className="block">
                   <span className="text-[10px] uppercase tracking-[0.22em] text-raw-gold/75">Public username</span>
@@ -799,6 +805,39 @@ export function OnboardingJourney({
                       );
                     })}
                     </div>
+                    {claimedSpinAvatarChoice ? (
+                      <div className="mx-auto mt-5 w-full max-w-[11rem] min-[390px]:max-w-[12rem] sm:max-w-[24rem] md:mx-0">
+                        <p className="mb-3 text-center font-display text-[9px] uppercase tracking-[0.2em] text-raw-gold/70">
+                          Won avatar
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPreviewAvatarIndex(claimedSpinAvatarChoice.level);
+                            phonePreviewRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                            track("onboarding_avatar_selected", { avatar_level: claimedSpinAvatarChoice.level, attempts: 1 });
+                          }}
+                          className="group mx-auto flex min-w-0 flex-col items-center gap-2 rounded-xl border border-raw-gold/35 bg-raw-gold/[0.04] p-3 transition hover:border-raw-gold/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-raw-gold/50"
+                          aria-label={`Preview won avatar ${claimedSpinAvatarChoice.name}`}
+                        >
+                          <AvatarFigure
+                            avatarIndex={claimedSpinAvatarChoice.level}
+                            size={avatarTileSize}
+                            selected={previewAvatarIndex === claimedSpinAvatarChoice.level}
+                            rarity={claimedSpinAvatarChoice.rarity}
+                            style={getPreviewOnlyAvatarImageScale(claimedSpinAvatarChoice.id)}
+                            themeOverride={claimedSpinAvatarChoice}
+                            loading="eager"
+                          />
+                          <span className="max-w-full truncate text-center font-display text-[9px] leading-tight tracking-[0.08em] text-raw-gold/90 sm:text-[10px]">
+                            {claimedSpinAvatarChoice.name}
+                          </span>
+                          <span className="rounded-full border border-raw-gold/45 px-1.5 py-0.5 text-[8px] uppercase tracking-[0.08em] text-raw-gold/70">
+                            owned
+                          </span>
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
 
                 </div>
@@ -878,9 +917,6 @@ export function OnboardingJourney({
                             setPreviewAvatarIndex(index);
                             phonePreviewRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
                             track("onboarding_avatar_selected", { avatar_level: index, attempts: 1 });
-                            if (isOwned) {
-                              onAvatarChange(index);
-                            }
                           }}
                           className={`group relative flex min-w-0 flex-col items-center gap-2 rounded-xl p-2 pb-3 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-raw-gold/50 ${
                             isOwned ? "" : "cursor-help"
@@ -926,14 +962,23 @@ export function OnboardingJourney({
                 <BackButton onClick={goToPreviousStep} />
                 {(() => {
                   const lockedPreview = previewAvatarIndex !== avatarIndex && !canSelectPreviewAvatar;
-                  const blocked = lockedPreview || !canContinueFromAvatar;
+                  const blocked = lockedPreview || !canCompleteOnboarding;
                   return (
                     <button
-                      onClick={goToNextStep}
+                      onClick={() => {
+                        setCommunitySaveError(null);
+                        track("onboarding_completed", {
+                          total_duration_ms: Date.now() - stepStartTimeRef.current,
+                          polls_answered: answeredCount,
+                          communities_selected: selectedCommunityIds.length,
+                          source: "complete_onboarding_button",
+                        });
+                        setEnterRawOpen(true);
+                      }}
                       disabled={blocked}
                       className="rounded-xl bg-raw-gold px-5 py-3 text-sm font-semibold text-raw-ink transition-opacity disabled:cursor-not-allowed disabled:bg-raw-border/40 disabled:text-raw-silver/40 sm:py-2.5"
                     >
-                      Next: Polls
+                      Complete onboarding
                     </button>
                   );
                 })()}
@@ -1288,7 +1333,7 @@ export function OnboardingJourney({
 
               {!canCompleteOnboarding ? (
                 <p className="mt-4 text-center text-[11px] uppercase tracking-[0.18em] text-raw-silver/50 sm:text-right">
-                  Finish every step to enter raW
+                  {highlightRawWordmark("Finish every step to enter raW")}
                 </p>
               ) : null}
               {communitySaveError ? (
@@ -1299,20 +1344,11 @@ export function OnboardingJourney({
               <div className="mt-6 flex items-center justify-between gap-3 sm:mt-8">
                 <BackButton onClick={goToPreviousStep} />
                 <button
-                  onClick={() => {
-                    setCommunitySaveError(null);
-                    track("onboarding_completed", {
-                      total_duration_ms: Date.now() - stepStartTimeRef.current,
-                      polls_answered: answeredCount,
-                      communities_selected: selectedCommunityIds.length,
-                      source: "complete_onboarding_button",
-                    });
-                    setEnterRawOpen(true);
-                  }}
-                  disabled={!canCompleteOnboarding}
+                  onClick={goToNextStep}
+                  disabled={!canContinueFromCommunities}
                   className="rounded-xl bg-raw-gold px-5 py-3 text-sm font-semibold text-raw-ink transition-opacity disabled:cursor-not-allowed disabled:opacity-40 sm:py-2.5"
                 >
-                  Complete onboarding
+                  Continue to avatar
                 </button>
               </div>
             </section>
@@ -1322,7 +1358,18 @@ export function OnboardingJourney({
 
       <EnterRawModal
         open={enterRawOpen}
-        onEnter={async () => {
+        onEnter={() => {
+          setEnterRawOpen(false);
+          setTermsAgreementOpen(true);
+        }}
+        onDismiss={() => {
+          setEnterRawOpen(false);
+        }}
+      />
+
+      <TermsAgreementModal
+        open={termsAgreementOpen}
+        onAccept={async () => {
           if (isCompletingOnboarding) return;
           track("onboarding_completed", {
             total_duration_ms: Date.now() - stepStartTimeRef.current,
@@ -1334,16 +1381,16 @@ export function OnboardingJourney({
           setCommunitySaveError(null);
           try {
             await onCompleteOnboarding();
-            setEnterRawOpen(false);
+            setTermsAgreementOpen(false);
           } catch (error) {
-            setEnterRawOpen(false);
+            setTermsAgreementOpen(false);
             setCommunitySaveError(error instanceof Error ? error.message : "Could not save your community. Please try again.");
           } finally {
             setIsCompletingOnboarding(false);
           }
         }}
         onDismiss={() => {
-          setEnterRawOpen(false);
+          setTermsAgreementOpen(false);
         }}
       />
     </div>

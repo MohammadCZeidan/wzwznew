@@ -1,8 +1,9 @@
 import { MessageCircle, Mail } from "lucide-react";
+import { BrandName } from "@/components/ui/brand-name";
 
 export function LandingFooter() {
-  const supportEmail = import.meta.env.VITE_SUPPORT_EMAIL ?? "support@theartofraw.me";
-  const supportWhatsAppNumber = import.meta.env.VITE_SUPPORT_WHATSAPP_NUMBER ?? "+201000000000";
+  const supportEmail = import.meta.env.VITE_SUPPORT_EMAIL ?? "info@myraw.app";
+  const supportWhatsAppNumber = import.meta.env.VITE_SUPPORT_WHATSAPP_NUMBER ?? "+96171148488";
   const whatsAppHref = `https://wa.me/${supportWhatsAppNumber.replace(/\D/g, "")}`;
 
   return (
@@ -14,7 +15,7 @@ export function LandingFooter() {
         {/* Brand */}
         <div className="mb-10 text-center">
           <a href="/" className="inline-block font-display text-3xl tracking-[0.25em] text-raw-text/90 sm:text-4xl">
-            ra<span className="text-raw-gold">W</span>
+            <BrandName />
           </a>
           <p className="mt-2 text-xs uppercase tracking-[0.22em] text-raw-silver/35">Anonymous polls. Real communities.</p>
         </div>
@@ -69,7 +70,7 @@ export function LandingFooter() {
             <MessageCircle className="h-3.5 w-3.5" />
           </a>
           <a
-            href="https://instagram.com/theartofraw"
+            href="https://instagram.com/thecumulativemind"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Instagram"
@@ -88,7 +89,7 @@ export function LandingFooter() {
 
         {/* Bottom bar */}
         <div className="border-t border-raw-border/20 pt-6 text-center">
-          <p className="text-[11px] text-raw-silver/35">© 2026 ra<span className="raw-word-w">W</span> · All rights reserved</p>
+          <p className="text-[11px] text-raw-silver/35">© 2026 <BrandName /> · All rights reserved</p>
           <p className="mt-1 text-[10px] text-raw-silver/25">No real names. Real conversation.</p>
         </div>
       </div>

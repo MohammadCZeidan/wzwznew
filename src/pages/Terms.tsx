@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { BrandName } from "@/components/ui/brand-name";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 
 export default function Terms() {
@@ -7,7 +8,7 @@ export default function Terms() {
       <header className="border-b border-raw-border/30 bg-raw-black/85 px-4 py-4 backdrop-blur-sm sm:px-6">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between">
           <Link to="/" className="font-display text-xl tracking-[0.2em] text-raw-text/85">
-            ra<span className="text-raw-gold">W</span>
+            <BrandName />
           </Link>
           <Link
             to="/"
@@ -27,63 +28,130 @@ export default function Terms() {
             <section>
               <h2 className="text-lg font-semibold text-raw-text">1. Acceptance of Terms</h2>
               <p className="mt-2 text-sm leading-relaxed">
-                By accessing and using raW, you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.
+                By accessing or using raW, you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the app.
               </p>
             </section>
 
             <section>
-              <h2 className="text-lg font-semibold text-raw-text">2. Use License</h2>
+              <h2 className="text-lg font-semibold text-raw-text">2. Nature of the Service</h2>
               <p className="mt-2 text-sm leading-relaxed">
-                Permission is granted to temporarily download one copy of the materials (information or software) on raW for personal, non-commercial transitory viewing only. This is the grant of a license, not a transfer of title, and under this license you may not:
-              </p>
-              <ul className="mt-3 space-y-2 text-sm">
-                <li>• Modifying or copying the materials</li>
-                <li>• Using the materials for any commercial purpose or for any public display</li>
-                <li>• Attempting to decompile or reverse engineer any software contained on raW</li>
-                <li>• Removing any copyright or other proprietary notations from the materials</li>
-                <li>• Transferring the materials to another person or "mirroring" the materials on any other server</li>
-              </ul>
-            </section>
-
-            <section>
-              <h2 className="text-lg font-semibold text-raw-text">3. Disclaimer</h2>
-              <p className="mt-2 text-sm leading-relaxed">
-                The materials on raW are provided on an 'as is' basis. raW makes no warranties, expressed or implied, and hereby disclaims and negates all other warranties including, without limitation, implied warranties or conditions of merchantability, fitness for a particular purpose, or non-infringement of intellectual property or other violation of rights.
+                raW is a social platform built around anonymous, username-based participation. Public contributions remain anonymous to other users, though internal identifiers are retained to support safety and legal requirements. Posts may be screened before display, and comments, community messages, and private messages may be restricted or removed through automated detection or user reports.
               </p>
             </section>
 
             <section>
-              <h2 className="text-lg font-semibold text-raw-text">4. Limitations</h2>
+              <h2 className="text-lg font-semibold text-raw-text">3. User Responsibilities</h2>
               <p className="mt-2 text-sm leading-relaxed">
-                In no event shall raW or its suppliers be liable for any damages (including, without limitation, damages for loss of data or profit, or due to business interruption) arising out of the use or inability to use the materials on raW, even if raW or an authorized representative has been notified orally or in writing of the possibility of such damage.
+                You may not use raW for illegal conduct, child exploitation, harassment, violent or hateful content, non-consensual intimate material, malware distribution, security evasion, or identity misrepresentation. You are solely responsible for your posts and interactions on the platform.
               </p>
             </section>
 
             <section>
-              <h2 className="text-lg font-semibold text-raw-text">5. Accuracy of Materials</h2>
+              <h2 className="text-lg font-semibold text-raw-text">4. Content Moderation</h2>
               <p className="mt-2 text-sm leading-relaxed">
-                The materials appearing on raW could include technical, typographical, or photographic errors. raW does not warrant that any of the materials on raW are accurate, complete, or current. raW may make changes to the materials contained on raW at any time without notice.
+                We may use automated filtering, respond to reports, limit visibility, remove posts, restrict accounts, and refer illegal matters to law enforcement when required or necessary to protect our users. There is no guaranteed response time for reports, though we aim to review them promptly.
               </p>
             </section>
 
             <section>
-              <h2 className="text-lg font-semibold text-raw-text">6. Links</h2>
+              <h2 className="text-lg font-semibold text-raw-text">5. Child Safety</h2>
               <p className="mt-2 text-sm leading-relaxed">
-                raW has not reviewed all of the sites linked to its website and is not responsible for the contents of any such linked site. The inclusion of any link does not imply endorsement by raW of the site. Use of any such linked website is at the user's own risk.
+                We have zero tolerance for sexual content involving minors. Violating material is removed immediately, and involved accounts are closed and may be reported to the relevant authorities as legally required.
               </p>
             </section>
 
             <section>
-              <h2 className="text-lg font-semibold text-raw-text">7. Modifications</h2>
+              <h2 className="text-lg font-semibold text-raw-text">6. Appeals</h2>
               <p className="mt-2 text-sm leading-relaxed">
-                raW may revise these terms of service for its website at any time without notice. By using this website, you are agreeing to be bound by the then current version of these terms of service.
+                If you believe a moderation decision on your content or account was made in error, contact us at info@myraw.app to request a review.
               </p>
             </section>
 
             <section>
-              <h2 className="text-lg font-semibold text-raw-text">8. Governing Law</h2>
+              <h2 className="text-lg font-semibold text-raw-text">7. Account Actions</h2>
               <p className="mt-2 text-sm leading-relaxed">
-                These terms and conditions are governed by and construed in accordance with the laws of the jurisdiction in which raW operates, and you irrevocably submit to the exclusive jurisdiction of the courts in that location.
+                We may suspend or terminate accounts for guideline breaches, suspected misuse, or safety concerns. raW is not liable for any loss resulting from account actions taken under these terms.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-raw-text">8. Intellectual Property</h2>
+              <p className="mt-2 text-sm leading-relaxed">
+                You retain ownership of the content you create. By posting on raW, you grant us a worldwide, non-exclusive, royalty-free license to use, store, display, and process that content in order to operate and improve the platform.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-raw-text">9. Rewards, Points, and Incentives</h2>
+              <p className="mt-2 text-sm leading-relaxed">
+                Tokens, rewards, and other incentive programs on raW are optional and offered with no guarantees. We may modify or discontinue these programs at any time. Eligibility depends on internal metrics and fraud safeguards, and any manipulation of these systems may result in forfeiture of rewards or account termination.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-raw-text">10. Disclaimers</h2>
+              <p className="mt-2 text-sm leading-relaxed">
+                raW is provided "as is" without warranties of any kind. We do not guarantee uninterrupted operation of the app and disclaim responsibility for user-generated content.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-raw-text">11. Limitation of Liability</h2>
+              <p className="mt-2 text-sm leading-relaxed">
+                To the fullest extent permitted by law, raW excludes liability for indirect, incidental, or consequential damages arising from your use of the app.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-raw-text">12. Changes to the Terms</h2>
+              <p className="mt-2 text-sm leading-relaxed">
+                We may update these terms at any time. Continued use of raW after changes are posted means you accept the updated terms.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-raw-text">13. Governing Law</h2>
+              <p className="mt-2 text-sm leading-relaxed">
+                These terms are governed by and construed in accordance with the laws of the jurisdiction in which raW operates, and you irrevocably submit to the exclusive jurisdiction of the courts in that location.
+              </p>
+            </section>
+
+            <section className="pt-2">
+              <h2 className="font-display text-xl tracking-wide text-raw-text">Community Guidelines</h2>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-raw-text">14. Core Principle</h2>
+              <p className="mt-2 text-sm leading-relaxed">
+                raW supports free expression while maintaining standards of safety, lawfulness, and courtesy across the platform.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-raw-text">15. Allowed Content</h2>
+              <p className="mt-2 text-sm leading-relaxed">
+                Lawful sharing of perspectives, opinions, stories, and even debatable or controversial material is welcome and protected.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-raw-text">16. Prohibited Content</h2>
+              <p className="mt-2 text-sm leading-relaxed">
+                The following is forbidden on raW: child sexual imagery, self-harm promotion, discriminatory harassment, violent material, unlawful activity, promotion of terrorism, revenge imagery, disclosure of others' personal data, deceptive schemes, coordinated attacks, and technical exploitation of the platform.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-raw-text">17. Reporting and Enforcement</h2>
+              <p className="mt-2 text-sm leading-relaxed">
+                Community members can report violations. After review, we may remove content, issue advisories, suspend accounts, or permanently remove access. Posts may be screened before publication; messages are reviewed after the fact through automated detection or user reports.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-raw-text">18. Transparency</h2>
+              <p className="mt-2 text-sm leading-relaxed">
+                Enforcement decisions are final, and interpretive authority over these guidelines is retained by raW.
               </p>
             </section>
 

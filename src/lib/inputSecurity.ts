@@ -1,3 +1,5 @@
+import { readBlockedWords, writeBlockedWords } from "@/lib/adminData";
+
 // eslint-disable-next-line no-control-regex -- intentional: this regex strips control chars from user input
 const CONTROL_CHARS_REGEX = /[\u0000-\u001F\u007F]/g;
 const MULTIPLE_SPACES_REGEX = /\s+/g;
@@ -71,10 +73,13 @@ export function parseUserTextDenylist(value: string | undefined): string[] {
 }
 
 export function getConfiguredUserTextDenylist(): string[] {
-  return parseUserTextDenylist(import.meta.env.VITE_RAW_TEXT_DENYLIST);
+  return [...new Set([
+    ...parseUserTextDenylist(import.meta.env.VITE_RAW_TEXT_DENYLIST),
+    ...readBlockedWords(),
+  ])];
 }
 
-function escapeRegExp(value: string): string {
+export function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
@@ -119,22 +124,15 @@ export function moderateUserText(
   };
 }
 
+const MODERATION_MESSAGES: Partial<Record<string, string>> = {
+  denylist: "This contains a blocked word. Rephrase it and try again.",
+  link:     "Links are not allowed in public text yet.",
+  number:   "Phone numbers or long number sequences are not allowed in public text yet.",
+};
+
 export function getUserTextModerationMessage(result: UserTextModerationResult): string {
-  const firstViolation = result.violations[0]?.type;
-
-  if (firstViolation === "denylist") {
-    return "This contains a blocked word. Rephrase it and try again.";
-  }
-
-  if (firstViolation === "link") {
-    return "Links are not allowed in public text yet.";
-  }
-
-  if (firstViolation === "number") {
-    return "Phone numbers or long number sequences are not allowed in public text yet.";
-  }
-
-  return "This text cannot be posted right now.";
+  const type = result.violations[0]?.type;
+  return MODERATION_MESSAGES[type ?? ""] ?? "This text cannot be posted right now.";
 }
 
 export function assertUserTextAllowed(value: string, options?: UserTextModerationOptions): string {
@@ -145,4 +143,25 @@ export function assertUserTextAllowed(value: string, options?: UserTextModeratio
   }
 
   return result.text;
+}
+
+/**
+ * Fetches the current blocked-word list from the server and seeds the
+ * in-memory store so that subsequent `moderateUserText()` calls use the
+ * real DB-backed list.  Non-fatal: static env denylist still applies if
+ * this request fails (e.g. user not authenticated yet).
+ */
+export async function seedBlockedWordsFromServer(): Promise<void> {
+  try {
+    const response = await fetch("/api/moderation/blocked-terms", {
+      credentials: "include",
+    });
+    if (!response.ok) return;
+    const body = (await response.json()) as { terms?: unknown };
+    if (Array.isArray(body.terms)) {
+      writeBlockedWords(body.terms.filter((t): t is string => typeof t === "string"));
+    }
+  } catch {
+    // Non-fatal — static VITE_RAW_TEXT_DENYLIST still applies.
+  }
 }

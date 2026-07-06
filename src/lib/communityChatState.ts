@@ -20,13 +20,15 @@ export function getMessageSenderBlockKey(
  * Merge an incoming message into a single community's message list. If a
  * pending optimistic copy of the same message exists (same sender + same
  * text, deliveryStatus 'sending'), replace it in place; otherwise append.
- * Always returns the list sorted by createdAt ascending.
+ * Skips the O(n log n) sort for the common case where the incoming message
+ * is newer than the tail of the list (realtime INSERT).
  */
 export function mergeCommunityMessages(
   messages: CommunityChatMessageRecord[],
   incoming: CommunityChatMessageRecord,
 ): CommunityChatMessageRecord[] {
   const withoutSameId = messages.filter((message) => message.id !== incoming.id);
+
   const pendingIndex = withoutSameId.findIndex(
     (message) =>
       message.deliveryStatus === "sending" &&
@@ -34,14 +36,40 @@ export function mergeCommunityMessages(
       message.text === incoming.text,
   );
 
-  const nextMessages = [...withoutSameId];
   if (pendingIndex >= 0) {
-    nextMessages[pendingIndex] = incoming;
-  } else {
-    nextMessages.push(incoming);
+    // Replace optimistic copy in place — order doesn't change
+    const next = [...withoutSameId];
+    next[pendingIndex] = incoming;
+    return next;
   }
 
-  return nextMessages.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  // Common path: new message is at or after the current tail — append without sort
+  const tail = withoutSameId[withoutSameId.length - 1];
+  if (!tail || incoming.createdAt >= tail.createdAt) {
+    return [...withoutSameId, incoming];
+  }
+
+  // Rare path: backfill or out-of-order event
+  return [...withoutSameId, incoming].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+/** Targeted like-count update — no full array recreation needed. */
+export function updateMessageLike(
+  communities: PersistedCommunityRecord[],
+  communityId: string,
+  messageId: string,
+  likedBy: string[],
+): PersistedCommunityRecord[] {
+  return communities.map((community) =>
+    community.id !== communityId
+      ? community
+      : {
+          ...community,
+          messages: community.messages.map((m) =>
+            m.id === messageId ? { ...m, likedBy } : m,
+          ),
+        },
+  );
 }
 
 export function upsertCommunityMessage(
@@ -132,11 +160,17 @@ export function appendOptimisticMessage(
   return communities.map((community) => {
     if (community.id !== communityId) return community;
     const withoutExisting = community.messages.filter((entry) => entry.id !== message.id);
+    const nextMessage = { ...message, deliveryStatus: "sending" as const };
+    const tail = withoutExisting[withoutExisting.length - 1];
+    if (!tail || nextMessage.createdAt >= tail.createdAt) {
+      return {
+        ...community,
+        messages: [...withoutExisting, nextMessage],
+      };
+    }
     return {
       ...community,
-      messages: [...withoutExisting, { ...message, deliveryStatus: "sending" }].sort((a, b) =>
-        a.createdAt.localeCompare(b.createdAt),
-      ),
+      messages: [...withoutExisting, nextMessage].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
     };
   });
 }

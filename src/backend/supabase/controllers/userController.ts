@@ -1,10 +1,7 @@
 import { supabase } from '../client';
 import type { UserRow, UserRole } from '../models/user';
-import {
-  getUserFavoriteCommunities,
-  getUserPinnedMessages,
-  type PinnedMessageRecord,
-} from './userExtrasController';
+import { getUserFavoriteCommunities } from './userExtrasController';
+import type { OnboardingStep } from '@/store/types';
 
 export async function isUsernameTaken(username: string): Promise<boolean> {
   const { data, error } = await supabase
@@ -51,7 +48,6 @@ export interface PublicUserProfile {
   createdAt: string | null;
   profilePublic: boolean;
   favoriteCommunityIds: string[];
-  pinnedMessages: PinnedMessageRecord[];
 }
 
 export async function getPublicUserProfile(userId: string): Promise<PublicUserProfile | null> {
@@ -67,13 +63,9 @@ export async function getPublicUserProfile(userId: string): Promise<PublicUserPr
   const isPublic = row.profile_public ?? true;
 
   let favoriteCommunityIds: string[] = [];
-  let pinnedMessages: PinnedMessageRecord[] = [];
   if (isPublic) {
     try {
-      [favoriteCommunityIds, pinnedMessages] = await Promise.all([
-        getUserFavoriteCommunities(userId),
-        getUserPinnedMessages(userId),
-      ]);
+      favoriteCommunityIds = await getUserFavoriteCommunities(userId);
     } catch {
       // Profile extras are best-effort; fall back to empty/null on error.
     }
@@ -87,7 +79,6 @@ export async function getPublicUserProfile(userId: string): Promise<PublicUserPr
     createdAt: isPublic ? row.created_at ?? null : null,
     profilePublic: isPublic,
     favoriteCommunityIds,
-    pinnedMessages,
   };
 }
 
@@ -121,6 +112,34 @@ export async function saveOnboardingIdentities(publicUsername: string, privateUs
     if (result?.error === 'public_username_taken') throw new Error('Public username is already taken.');
     if (result?.error === 'private_username_taken') throw new Error('Private username is already taken.');
     throw new Error('Choose usernames with 3-24 letters, numbers, dots, dashes, or underscores.');
+  }
+}
+
+export interface OnboardingProgress {
+  completed: boolean;
+  step: OnboardingStep;
+  answeredPollIds: string[];
+  selectedCommunityIds: string[];
+}
+
+export async function loadOnboardingProgress(): Promise<OnboardingProgress | null> {
+  const { data, error } = await supabase.rpc('get_onboarding_progress');
+  if (error) throw error;
+  const result = data as { ok?: boolean; progress?: OnboardingProgress; error?: string } | null;
+  if (!result?.ok) return null;
+  return result.progress ?? null;
+}
+
+export async function saveOnboardingProgress(progress: Partial<Omit<OnboardingProgress, 'completed'>>): Promise<void> {
+  const { data, error } = await supabase.rpc('save_onboarding_progress', {
+    p_step: progress.step ?? null,
+    p_answered_poll_ids: progress.answeredPollIds ?? null,
+    p_selected_community_ids: progress.selectedCommunityIds ?? null,
+  });
+  if (error) throw error;
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (!result?.ok && result?.error !== 'auth_migration_required') {
+    throw new Error(result?.error ?? 'Could not save onboarding progress.');
   }
 }
 
@@ -166,5 +185,32 @@ export async function addPrivateAlias(_userId: string, alias: string): Promise<U
 
 export async function deleteUserAlias(aliasId: string): Promise<void> {
   const { error } = await supabase.from('user_aliases').delete().eq('id', aliasId);
+  if (error) throw error;
+}
+
+export interface ChatIdentityPrefs {
+  /** Selected chat name: a private alias, or null to post under the public username. */
+  alias: string | null;
+  /** Avatar level for the private identity, or null if never set. */
+  avatarLevel: number | null;
+}
+
+export async function getChatIdentity(userId: string): Promise<ChatIdentityPrefs | null> {
+  const { data, error } = await supabase
+    .from('users')
+    .select('chat_identity_alias, chat_avatar_level')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const row = data as { chat_identity_alias: string | null; chat_avatar_level: number | null };
+  return { alias: row.chat_identity_alias ?? null, avatarLevel: row.chat_avatar_level ?? null };
+}
+
+export async function setChatIdentity(alias: string | null, avatarLevel: number): Promise<void> {
+  const { error } = await supabase.rpc('set_chat_identity', {
+    p_alias: alias,
+    p_avatar_level: avatarLevel,
+  });
   if (error) throw error;
 }

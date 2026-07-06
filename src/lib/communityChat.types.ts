@@ -17,7 +17,6 @@ export interface CommunityChatMessageRecord {
   senderAvatarLevel?: number;
   text: string;
   createdAt: string;
-  pinned?: boolean;
   replyToMessageId?: string;
   replyToSenderName?: string;
   replyToText?: string;
@@ -25,7 +24,6 @@ export interface CommunityChatMessageRecord {
   deletedByUserId?: string;
   likedBy?: string[];
   deliveryStatus?: "sending" | "failed";
-  moderationStatus?: string;
 }
 
 export interface PersistedCommunityRecord {

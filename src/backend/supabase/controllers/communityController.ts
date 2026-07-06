@@ -1,14 +1,15 @@
 import { supabase } from '../client';
-import type { PersistedCommunityRecord, CommunityChatMemberRecord } from '@/lib/communityChat.types';
+import type { PersistedCommunityRecord, CommunityChatMemberRecord, CommunityChatMessageRecord } from '@/lib/communityChat.types';
 import type { CommunityRequestRecord } from '@/lib/adminData';
 import { buildCommunityAbbr } from '@/lib/communityChat.utils';
 import { mapCommunityMessage, type DbCommunityMessage } from './chatController';
 import { assertUserTextAllowed } from '@/lib/inputSecurity';
+import { apiRequest } from '@/lib/api/client';
+import { timeSupabaseQuery } from '@/lib/devPerf';
 
 type DbMessage = DbCommunityMessage;
 
 type DbMember = {
-  community_id: string;
   user_id: string;
   username: string;
   joined_at: string;
@@ -63,13 +64,40 @@ function mapCommunity(c: DbCommunity): PersistedCommunityRecord {
 }
 
 export async function fetchCommunities(): Promise<PersistedCommunityRecord[]> {
-  const { data, error } = await supabase
-    .from('communities')
-    .select('*, community_members(*)')
-    .order('created_at', { ascending: true });
+  const { data, error } = await timeSupabaseQuery(
+    'fetchCommunities',
+    supabase
+      .from('communities')
+      .select(`
+        id,
+        abbr,
+        title,
+        description,
+        topic,
+        status,
+        locked,
+        logo_url,
+        created_at,
+        created_by,
+        community_members (
+          user_id,
+          username,
+          joined_at,
+          last_seen_at,
+          last_read_at,
+          notifications_enabled
+        )
+      `)
+      .order('created_at', { ascending: true })
+      .limit(50),
+  );
 
   if (error) throw error;
-  return (data as DbCommunity[]).map(mapCommunity);
+  const communities = (data as DbCommunity[]).map(mapCommunity);
+  if (import.meta.env.DEV) {
+    console.info('[perf] fetchCommunities', { count: communities.length });
+  }
+  return communities;
 }
 
 export async function fetchCommunityMessages(
@@ -88,11 +116,18 @@ export async function fetchCommunityMessages(
     query = query.lt('created_at', options.before);
   }
 
-  const { data, error } = await query;
+  const { data, error } = await timeSupabaseQuery('fetchCommunityMessages', query, {
+    limit,
+    paged: Boolean(options.before),
+  });
   if (error) throw error;
-  return ((data ?? []) as DbMessage[])
+  const messages = ((data ?? []) as DbMessage[])
     .map(mapCommunityMessage)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  if (import.meta.env.DEV) {
+    console.info('[perf] fetchCommunityMessages', { count: messages.length, limit, paged: Boolean(options.before) });
+  }
+  return messages;
 }
 
 // All membership writes go through SECURITY DEFINER RPCs that derive the
@@ -103,35 +138,45 @@ export async function fetchCommunityMessages(
 
 export async function joinCommunity(communityId: string, _userId: string, _username: string): Promise<void> {
   void _userId; void _username;
-  const { error } = await supabase.rpc('join_community', { p_community_id: communityId });
-  if (error) throw error;
+  // Server-authoritative — see sendMessage() in chatController.ts for why
+  // this can't be a browser-side current_user_id()-gated RPC call. Also,
+  // no `join_community` RPC exists in supabase/migrations at all.
+  await apiRequest('/api/communities/join', {
+    method: 'POST',
+    body: JSON.stringify({ communityId }),
+  });
 }
 
 export async function leaveCommunity(communityId: string, _userId: string): Promise<void> {
   void _userId;
-  const { error } = await supabase.rpc('leave_community', { p_community_id: communityId });
-  if (error) throw error;
+  await apiRequest('/api/communities/leave', {
+    method: 'POST',
+    body: JSON.stringify({ communityId }),
+  });
 }
 
 export async function touchMemberActivity(communityId: string, _userId: string, _username: string): Promise<void> {
   void _userId; void _username;
-  const { error } = await supabase.rpc('touch_member_activity', { p_community_id: communityId });
-  if (error) throw error;
+  await apiRequest('/api/communities/touch-activity', {
+    method: 'POST',
+    body: JSON.stringify({ communityId }),
+  });
 }
 
 export async function markCommunityRead(communityId: string, _userId: string): Promise<void> {
   void _userId;
-  const { error } = await supabase.rpc('mark_community_read', { p_community_id: communityId });
-  if (error) throw error;
+  await apiRequest('/api/communities/mark-read', {
+    method: 'POST',
+    body: JSON.stringify({ communityId }),
+  });
 }
 
 export async function setCommunityNotifications(communityId: string, _userId: string, enabled: boolean): Promise<void> {
   void _userId;
-  const { error } = await supabase.rpc('set_community_notifications', {
-    p_community_id: communityId,
-    p_enabled: enabled,
+  await apiRequest('/api/communities/notifications', {
+    method: 'POST',
+    body: JSON.stringify({ communityId, enabled }),
   });
-  if (error) throw error;
 }
 
 // Admin-only — RPC enforces is_admin() server-side.

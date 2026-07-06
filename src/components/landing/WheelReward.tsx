@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
+import { highlightRawWordmark } from "@/components/ui/highlightRawWordmark";
 import { LandingSectionShell } from "@/components/landing/LandingSectionShell";
 import { WheelOfFortune, type WheelPrize } from "@/components/wheel/WheelOfFortune";
 import { SpinWheelClaimBanner } from "@/components/wheel/SpinWheelClaimBanner";
@@ -8,8 +9,8 @@ import { useTrackSectionView } from "@/lib/analytics/useTrackSectionView";
 import { track } from "@/lib/analytics";
 import { LANDING_WHEEL_SPIN_KEY } from "@/lib/avatarCatalog";
 import { avatarDisplayName } from "@/config/avatarNames";
+import { getAvatarRank } from "@/lib/avatarRank";
 
-const TRANSPARENT_REWARDS_IMAGE_SRC = "/images/avatar-rarity-chart.png";
 
 type PoolEntry = { id: string; avatarId: string; name: string; imageSrc: string };
 
@@ -33,9 +34,18 @@ function readStoredSpin(pool: PoolEntry[]): PoolEntry | null {
   try {
     const raw = window.localStorage.getItem(LANDING_WHEEL_SPIN_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as { prizeId?: unknown };
-    if (typeof parsed.prizeId !== "string") return null;
-    return pool.find((entry) => entry.id === parsed.prizeId) ?? null;
+    const parsed = JSON.parse(raw) as { prizeId?: unknown; avatarId?: unknown };
+    // Match by stable catalog id first so a stored win keeps pointing at the
+    // avatar that was actually won even if the wheel pool order changes. Fall
+    // back to the positional prize id for older stored values.
+    if (typeof parsed.avatarId === "string") {
+      const byAvatar = pool.find((entry) => entry.avatarId === parsed.avatarId);
+      if (byAvatar) return byAvatar;
+    }
+    if (typeof parsed.prizeId === "string") {
+      return pool.find((entry) => entry.id === parsed.prizeId) ?? null;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -52,16 +62,66 @@ function shouldResetStoredSpinForTesting(): boolean {
   return navigation?.type === "reload";
 }
 
+function rankOf(entry: PoolEntry): number {
+  return getAvatarRank({ id: entry.avatarId, name: entry.name, imageSrc: entry.imageSrc });
+}
+
+// Rarer avatars (higher rank tier) win less often. Linear gradient: rank 1
+// (grey) is 10x more likely to land than rank 10 (rainbow).
+function buildPrizeWeights(pool: PoolEntry[]): Record<string, number> {
+  return Object.fromEntries(pool.map((entry) => [entry.id, Math.max(1, 11 - rankOf(entry))]));
+}
+
+function rarityTier(rank: number): string {
+  if (rank >= 9) return "Legendary";
+  if (rank >= 7) return "Epic";
+  if (rank >= 5) return "Rare";
+  if (rank >= 3) return "Uncommon";
+  return "Common";
+}
+
+function AvatarRankRarityGrid({ pool, isLight }: { pool: PoolEntry[]; isLight: boolean }) {
+  return (
+    <div className="grid w-full max-w-3xl grid-cols-2 gap-2 sm:grid-cols-5">
+      {pool.map((entry) => {
+        const rank = rankOf(entry);
+        return (
+          <div
+            key={entry.id}
+            className={`rounded-xl border px-3 py-2 text-center shadow-[0_0_18px_rgb(var(--raw-accent)/0.06)] backdrop-blur-sm ${
+              isLight ? "border-raw-gold/30 bg-white/60" : "border-raw-gold/20 bg-raw-black/25"
+            }`}
+          >
+            <div className="mx-auto mb-1 h-8 w-8 overflow-hidden rounded-full border border-raw-gold/30 bg-black/60">
+              <img src={entry.imageSrc} alt="" className="h-full w-full object-cover" />
+            </div>
+            <div className="truncate text-[10px] text-raw-text/75">{entry.name}</div>
+            <div className="mt-1 font-display text-[10px] uppercase tracking-[0.18em] text-raw-gold/90">
+              Rank {rank}
+            </div>
+            <div className="text-[10px] uppercase tracking-[0.16em] text-raw-text/65">
+              {rarityTier(rank)}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function buildPrizes(pool: PoolEntry[], isLight: boolean): WheelPrize[] {
   return pool.map((entry, i) => ({
     id: entry.id,
     label: entry.name,
-    shortLabel: entry.name.split(" ")[0].toUpperCase(),
+    shortLabel: `R${rankOf(entry)}`,
     imageSrc: entry.imageSrc || undefined,
     color: isLight
       ? i % 2 === 0 ? "#e8edf5" : "#dde4ef"
       : i % 2 === 0 ? "#121212" : "#0e0e0e",
-    textColor: "#F1C42D",
+    // Gold-on-pale-blue fails contrast in light mode (the wheel's light-mode
+    // wedges are near-white). Use raw-ink (near-black) there instead; dark
+    // mode's near-black wedges keep gold.
+    textColor: isLight ? "#0c0c0c" : "#F1C42D",
   }));
 }
 
@@ -84,7 +144,6 @@ export function WheelRewardInline({ onSignupClick }: WheelRewardProps) {
     }
     return readStoredSpin(getPool());
   });
-  const [rewardsImageMissing, setRewardsImageMissing] = useState(true);
   const hasSpun = Boolean(landedEntry);
 
   useEffect(() => {
@@ -98,6 +157,8 @@ export function WheelRewardInline({ onSignupClick }: WheelRewardProps) {
   }, []);
 
   const prizes = buildPrizes(pool, isLight);
+  const prizeWeights = buildPrizeWeights(pool);
+  const landedRank = landedEntry ? rankOf(landedEntry) : 0;
 
   function handleSpinEnd(prize: WheelPrize) {
     const entry = pool.find((p) => p.id === prize.id) ?? pool[0];
@@ -109,16 +170,8 @@ export function WheelRewardInline({ onSignupClick }: WheelRewardProps) {
   return (
     <div className="flex flex-col items-center gap-6 sm:gap-10">
       <SpinWheelClaimBanner />
-      <WheelOfFortune prizes={prizes} onSpinEnd={handleSpinEnd} disabled={hasSpun} />
-
-      {!rewardsImageMissing ? (
-        <img
-          src={TRANSPARENT_REWARDS_IMAGE_SRC}
-          alt="Avatar rarity chart"
-          className={`w-full max-w-5xl object-contain ${isLight ? "opacity-80" : "mix-blend-screen"}`}
-          onError={() => setRewardsImageMissing(true)}
-        />
-      ) : null}
+      <WheelOfFortune prizes={prizes} prizeWeights={prizeWeights} onSpinEnd={handleSpinEnd} disabled={hasSpun} />
+      <AvatarRankRarityGrid pool={pool} isLight={isLight} />
 
       {landedEntry && (
         <div className={`w-full max-w-md rounded-2xl border p-4 text-center transition-all duration-500 sm:p-5 ${
@@ -133,6 +186,11 @@ export function WheelRewardInline({ onSignupClick }: WheelRewardProps) {
             <Sparkles className="h-4 w-4 text-raw-gold" />
             <span className="font-display text-sm tracking-wide text-raw-gold">
               You won {landedEntry.name}
+            </span>
+          </div>
+          <div className="mb-2 flex justify-center">
+            <span className="rounded-full border border-raw-gold/40 bg-raw-gold/10 px-2.5 py-0.5 font-display text-[9px] uppercase tracking-[0.18em] text-raw-gold/90">
+              Rank {landedRank} / 10 · {rarityTier(landedRank)}
             </span>
           </div>
           <p className="mt-2 text-xs leading-relaxed text-raw-text/75">
@@ -163,7 +221,6 @@ export function WheelReward({ onSignupClick }: WheelRewardProps) {
     }
     return readStoredSpin(getPool());
   });
-  const [rewardsImageMissing, setRewardsImageMissing] = useState(true);
   const hasSpun = Boolean(landedEntry);
 
   useEffect(() => {
@@ -177,6 +234,8 @@ export function WheelReward({ onSignupClick }: WheelRewardProps) {
   }, []);
 
   const prizes = buildPrizes(pool, isLight);
+  const prizeWeights = buildPrizeWeights(pool);
+  const landedRank = landedEntry ? rankOf(landedEntry) : 0;
 
   function handleSpinEnd(prize: WheelPrize) {
     const entry = pool.find((p) => p.id === prize.id) ?? pool[0];
@@ -195,16 +254,9 @@ export function WheelReward({ onSignupClick }: WheelRewardProps) {
     >
       <div className="flex flex-col items-center gap-6 sm:gap-10">
         <SpinWheelClaimBanner />
-        <WheelOfFortune prizes={prizes} onSpinEnd={handleSpinEnd} disabled={hasSpun} />
+        <WheelOfFortune prizes={prizes} prizeWeights={prizeWeights} onSpinEnd={handleSpinEnd} disabled={hasSpun} />
+        <AvatarRankRarityGrid pool={pool} isLight={isLight} />
 
-        {!rewardsImageMissing ? (
-          <img
-            src={TRANSPARENT_REWARDS_IMAGE_SRC}
-            alt="Avatar rarity chart"
-            className={`w-full max-w-5xl object-contain ${isLight ? "opacity-80" : "mix-blend-screen"}`}
-            onError={() => setRewardsImageMissing(true)}
-          />
-        ) : null}
 
         {landedEntry && (
           <div className={`w-full max-w-md rounded-2xl border p-4 text-center transition-all duration-500 sm:p-5 ${
@@ -221,8 +273,13 @@ export function WheelReward({ onSignupClick }: WheelRewardProps) {
                 You won {landedEntry.name}
               </span>
             </div>
+            <div className="mb-2 flex justify-center">
+              <span className="rounded-full border border-raw-gold/40 bg-raw-gold/10 px-2.5 py-0.5 font-display text-[9px] uppercase tracking-[0.18em] text-raw-gold/90">
+                Rank {landedRank} / 10 · {rarityTier(landedRank)}
+              </span>
+            </div>
             <p className="mt-2 text-xs leading-relaxed text-raw-text/75">
-              You won this cool avatar from raW's early access wheel.
+              {highlightRawWordmark("You won this cool avatar from raW's early access wheel.")}
             </p>
             <button
               type="button"

@@ -1,7 +1,7 @@
 import type { Poll } from "../types";
 import { supabaseAdmin } from "./supabaseClient";
 
-function randomize<T>(items: T[]): T[] {
+export function randomize<T>(items: T[]): T[] {
   return items
     .map((item) => ({ item, sort: Math.random() }))
     .sort((a, b) => a.sort - b.sort)
@@ -102,7 +102,14 @@ export async function fetchActivePolls(limit: number): Promise<Poll[] | null> {
           votes: 0,
         }));
 
-      const options = withTableOptions.length > 0 ? withTableOptions : normalizeOptionsFromJson(row.id, row.options);
+      const jsonOptions = normalizeOptionsFromJson(row.id, row.options);
+      const options =
+        withTableOptions.length > 0
+          ? withTableOptions.map((option, index) => ({
+              ...option,
+              votes: jsonOptions[index]?.votes ?? 0,
+            }))
+          : jsonOptions;
       if (!row.question?.trim() || options.length < 2 || locked) return null;
 
       return {
@@ -118,5 +125,5 @@ export async function fetchActivePolls(limit: number): Promise<Poll[] | null> {
     return null;
   }
 
-  return randomize(normalized).slice(0, limit);
+  return normalized.slice(0, limit);
 }

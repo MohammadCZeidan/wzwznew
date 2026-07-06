@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, ChevronDown, Sparkles } from "lucide-react";
+import { highlightRawWordmark } from "@/components/ui/highlightRawWordmark";
+import { ChevronDown, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LandingSectionShell } from "@/components/landing/LandingSectionShell";
 import { AvatarFigure } from "@/components/ui/avatar-figure";
@@ -8,87 +9,39 @@ import { PhoneMockup } from "@/components/ui/phone-mockup";
 import { LEVEL_THEMES, setAvatarThemes } from "@/lib/avataridentity";
 import type { AvatarCatalogItem } from "@/lib/avatarCatalog";
 import type { LandingNewAvatar } from "@/lib/landingNewAvatars";
+import {
+  LANDING_AVATARS,
+  LANDING_CHOOSER_AVATARS,
+  getLandingUnlockableAvatars,
+} from "@/lib/landingAvatarOrder";
 import { useTrackSectionView } from "@/lib/analytics/useTrackSectionView";
 import { useTheme } from "@/providers/useTheme";
-import { RawRevealButton } from "../../../components/raw-reveal-button";
 import { WheelRewardInline } from "@/components/landing/WheelReward";
+import { tryAvatarPngFallback } from "@/lib/avatarImageFallback";
 
-const VISIBLE_COUNT = 4;
 const DESKTOP_COUNT = 8;
 const FEATURED_UNLOCKABLE_COUNT = 8;
-const MOBILE_PHONE_SCALE = 0.5;
-const CHOOSER_AVATARS: readonly AvatarCatalogItem[] = [
-  { id: "ember", level: 2, name: "Ember", price: "0", imageSrc: "/avatars/avatar-3.svg", bg: "#1f0a05", figure: "#ff8a1f", ring: "#ff8a1f", glow: "#ff8a1f80", isActive: true, rarity: "common" },
-  { id: "verdant", level: 3, name: "Verdant", price: "0", imageSrc: "/avatars/avatar-1.svg", bg: "#08160b", figure: "#22c55e", ring: "#22c55e", glow: "#22c55e80", isActive: true, rarity: "common" },
-  { id: "horned", level: 5, name: "Horned", price: "0", imageSrc: "/avatars/avatar-5.svg", bg: "#1f0808", figure: "#ff2d3d", ring: "#ff2d3d", glow: "#ff2d3d80", isActive: true, rarity: "common" },
-  { id: "pharaoh", level: 6, name: "Pharaoh", price: "0", imageSrc: "/avatars/avatar-6.svg", bg: "#1f1605", figure: "#f2d21a", ring: "#f2d21a", glow: "#f2d21a80", isActive: true, rarity: "common" },
-  { id: "violet", level: 7, name: "Violet", price: "0", imageSrc: "/avatars/avatar-2.svg", bg: "#150a22", figure: "#b84dff", ring: "#b84dff", glow: "#b84dff80", isActive: true, rarity: "common" },
-  { id: "rose", level: 8, name: "Rose", price: "0", imageSrc: "/avatars/avatar-4.svg", bg: "#1f0a14", figure: "#f43f5e", ring: "#f43f5e", glow: "#f43f5e80", isActive: true, rarity: "common" },
-  { id: "black", level: 9, name: "Black", price: "0", imageSrc: "/avatars/avatar-7.svg", bg: "#0a0a0a", figure: "#cfd3da", ring: "#cfd3da", glow: "#cfd3da80", isActive: true, rarity: "common" },
-  { id: "blue", level: 10, name: "Blue", price: "0", imageSrc: "/avatars/avatar-10.svg", bg: "#0a1424", figure: "#3b82f6", ring: "#3b82f6", glow: "#3b82f680", isActive: true, rarity: "common" },
-];
-// "Spin pool" + "early-signup pool" sourced from the shared config so
-// landing, onboarding, and wheel stay in lockstep.
-import {
-  SPIN_POOL,
-  EARLY_SIGNUP_POOL,
-} from "@/backend/supabase/controllers/avatarRewardsController";
-import { avatarDisplayName } from "@/config/avatarNames";
 
-const REVEAL_AVATARS: readonly AvatarCatalogItem[] = [
-  ...SPIN_POOL.map((entry, i): AvatarCatalogItem => ({
-    id: `reveal-spin-${i + 1}`,
-    level: 11 + i,
-    name: avatarDisplayName(entry.imageId),
-    price: "0",
-    imageSrc: entry.imageSrc,
-    bg: "#111827", figure: "#cbd5e1", ring: "#cbd5e1", glow: "#cbd5e180",
-    isActive: true, rarity: "common",
-  })),
-  ...EARLY_SIGNUP_POOL.map((entry, i): AvatarCatalogItem => ({
-    id: `reveal-signup-${i + 1}`,
-    level: 11 + SPIN_POOL.length + i,
-    name: avatarDisplayName(entry.imageId),
-    price: "0",
-    imageSrc: entry.imageSrc,
-    bg: "#111827", figure: "#cbd5e1", ring: "#cbd5e1", glow: "#cbd5e180",
-    isActive: true, rarity: "common",
-  })),
-];
-const LANDING_AVATARS: readonly AvatarCatalogItem[] = [...CHOOSER_AVATARS, ...REVEAL_AVATARS];
+// Featured 8 shown upfront (lowest tier first). Rainbow Pulse, White Mirage, Gold Specter
+// appear in "Show More" as the higher-tier entries.
 
-type RevealAvatarImageFit = { scale: number; objectPosition?: string };
+interface AvatarShowcaseSectionProps {
+  onSignupClick?: () => void;
+}
 
-const REVEAL_AVATAR_IMAGE_FIT: Record<string, RevealAvatarImageFit> = {
-  "reveal-1": { scale: 1.18 }, // Silver Void / platinum-style frame
-  "reveal-2": { scale: 1.5 },
-  "reveal-3": { scale: 1.5 },
-  "reveal-4": { scale: 1.62 }, // Violet Mask has the most transparent padding.
-  "reveal-5": { scale: 1.5 },
-  "reveal-6": { scale: 1.12 },
-  "reveal-7": { scale: 1.5 },
-  "reveal-8": { scale: 1.22 },
-  "reveal-9": { scale: 1.42 },
-};
-
-export function AvatarShowcaseSection() {
+export function AvatarShowcaseSection({ onSignupClick = () => undefined }: AvatarShowcaseSectionProps) {
   const sectionRef = useTrackSectionView("avatar");
   const { mode } = useTheme();
   const isLight = mode === "light";
-  const [avatarIndex, setAvatarIndex] = useState(CHOOSER_AVATARS[0].level);
-  const [previewIndex, setPreviewIndex] = useState(CHOOSER_AVATARS[0].level);
-  const [startIndex, setStartIndex] = useState(0);
-  const [desktopStart, setDesktopStart] = useState(0);
-  const [showAll, setShowAll] = useState(false);
-  const [showExpandGrid, setShowExpandGrid] = useState(false);
+  const [avatarIndex, setAvatarIndex] = useState(LANDING_CHOOSER_AVATARS[0].level);
+  const [previewIndex, setPreviewIndex] = useState(LANDING_CHOOSER_AVATARS[0].level);
+  const [desktopStart] = useState(0);
   const [showUnlockableAvatars, setShowUnlockableAvatars] = useState(false);
-  const [expandedVisibleCount, setExpandedVisibleCount] = useState(CHOOSER_AVATARS.length);
   const [showMore, setShowMore] = useState(false);
   const [themeVersion, setThemeVersion] = useState(0);
   const [extraPreviewAvatar, setExtraPreviewAvatar] = useState<LandingNewAvatar | null>(null);
   const [newAvatars] = useState<LandingNewAvatar[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const phoneRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const nextThemes = [...LEVEL_THEMES];
@@ -106,69 +59,18 @@ export function AvatarShowcaseSection() {
     setThemeVersion((version) => version + 1);
   }, []);
 
-  const chooserAvatars = CHOOSER_AVATARS;
+  const chooserAvatars = LANDING_CHOOSER_AVATARS;
   const chooserTotal = chooserAvatars.length;
-  const unlockableAvatars = REVEAL_AVATARS;
+  const unlockableAvatars = getLandingUnlockableAvatars();
   const visibleUnlockableAvatars = (showUnlockableAvatars
     ? unlockableAvatars
     : unlockableAvatars.slice(0, FEATURED_UNLOCKABLE_COUNT)
   ).map((avatar) => ({ avatar, themeIndex: avatar.level }));
   const hasMoreUnlockableAvatars = unlockableAvatars.length > FEATURED_UNLOCKABLE_COUNT;
-  const expandedAvatarSource = SPIN_POOL
-    .map((entry) => REVEAL_AVATARS.find((avatar) => avatar.imageSrc === entry.imageSrc))
-    .filter((avatar): avatar is AvatarCatalogItem => Boolean(avatar));
-  const expandedAvatarTotal = expandedAvatarSource.length;
-  const visibleExtendedAvatars = expandedAvatarSource
-    .slice(0, expandedVisibleCount)
-    .map((avatar) => ({ avatar, themeIndex: avatar.level }));
   const previewAvatar = useMemo(
     () => extraPreviewAvatar ?? LANDING_AVATARS.find((avatar) => avatar.level === previewIndex) ?? chooserAvatars[0] ?? null,
     [chooserAvatars, extraPreviewAvatar, previewIndex]
   );
-
-  const canPrev = true;
-  const canNext = true;
-
-  useEffect(() => {
-    setExpandedVisibleCount(expandedAvatarTotal);
-  }, [expandedAvatarTotal, showExpandGrid]);
-
-  function handleToggleExpandGrid() {
-    setShowExpandGrid((open) => !open);
-  }
-
-  // Per-image scale to normalise inner-circle size — each source image has
-  // different transparent padding around the avatar circle.
-  function getRevealAvatarImageStyle(avatarId?: string): React.CSSProperties {
-    const fit = avatarId ? REVEAL_AVATAR_IMAGE_FIT[avatarId] : undefined;
-
-    return {
-      objectPosition: fit?.objectPosition ?? "center center",
-      transform: `scale(${fit?.scale ?? 1.12})`,
-      transformOrigin: "center center",
-    };
-  }
-
-  function prev() {
-    setStartIndex((i) => (i - 1 + chooserTotal) % chooserTotal);
-  }
-
-  function next() {
-    setStartIndex((i) => (i + 1) % chooserTotal);
-  }
-
-  function prevDesktop() {
-    setDesktopStart((i) => (i - DESKTOP_COUNT + chooserTotal) % chooserTotal);
-  }
-
-  function nextDesktop() {
-    setDesktopStart((i) => (i + DESKTOP_COUNT) % chooserTotal);
-  }
-
-  const visibleAvatars = Array.from({ length: VISIBLE_COUNT }, (_, i) => {
-    const idx = (startIndex + i) % chooserTotal;
-    return { avatar: chooserAvatars[idx], index: chooserAvatars[idx].level };
-  });
 
   const desktopAvatars = Array.from({ length: DESKTOP_COUNT }, (_, i) => {
     const idx = (desktopStart + i) % chooserTotal;
@@ -214,7 +116,7 @@ export function AvatarShowcaseSection() {
           className={`relative rounded-full transition-all duration-300 ${scaleClass}`}
           style={{ transition: "transform 0.3s cubic-bezier(0.34,1.56,0.64,1)" }}
         >
-          <AvatarFigure key={`${avatar.level}-${themeVersion}`} avatarIndex={avatar.level} size="md" selected={isSelected || isActive} themeOverride={avatar} />
+          <AvatarFigure key={`${avatar.level}-${themeVersion}`} avatarIndex={avatar.level} size="md" selected={isSelected || isActive} themeOverride={avatar} loading="lazy" />
         </div>
 
         {/* Name */}
@@ -264,13 +166,18 @@ export function AvatarShowcaseSection() {
               alt={avatar.name}
               loading="lazy"
               decoding="async"
+              onError={(event) => {
+                if (!tryAvatarPngFallback(event.currentTarget, avatar.imageSrc)) {
+                  event.currentTarget.style.display = "none";
+                }
+              }}
               draggable={false}
               className={`h-full w-full rounded-full object-contain transition-all duration-300 ${
                 isSelected || isActive ? "drop-shadow-[0_0_12px_rgba(241,196,45,0.45)]" : "opacity-80 group-hover:opacity-100"
               }`}
             />
           ) : (
-            <AvatarFigure key={`${themeIndex}-${themeVersion}`} avatarIndex={themeIndex} size="sm" selected={isSelected || isActive} themeOverride={avatar} />
+            <AvatarFigure key={`${themeIndex}-${themeVersion}`} avatarIndex={themeIndex} size="sm" selected={isSelected || isActive} themeOverride={avatar} loading="lazy" />
           )}
         </div>
         <span
@@ -284,48 +191,6 @@ export function AvatarShowcaseSection() {
     );
   }
 
-  function NavButton({
-    direction,
-    onClick,
-    disabled,
-  }: {
-    direction: "prev" | "next";
-    onClick: () => void;
-    disabled: boolean;
-  }) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={disabled}
-        className={`group relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all duration-300 ${
-          disabled ? "opacity-20 cursor-not-allowed" : "cursor-pointer"
-        }`}
-        aria-label={direction === "prev" ? "Previous avatars" : "Next avatars"}
-      >
-        {/* Background layers */}
-        <div className="absolute inset-0 rounded-full border border-raw-border/40 bg-raw-black/60 transition-all duration-300 group-hover:border-raw-gold/50 group-hover:bg-raw-black/80" />
-        <div className="absolute inset-0 rounded-full opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-          style={{ boxShadow: "0 0 16px rgba(241,196,45,0.25), inset 0 0 12px rgba(241,196,45,0.06)" }}
-        />
-        {/* Gold shimmer on hover */}
-        <div className="absolute inset-0 overflow-hidden rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <div className="absolute inset-0 bg-gradient-to-br from-raw-gold/10 via-transparent to-transparent" />
-        </div>
-
-        <div className={`relative transition-transform duration-300 ${
-          direction === "prev"
-            ? "group-hover:-translate-x-0.5"
-            : "group-hover:translate-x-0.5"
-        }`}>
-          {direction === "prev"
-            ? <ChevronLeft className="h-5 w-5 text-raw-silver/60 transition-colors duration-300 group-hover:text-raw-gold" />
-            : <ChevronRight className="h-5 w-5 text-raw-silver/60 transition-colors duration-300 group-hover:text-raw-gold" />
-          }
-        </div>
-      </button>
-    );
-  }
 
   return (
     <LandingSectionShell
@@ -340,76 +205,48 @@ export function AvatarShowcaseSection() {
       }
       description={
         <span className="block whitespace-pre-line">
-          {`Your username is your constant identity. Your avatar is your evolving one.
-
-In real life you are born with a name, a face, and a personality underneath. On raW, your username is your name, your avatar is your face — and your answers reveal the personality behind them.`}
+          {highlightRawWordmark(`Your username is your constant identity. Your avatar is your evolving one.\n\nIn real life you are born with a name, a face, and a personality underneath. On raW, your username is your name, your avatar is your face — and your answers reveal the personality behind them.`)}
         </span>
       }
     >
-      {/* ── Mobile (<sm): phone left + 2-col avatar grid right, 50/50 ── */}
-      <div ref={phoneRef} className="mx-auto flex w-full max-w-5xl flex-row items-start gap-3 sm:hidden">
+      {/* ── Mobile (<sm): stacked sections — phone / chooser / unlockable ── */}
+      <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-4 sm:hidden">
 
-        {/* Phone: scaled to fit the left half while keeping the full home screen intact. */}
-        <div
-          className="w-[43%] shrink-0 overflow-visible pt-1"
-          style={{ height: 646 * MOBILE_PHONE_SCALE }}
-        >
-          {/* Transform scaling avoids mobile browser zoom side effects. */}
-          <div
-            style={{
-              width: 280,
-              transform: `scale(${MOBILE_PHONE_SCALE})`,
-              transformOrigin: "top left",
-            }}
-          >
-            <PhoneMockup className="w-[280px]" showStatusBar={false}>
-              <AvatarPhoneHomeScreen avatarIndex={previewIndex} compact previewAvatar={previewAvatar} />
-            </PhoneMockup>
-          </div>
+        {/* 1 — Phone mockup */}
+        <div className="flex justify-center py-2">
+          <PhoneMockup className="w-[260px]" showStatusBar={false}>
+            <AvatarPhoneHomeScreen avatarIndex={previewIndex} compact previewAvatar={previewAvatar} />
+          </PhoneMockup>
         </div>
 
-        {/* Avatar grid — right half, same height as phone */}
-        <div className="flex flex-1 flex-col min-w-0 pt-1 overflow-hidden" style={{ height: 646 * MOBILE_PHONE_SCALE }}>
-          <p className="mb-1 text-center font-display text-[8px] uppercase tracking-[0.14em] text-raw-gold/70">
+        {/* 2 — Avatar chooser */}
+        <div className="relative w-full overflow-hidden rounded-2xl border border-raw-border/40 bg-raw-surface/20 p-4"
+          style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 40px rgba(0,0,0,0.3)" }}>
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-raw-gold/30 to-transparent" />
+          <p className="mb-3 text-center font-display text-[8px] uppercase tracking-[0.18em] text-raw-gold/70">
             Choose your avatar
           </p>
-          <div
-            ref={scrollRef}
-            className="grid flex-1 grid-cols-2 grid-rows-5 place-items-center gap-x-1 gap-y-0"
-          >
+          <div ref={scrollRef} className="grid grid-cols-4 place-items-center gap-x-2 gap-y-3">
             {chooserAvatars.map((avatar) => {
               const index = avatar.level;
-              const scaleClass = !avatar.imageSrc
-                ? avatarIndex === index
-                  ? "scale-[0.82]"
-                  : "scale-[0.72]"
-                : avatarIndex === index
-                  ? "scale-[0.7]"
-                  : "scale-[0.6]";
               return (
                 <button
                   key={avatar.id}
                   type="button"
                   onClick={() => { setExtraPreviewAvatar(null); setAvatarIndex(index); setPreviewIndex(index); }}
-                  className="flex min-w-0 flex-col items-center gap-0 outline-none"
+                  className="flex min-w-0 flex-col items-center gap-1 outline-none"
                   aria-label={`Select ${avatar.name}`}
                   aria-pressed={avatarIndex === index}
                 >
-                  <div
-                    className={`rounded-full transition-all duration-200 ${scaleClass}`}
-                  >
-                    <AvatarFigure key={`${avatar.level}-${themeVersion}`} avatarIndex={avatar.level} size="sm" selected={avatarIndex === index} themeOverride={avatar} />
+                  <div className={`rounded-full transition-all duration-200 ${avatarIndex === index ? "scale-110" : "scale-100"}`}>
+                    <AvatarFigure key={`${avatar.level}-${themeVersion}`} avatarIndex={avatar.level} size="sm" selected={avatarIndex === index} themeOverride={avatar} loading="lazy" />
                   </div>
                   <span
                     className="max-w-[46px] text-center font-display uppercase leading-tight transition-colors duration-200"
                     style={{
-                      fontSize: "0.38rem",
-                      letterSpacing: "0.02em",
-                      color: avatarIndex === index
-                        ? "#F1C42D"
-                        : isLight
-                          ? "rgba(30,41,59,0.6)"
-                          : "rgba(255,255,255,0.42)",
+                      fontSize: "0.42rem",
+                      letterSpacing: "0.04em",
+                      color: avatarIndex === index ? "#F1C42D" : isLight ? "rgba(30,41,59,0.6)" : "rgba(255,255,255,0.42)",
                     }}
                   >
                     {avatar.name.split(" ")[0]}
@@ -419,57 +256,50 @@ In real life you are born with a name, a face, and a personality underneath. On 
             })}
           </div>
         </div>
-      </div>
 
-      {/* ── Tablet (sm–lg): phone on top, windowed avatar strip below ── */}
-      <div className="mx-auto hidden w-full max-w-5xl flex-col items-center gap-8 sm:flex lg:hidden">
-        <PhoneMockup className="w-[310px]" showStatusBar={false}>
-          <AvatarPhoneHomeScreen avatarIndex={previewIndex} previewAvatar={previewAvatar} />
-        </PhoneMockup>
-
-        <div
-          className="relative w-full overflow-hidden rounded-2xl border border-raw-border/40 bg-raw-surface/20 p-5 sm:p-6"
-          style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 40px rgba(0,0,0,0.3)" }}
-        >
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-raw-gold/30 to-transparent" />
-          <p className="mb-6 text-center font-display text-xs uppercase tracking-[0.25em] text-raw-gold/70">
-            Choose your avatar
-          </p>
-          <div className="flex items-center gap-4">
-            <NavButton direction="prev" onClick={prev} disabled={!canPrev} />
-            <div className="flex flex-1 flex-wrap items-center justify-center gap-6 transition-all duration-500">
-              {showAll
-                ? chooserAvatars.map((avatar, i) => (
-                    <AvatarButton key={i + 1} index={i + 1} avatar={avatar} />
-                  ))
-                : visibleAvatars.map(({ avatar, index }) => (
-                    <AvatarButton key={`${startIndex}-${index}`} index={index} avatar={avatar} />
-                  ))
-              }
+        {/* 3 — Unlockable avatars */}
+        {unlockableAvatars.length > 0 && (
+          <div className="relative w-full overflow-hidden rounded-2xl border border-raw-border/40 bg-raw-surface/20 p-4"
+            style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 40px rgba(0,0,0,0.3)" }}>
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-raw-gold/30 to-transparent" />
+            <p className="mb-3 text-center font-display text-[8px] uppercase tracking-[0.18em] text-raw-gold/65">
+              Unlockable Avatars
+            </p>
+            <div className="grid grid-cols-4 place-items-center justify-items-center gap-x-2 gap-y-2">
+              {visibleUnlockableAvatars.slice(0, 4).map(({ avatar, themeIndex }) => (
+                <UnlockableAvatarButton key={avatar.id} avatar={avatar} themeIndex={themeIndex} />
+              ))}
             </div>
-            <NavButton direction="next" onClick={next} disabled={!canNext} />
+            {hasMoreUnlockableAvatars && (
+              <div className="mt-3 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setShowUnlockableAvatars((open) => !open)}
+                  className="group relative flex items-center gap-1.5 rounded-full border border-raw-border/40 bg-raw-black/60 px-3 py-1.5 text-[7px] uppercase tracking-[0.16em] text-raw-silver/50 transition-all duration-300 hover:border-raw-gold/50 hover:text-raw-gold"
+                  aria-expanded={showUnlockableAvatars}
+                >
+                  <span className="relative">{showUnlockableAvatars ? "Less" : "More"}</span>
+                  <span className="relative transition-transform duration-300" style={{ transform: showUnlockableAvatars ? "rotate(180deg)" : "rotate(0deg)" }}>▾</span>
+                </button>
+              </div>
+            )}
+            {showUnlockableAvatars && visibleUnlockableAvatars.length > 4 && (
+              <div className="mt-3 grid grid-cols-4 place-items-center justify-items-center gap-x-2 gap-y-2">
+                {visibleUnlockableAvatars.slice(4).map(({ avatar, themeIndex }) => (
+                  <UnlockableAvatarButton key={avatar.id} avatar={avatar} themeIndex={themeIndex} />
+                ))}
+              </div>
+            )}
           </div>
-          <div className="mt-5 flex justify-center">
-            <button
-              type="button"
-              onClick={() => setShowAll((v) => !v)}
-              className="group relative flex items-center gap-2 rounded-full border border-raw-border/40 bg-raw-black/60 px-5 py-2 text-xs uppercase tracking-[0.18em] text-raw-silver/50 transition-all duration-300 hover:border-raw-gold/50 hover:text-raw-gold"
-            >
-              <div className="absolute inset-0 rounded-full opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-                style={{ boxShadow: "0 0 14px rgba(241,196,45,0.2), inset 0 0 10px rgba(241,196,45,0.05)" }} />
-              <span className="relative">{showAll ? "Show Less" : "Show All Avatars"}</span>
-              <span className="relative transition-transform duration-300" style={{ transform: showAll ? "rotate(180deg)" : "rotate(0deg)" }}>▾</span>
-            </button>
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* ── Desktop (lg+): large phone left + 4x2 chooser grid right ── */}
-      <div className="mx-auto hidden w-full max-w-5xl flex-row items-stretch gap-10 lg:flex">
+      {/* ── Tablet + Desktop (sm+): phone left + chooser grid right ── */}
+      <div className="mx-auto hidden w-full max-w-5xl flex-row items-stretch gap-8 sm:flex lg:gap-10">
 
         <div className="flex shrink-0 justify-center">
-          <PhoneMockup className="w-[310px]" showStatusBar={false}>
-          <AvatarPhoneHomeScreen avatarIndex={previewIndex} previewAvatar={previewAvatar} />
+          <PhoneMockup className="w-[260px] lg:w-[310px]" showStatusBar={false}>
+            <AvatarPhoneHomeScreen avatarIndex={previewIndex} previewAvatar={previewAvatar} />
           </PhoneMockup>
         </div>
 
@@ -528,105 +358,6 @@ In real life you are born with a name, a face, and a personality underneath. On 
             </div>
           )}
         </div>
-      </div>
-
-      {/* ── Expand: full avatar grid ── */}
-      <div className="mx-auto mt-6 w-full max-w-5xl flex flex-col items-center">
-        <RawRevealButton
-          size="default"
-          state={showExpandGrid ? "hover" : "scroll"}
-          label={showExpandGrid ? "HIDE" : "EXPLORE MORE"}
-          onClick={handleToggleExpandGrid}
-          className="animate-[cta-breath_3.4s_ease-in-out_infinite] !text-white"
-        />
-
-        <AnimatePresence>
-          {showExpandGrid && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-              className="overflow-hidden w-full"
-            >
-              <div
-                className="relative mt-5 rounded-2xl border border-raw-border/40 bg-raw-surface/20 p-6 sm:p-8"
-                style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 40px rgba(0,0,0,0.3)" }}
-              >
-                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-raw-gold/30 to-transparent" />
-                <p className="mb-5 text-center font-display text-[10px] uppercase tracking-[0.28em] text-raw-gold/60 sm:mb-6">
-                  All Avatars
-                </p>
-                {visibleExtendedAvatars.length > 0 ? (
-                  <>
-                    <div className="grid grid-cols-2 place-items-start justify-items-center gap-x-6 gap-y-5 sm:grid-cols-5 sm:gap-x-5 sm:gap-y-6">
-                      {visibleExtendedAvatars.map(({ avatar, themeIndex }) => (
-                        <button
-                          key={avatar.id ?? themeIndex}
-                          type="button"
-                          onClick={() => {
-                            setExtraPreviewAvatar(null);
-                            setAvatarIndex(themeIndex);
-                            setPreviewIndex(themeIndex);
-                            phoneRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-                          }}
-                          onMouseEnter={() => setPreviewIndex(themeIndex)}
-                          onMouseLeave={() => setPreviewIndex(avatarIndex)}
-                          className="group flex w-12 flex-col items-center gap-1 outline-none sm:w-16 sm:gap-1.5 [content-visibility:auto] [contain-intrinsic-size:76px]"
-                          aria-label={`Select ${avatar.name}`}
-                        >
-                          <div
-                            className="relative flex h-14 w-14 items-center justify-center overflow-visible rounded-full transition-all duration-300 sm:h-16 sm:w-16"
-                            style={{ transition: "transform 0.3s cubic-bezier(0.34,1.56,0.64,1)" }}
-                          >
-                            {avatar.imageSrc ? (
-                              <img
-                                src={avatar.imageSrc}
-                                alt={avatar.name}
-                                loading="lazy"
-                                decoding="async"
-                                draggable={false}
-                                className="h-[96%] w-[96%] rounded-full object-contain"
-                              />
-                            ) : (
-                              <AvatarFigure key={`${themeIndex}-${themeVersion}`} avatarIndex={themeIndex} size="sm" selected={avatarIndex === themeIndex} themeOverride={avatar} />
-                            )}
-                          </div>
-                          <span
-                            className="min-h-[1.35rem] text-center font-display text-[6px] uppercase leading-[1.15] tracking-wide transition-colors duration-200 sm:min-h-[1.5rem] sm:text-[7px]"
-                            style={{
-                              color: avatarIndex === themeIndex
-                                ? "#F1C42D"
-                                : isLight
-                                  ? "rgba(30,41,59,0.62)"
-                                  : "rgba(255,255,255,0.3)",
-                            }}
-                          >
-                            {avatar.name}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                    {expandedVisibleCount < expandedAvatarTotal && (
-                      <p className="mt-5 text-center font-display text-[8px] uppercase tracking-[0.22em] text-raw-silver/35">
-                        Loading more avatars...
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <div
-                    className="flex min-h-24 items-center justify-center rounded-xl border border-raw-border/30 bg-raw-black/30 px-4 text-center"
-                    aria-live="polite"
-                  >
-                    <p className="font-display text-[9px] uppercase tracking-[0.2em] text-white/45">
-                      More avatars are coming soon.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
       {/* ── Show More: new avatars drop-down ── */}
@@ -695,7 +426,18 @@ In real life you are born with a name, a face, and a personality underneath. On 
                         extraPreviewAvatar?.id === avatar.id ? "border-raw-gold" : "border-raw-gold/40"
                       }`}>
                         {avatar.imageSrc
-                          ? <img src={avatar.imageSrc} alt={avatar.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                          ? <img
+                              src={avatar.imageSrc}
+                              alt={avatar.name}
+                              loading="lazy"
+                              decoding="async"
+                              onError={(event) => {
+                                if (!tryAvatarPngFallback(event.currentTarget, avatar.imageSrc)) {
+                                  event.currentTarget.style.display = "none";
+                                }
+                              }}
+                              className="h-full w-full object-cover"
+                            />
                           : <div className="h-full w-full" />
                         }
                       </div>
@@ -709,7 +451,7 @@ In real life you are born with a name, a face, and a personality underneath. On 
         </AnimatePresence>
 
         <div className="mt-10 border-t border-raw-border/20 pt-10 sm:mt-14 sm:pt-14">
-          <WheelRewardInline onSignupClick={onSignupClick ?? (() => undefined)} />
+          <WheelRewardInline onSignupClick={onSignupClick} />
         </div>
       </div>
     </LandingSectionShell>

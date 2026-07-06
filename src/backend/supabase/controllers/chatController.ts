@@ -1,6 +1,7 @@
+import { supabase } from '../client';
 import type { CommunityChatMessageRecord, SendCommunityMessageInput } from '@/lib/communityChat.types';
 import { assertUserTextAllowed } from '@/lib/inputSecurity';
-import { supabase } from '../client';
+import { apiRequest } from '@/lib/api/client';
 
 export type DbCommunityMessage = {
   id: string;
@@ -9,7 +10,6 @@ export type DbCommunityMessage = {
   sender_name: string;
   text: string;
   created_at: string;
-  pinned: boolean;
   reply_to_message_id: string | null;
   reply_to_sender_name: string | null;
   reply_to_text: string | null;
@@ -17,7 +17,6 @@ export type DbCommunityMessage = {
   deleted_by_user_id: string | null;
   liked_by: string[] | null;
   sender_avatar_level?: number | null;
-  moderation_status?: string | null;
 };
 
 export function mapCommunityMessage(row: DbCommunityMessage): CommunityChatMessageRecord {
@@ -28,7 +27,6 @@ export function mapCommunityMessage(row: DbCommunityMessage): CommunityChatMessa
     senderName: row.sender_name,
     text: row.text,
     createdAt: row.created_at,
-    pinned: row.pinned,
     replyToMessageId: row.reply_to_message_id ?? undefined,
     replyToSenderName: row.reply_to_sender_name ?? undefined,
     replyToText: row.reply_to_text ?? undefined,
@@ -36,30 +34,35 @@ export function mapCommunityMessage(row: DbCommunityMessage): CommunityChatMessa
     deletedByUserId: row.deleted_by_user_id ?? undefined,
     likedBy: row.liked_by ?? [],
     senderAvatarLevel: row.sender_avatar_level ?? undefined,
-    moderationStatus: row.moderation_status ?? undefined,
   };
 }
 
 /**
- * Send a community message via the send_community_message SECURITY DEFINER
- * RPC. The function derives the sender from current_user_id() and enforces
- * auth, ban status, community membership, and alias validity server-side.
+ * Send a community message via the server-authoritative POST /api/chat/send
+ * endpoint. Identity comes from the `raw_session` cookie, not from a
+ * browser-side Supabase RPC call — supabase-js's rpc()/from() calls cannot
+ * carry the app's minted access token (see docs/architecture-review.md A2),
+ * so anything gated by current_user_id()/auth.uid() must go through /api/*.
  */
 export async function sendMessage(
   communityId: string,
   input: SendCommunityMessageInput
 ): Promise<CommunityChatMessageRecord> {
   const text = assertUserTextAllowed(input.text);
-  const { data, error } = await supabase.rpc('send_community_message', {
-    p_community_id: communityId,
-    p_text: text,
-    p_reply_to_message_id: input.replyToMessage?.id ?? null,
-    p_identity_alias: input.identityAlias ?? null,
-    p_avatar_level: input.avatarLevel ?? null,
-  });
-  if (error) throw new Error(error.message ?? 'send_message_failed');
-  if (!data) throw new Error('send_message_failed');
-  return mapCommunityMessage(data as DbCommunityMessage);
+  const { message } = await apiRequest<{ ok: boolean; message: CommunityChatMessageRecord }>(
+    '/api/chat/send',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        communityId,
+        text,
+        replyToMessageId: input.replyToMessage?.id ?? null,
+        identityAlias: input.identityAlias ?? null,
+        avatarLevel: input.avatarLevel ?? null,
+      }),
+    },
+  );
+  return message;
 }
 
 /**

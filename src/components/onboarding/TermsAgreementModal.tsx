@@ -1,0 +1,95 @@
+import { useEffect, useState } from "react";
+
+interface TermsAgreementModalProps {
+  open: boolean;
+  onAccept: () => void;
+  onDismiss: () => void;
+}
+
+/**
+ * Standalone Terms of Service + Privacy Policy agreement popup, shown after
+ * the user presses "Enter raW" on the welcome modal — a separate step, not
+ * merged into the welcome card itself.
+ */
+export function TermsAgreementModal({ open, onAccept, onDismiss }: TermsAgreementModalProps) {
+  const [agreed, setAgreed] = useState(false);
+
+  useEffect(() => {
+    if (!open) setAgreed(false);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onDismiss();
+    };
+    window.addEventListener("keydown", onKey);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open, onDismiss]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Terms and Privacy Agreement"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-200"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onDismiss();
+      }}
+    >
+      <div
+        className="relative mx-4 w-full max-w-sm border border-raw-gold/40 bg-gradient-to-br from-raw-black via-[#0c0c0c] to-raw-black p-5 text-center shadow-[0_24px_60px_rgba(0,0,0,0.7),0_0_36px_rgba(241,196,45,0.18)] sm:mx-5 sm:p-8"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <p className="font-display text-[10px] uppercase tracking-[0.3em] text-raw-gold/70 sm:tracking-[0.4em]">One last thing</p>
+        <h2 className="mt-2 font-display text-xl tracking-wide text-raw-text sm:text-3xl">Before you enter</h2>
+        <p className="mt-2 text-xs text-raw-silver/70 sm:mt-3 sm:text-sm">
+          Please review and agree to our Terms of Service and Privacy Policy to continue.
+        </p>
+
+        <label className="mt-5 flex cursor-pointer items-start justify-center gap-2.5 text-left sm:mt-6">
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-raw-gold cursor-pointer"
+          />
+          <span className="text-xs leading-relaxed text-raw-silver/55">
+            I agree to the{" "}
+            <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-raw-gold/80 underline hover:text-raw-gold">
+              Terms of Service
+            </a>{" "}
+            and{" "}
+            <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-raw-gold/80 underline hover:text-raw-gold">
+              Privacy Policy
+            </a>
+          </span>
+        </label>
+
+        <button
+          type="button"
+          onClick={onAccept}
+          disabled={!agreed}
+          className="mt-4 inline-flex min-h-[48px] w-full items-center justify-center rounded-xl bg-raw-gold px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-raw-ink transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-raw-gold/80 disabled:cursor-not-allowed disabled:bg-raw-border/40 disabled:text-raw-silver/40 disabled:shadow-none sm:w-auto sm:px-8 sm:tracking-[0.18em]"
+        >
+          Accept & Continue
+        </button>
+
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="mt-3 block w-full min-h-[40px] text-[11px] uppercase tracking-[0.2em] text-raw-silver/45 transition hover:text-raw-silver/70"
+        >
+          Not yet
+        </button>
+      </div>
+    </div>
+  );
+}

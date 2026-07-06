@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { BrandName } from "@/components/ui/brand-name";
 import { createPortal } from "react-dom";
 import { Eye, EyeOff, X } from "lucide-react";
 import {
@@ -13,59 +14,51 @@ import { track } from "@/lib/analytics";
 interface SignupModalProps {
   open: boolean;
   onClose: () => void;
-  onRequestSignupOtp: (username: string, password: string, phone: string) => Promise<AuthResult>;
-  onVerifySignupOtp: (code: string) => Promise<AuthResult>;
+  onSignup: (username: string, password: string, referralCode: string) => Promise<AuthResult>;
   onLogin: (username: string, password: string) => Promise<AuthResult>;
   source?: string;
+  initialReferralCode?: string;
 }
 
 type AuthMode = "signup" | "login";
-type SignupStep = "details" | "verify";
 
-function maskPhone(phone: string): string {
-  if (phone.length <= 7) {
-    return phone;
-  }
-
-  return `${phone.slice(0, 4)}${"•".repeat(phone.length - 7)}${phone.slice(-3)}`;
+function normalizeInviteCode(code: string): string {
+  return normalizePlainText(code).trim().toUpperCase().replace(/\s+/g, "");
 }
 
-export function SignupModal({ open, onClose, onRequestSignupOtp, onVerifySignupOtp, onLogin, source }: SignupModalProps) {
+export function SignupModal({ open, onClose, onSignup, onLogin, source, initialReferralCode }: SignupModalProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [phone, setPhone] = useState("");
-  const [code, setCode] = useState("");
-  const [sentChannels, setSentChannels] = useState<string[]>([]);
+  const [referralCode, setReferralCode] = useState(initialReferralCode ?? "");
   const [cooldown, setCooldown] = useState(0);
   const [mode, setMode] = useState<AuthMode>("signup");
-  const [signupStep, setSignupStep] = useState<SignupStep>("details");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showTermsPopup, setShowTermsPopup] = useState(false);
   const openedFiredRef = useRef(false);
 
   useEffect(() => {
     if (open && !openedFiredRef.current) {
       openedFiredRef.current = true;
+      if (initialReferralCode) setReferralCode(initialReferralCode);
       track("signup_modal_opened", { source: source ?? "unknown" });
     }
     if (!open) {
       openedFiredRef.current = false;
       setPassword("");
       setConfirmPassword("");
-      setPhone("");
-      setCode("");
-      setSentChannels([]);
+      setReferralCode("");
       setCooldown(0);
-      setSignupStep("details");
       setError("");
       setIsSubmitting(false);
       setShowPassword(false);
       setShowConfirmPassword(false);
+      setShowTermsPopup(false);
     }
-  }, [open, source]);
+  }, [open, source, initialReferralCode]);
 
   useEffect(() => {
     if (cooldown <= 0) {
@@ -81,13 +74,24 @@ export function SignupModal({ open, onClose, onRequestSignupOtp, onVerifySignupO
 
   if (!open) return null;
 
-  const handleStartSignup = async (event?: React.FormEvent) => {
+  const handleStartSignup = (event?: React.FormEvent) => {
     event?.preventDefault();
     const normalizedUsername = normalizePlainText(sanitizeUsernameInput(username));
     const normalizedPassword = sanitizePasswordInput(password).trim();
     const normalizedConfirmPassword = sanitizePasswordInput(confirmPassword).trim();
+    const normalizedReferralCode = normalizeInviteCode(referralCode);
     if (!isValidUsername(normalizedUsername) || normalizedPassword.length === 0) {
       setError("Use a 3-24 character username and enter a password.");
+      return;
+    }
+
+    if (normalizedPassword.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
+    if (!normalizedReferralCode) {
+      setError("Enter your invitation code to sign up.");
       return;
     }
 
@@ -96,42 +100,26 @@ export function SignupModal({ open, onClose, onRequestSignupOtp, onVerifySignupO
       return;
     }
 
+    setShowTermsPopup(true);
+  };
+
+  const handleConfirmTerms = async () => {
+    setShowTermsPopup(false);
     setIsSubmitting(true);
     setError("");
 
+    const normalizedUsername = normalizePlainText(sanitizeUsernameInput(username));
+    const normalizedPassword = sanitizePasswordInput(password).trim();
+    const normalizedReferralCode = normalizeInviteCode(referralCode);
+
     track("signup_started", { method: "username_password" });
 
-    const result = await onRequestSignupOtp(normalizedUsername, normalizedPassword, "");
+    const result = await onSignup(normalizedUsername, normalizedPassword, normalizedReferralCode);
     if (!result.ok) {
       track("signup_failed", { reason: result.error ?? "unknown", step: "details" });
       setError(result.error ?? "Unable to create account.");
       setIsSubmitting(false);
-    } else {
-      track("signup_otp_sent", { channel: "sms", attempt: 1 });
     }
-  };
-
-  const handleVerifySignup = async (event?: React.FormEvent, overrideCode?: string) => {
-    event?.preventDefault();
-    const verificationCode = overrideCode ?? code;
-
-    if (!/^\d{6}$/.test(verificationCode)) {
-      setError("Enter the 6-digit code.");
-      return;
-    }
-
-    setIsSubmitting(true);
-    setError("");
-
-    const result = await onVerifySignupOtp(verificationCode);
-    if (!result.ok) {
-      track("signup_failed", { reason: result.error ?? "otp_invalid", step: "otp" });
-      setError(result.error ?? "Verification failed.");
-    } else {
-      track("signup_otp_verified", { attempts_used: 1, time_to_verify_ms: 0 });
-    }
-
-    setIsSubmitting(false);
   };
 
   const handleLogin = async (event: React.FormEvent) => {
@@ -162,10 +150,6 @@ export function SignupModal({ open, onClose, onRequestSignupOtp, onVerifySignupO
   };
 
   const isSignup = mode === "signup";
-  const channelSummary =
-    sentChannels.length > 0
-      ? sentChannels.map((channel) => channel === "whatsapp" ? "WhatsApp" : "SMS").join(" + ")
-      : "SMS or WhatsApp";
 
   return createPortal(
     <div
@@ -189,7 +173,7 @@ export function SignupModal({ open, onClose, onRequestSignupOtp, onVerifySignupO
 
         <div className="overflow-y-auto px-5 pb-6 pt-8 sm:px-8 sm:pb-8 sm:pt-8">
         <div className="text-center mb-6 sm:mb-8">
-          <p className="font-display text-lg tracking-wide text-raw-text">Enter ra<span className="raw-word-w">W</span></p>
+          <p className="font-display text-lg tracking-wide text-raw-text">Enter <BrandName /></p>
           <p className="mt-2 text-sm text-raw-silver/50">
             Anonymous. No email. No real name.
           </p>
@@ -200,7 +184,6 @@ export function SignupModal({ open, onClose, onRequestSignupOtp, onVerifySignupO
             type="button"
             onClick={() => {
               setMode("signup");
-              setSignupStep("details");
               setError("");
               setConfirmPassword("");
             }}
@@ -214,7 +197,6 @@ export function SignupModal({ open, onClose, onRequestSignupOtp, onVerifySignupO
             type="button"
             onClick={() => {
               setMode("login");
-              setSignupStep("details");
               setError("");
               setConfirmPassword("");
             }}
@@ -263,6 +245,7 @@ export function SignupModal({ open, onClose, onRequestSignupOtp, onVerifySignupO
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              <p className="mt-1.5 text-[11px] text-raw-silver/30">Use at least 8 characters.</p>
             </div>
 
             <div>
@@ -286,6 +269,19 @@ export function SignupModal({ open, onClose, onRequestSignupOtp, onVerifySignupO
                   {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs text-raw-silver/40">Invitation Code</label>
+              <input
+                type="text"
+                value={referralCode}
+                onChange={(event) => setReferralCode(normalizeInviteCode(event.target.value))}
+                placeholder="RAW-1-XXXXXXXX"
+                maxLength={24}
+                autoComplete="off"
+                className="w-full rounded-xl border border-raw-border bg-raw-black/50 px-4 py-3 text-sm uppercase tracking-[0.08em] text-raw-text placeholder:normal-case placeholder:tracking-normal placeholder:text-raw-silver/25 transition-all focus:border-raw-gold/30 focus:outline-none focus:ring-1 focus:ring-raw-gold/20"
+              />
             </div>
 
             {error && (
@@ -362,6 +358,41 @@ export function SignupModal({ open, onClose, onRequestSignupOtp, onVerifySignupO
         </p>
         </div>
       </div>
+
+      {showTermsPopup && (
+        <div className="absolute inset-0 z-20 flex items-end sm:items-center justify-center rounded-2xl">
+          <div className="absolute inset-0 rounded-2xl bg-raw-black/80 backdrop-blur-sm" />
+          <div className="relative z-10 mx-4 mb-4 sm:mb-0 w-full max-w-sm rounded-2xl border border-raw-border/50 bg-raw-surface p-6 shadow-2xl">
+            <p className="text-center text-sm font-semibold text-raw-text">Before you join</p>
+            <p className="mt-2 text-center text-xs text-raw-silver/55 leading-relaxed">
+              By creating an account you agree to our{" "}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-raw-gold/80 underline hover:text-raw-gold">
+                Terms of Service
+              </a>{" "}
+              and{" "}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-raw-gold/80 underline hover:text-raw-gold">
+                Privacy Policy
+              </a>.
+            </p>
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowTermsPopup(false)}
+                className="flex-1 rounded-xl border border-raw-border/50 py-2.5 text-sm text-raw-silver/60 transition-colors hover:border-raw-border hover:text-raw-silver"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmTerms}
+                className="flex-1 rounded-xl bg-raw-gold py-2.5 text-sm font-bold text-raw-ink transition-all hover:bg-raw-gold/90"
+              >
+                I Accept
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>,
     document.body
   );

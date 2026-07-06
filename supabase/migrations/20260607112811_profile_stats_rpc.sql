@@ -27,28 +27,21 @@ as $function$
     ),
     hosts_made as (
       select count(*) as n
-      from public.community_polls
-      where created_by_user_id = p_user_id
+      from public.community_requests
+      where requester_id = p_user_id
+        and status = 'approved'
     ),
     communities_joined as (
       select count(*) as n
       from public.community_members
       where user_id = p_user_id
-    ),
-    messages_pinned as (
-      select count(*) as n
-      from public.community_messages
-      where sender_id = p_user_id
-        and pinned = true
-        and deleted_at is null
     )
   select jsonb_build_object(
     'polls',              (select n from polls),
     'comments_on_polls',  (select n from poll_comments_count),
     'likes_received',     (select n from likes_received),
     'hosts_made',         (select n from hosts_made),
-    'communities_joined', (select n from communities_joined),
-    'messages_pinned',    (select n from messages_pinned)
+    'communities_joined', (select n from communities_joined)
   );
 $function$;
 

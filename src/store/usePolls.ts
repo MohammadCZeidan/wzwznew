@@ -70,7 +70,7 @@ export function usePolls(isLoggedIn: boolean, userId?: string) {
   const queryClient = useQueryClient();
   const [freeVotesUsed, setFreeVotesUsed] = useState(0);
   const [guestVotedPolls, setGuestVotedPolls] = useState<Set<string>>(new Set());
-  const todayKey = getTodayKey();
+  const [todayKey, setTodayKey] = useState(() => getTodayKey());
   const pollStorageScope = isLoggedIn && userId ? `user.${userId}` : "guest";
   const STORAGE_KEY = `raw.polls.daily-answered.${pollStorageScope}.${todayKey}`;
   const EXTRA_BATCHES_KEY = `raw.polls.extra-batches.${pollStorageScope}.${todayKey}`;
@@ -91,6 +91,13 @@ export function usePolls(isLoggedIn: boolean, userId?: string) {
   });
   const [loadedExtraBatchesKey, setLoadedExtraBatchesKey] = useState(EXTRA_BATCHES_KEY);
   const [extraBatchesUnlocked, setExtraBatchesUnlocked] = useState<number>(() => readStoredExtraBatches(EXTRA_BATCHES_KEY, STORAGE_KEY));
+
+  useEffect(() => {
+    const refreshTodayKey = () => setTodayKey(getTodayKey());
+    refreshTodayKey();
+    const intervalId = window.setInterval(refreshTodayKey, 60_000);
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   useEffect(() => {
     setDailyPollDate(todayKey);
@@ -225,23 +232,11 @@ export function usePolls(isLoggedIn: boolean, userId?: string) {
     const safeAmount = Math.max(0, amount);
     if (safeAmount === 0) return;
 
-    if (isLoggedIn && userId) {
-      setTokenBalance((previous) => {
-        const next = previous + safeAmount;
-        try {
-          window.localStorage.setItem(TOKEN_BALANCE_KEY, String(next));
-          emitTokenBalanceUpdated(TOKEN_BALANCE_KEY, next);
-        } catch {
-          // ignore storage errors
-        }
-        return next;
-      });
-
-      // Token rewards stay local until a trusted reward/payment API mints them server-side.
-      // Direct frontend minting is disabled by design — the /tokens endpoint refuses { action: "add" }.
-      return;
-    }
-
+    // Token rewards stay local until a trusted reward/payment API mints them
+    // server-side (api/users/[userId]/tokens.ts explicitly rejects a client
+    // "add" action — there is no mint endpoint yet, only spend). Reverting
+    // this to a server resync would silently drop every reward for logged-in
+    // users, since nothing server-side actually credits the balance.
     setTokenBalance((previous) => {
       const next = previous + safeAmount;
       try {
@@ -252,7 +247,7 @@ export function usePolls(isLoggedIn: boolean, userId?: string) {
       }
       return next;
     });
-  }, [TOKEN_BALANCE_KEY, isLoggedIn, userId]);
+  }, [TOKEN_BALANCE_KEY]);
 
   const vote = useCallback((pollId: string, optionId: string) => {
     const currentDay = getTodayKey();
@@ -298,8 +293,18 @@ export function usePolls(isLoggedIn: boolean, userId?: string) {
     addTokens,
     unlockExtraPolls,
     tokenBalance,
+    setTokenBalance: (balance: number) => {
+      const next = Math.max(0, Number(balance) || 0);
+      setTokenBalance(next);
+      try {
+        window.localStorage.setItem(TOKEN_BALANCE_KEY, String(next));
+        emitTokenBalanceUpdated(TOKEN_BALANCE_KEY, next);
+      } catch {
+        // ignore storage errors
+      }
+    },
     dailyAnsweredCount: dailyAnsweredPollIds.size,
     dailyPollLimit: effectiveDailyLimit,
     isDailyPollLimitReached: dailyAnsweredPollIds.size >= effectiveDailyLimit,
-  }), [addTokens, dailyAnsweredPollIds.size, effectiveDailyLimit, freeVotesUsed, polls, tokenBalance, unlockExtraPolls, vote, votedPolls]);
+  }), [TOKEN_BALANCE_KEY, addTokens, dailyAnsweredPollIds.size, effectiveDailyLimit, freeVotesUsed, polls, tokenBalance, unlockExtraPolls, vote, votedPolls]);
 }

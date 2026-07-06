@@ -24,7 +24,7 @@ function getStoredAccent(): AccentPresetId {
   }
 
   const storedAccent = window.localStorage.getItem(THEME_ACCENT_STORAGE_KEY) as AccentPresetId | null;
-  return ACCENT_PRESETS.some((preset) => preset.id === storedAccent) ? storedAccent : "gold";
+  return storedAccent !== null && ACCENT_PRESETS.some((preset) => preset.id === storedAccent) ? storedAccent : "gold";
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -39,9 +39,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const root = document.documentElement;
     const selectedAccent = ACCENT_PRESETS.find((preset) => preset.id === accent) ?? ACCENT_PRESETS[0];
 
+    root.classList.toggle("dark", mode === "dark");
     root.classList.toggle("theme-light", mode === "light");
     root.classList.toggle("theme-dusk", mode === "dusk");
-    root.classList.toggle("dark", mode !== "light");
     root.dataset.themeMode = mode;
     root.dataset.themeAccent = accent;
     root.style.setProperty("--raw-accent", selectedAccent.rgb);

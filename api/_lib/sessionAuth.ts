@@ -12,7 +12,15 @@ export type SessionProfile = {
   avatar_level: number;
   onboarding_completed?: boolean;
   profile_public?: boolean;
+  banned_until?: string | null;
 };
+
+/** True if the user is currently banned — permanently, or with a timeout that hasn't expired yet. */
+export function isCurrentlyBanned(profile: Pick<SessionProfile, "status" | "banned_until">): boolean {
+  if (profile.status !== "banned") return false;
+  if (!profile.banned_until) return true;
+  return new Date(profile.banned_until).getTime() > Date.now();
+}
 
 function getJwtSecret(): Uint8Array | null {
   const secret = process.env.SUPABASE_JWT_SECRET ?? "";
@@ -91,11 +99,36 @@ export async function getRequestUserId(request: Request): Promise<string | null>
 
 export async function fetchSessionProfile(userId: string): Promise<SessionProfile | null> {
   if (!supabaseServerClient) return null;
-  const { data, error } = await supabaseServerClient
+  let { data, error } = await supabaseServerClient
     .from("users")
-    .select("id, username, role, status, avatar_level, onboarding_completed, profile_public")
+    .select("id, username, role, status, avatar_level, onboarding_completed, profile_public, banned_until")
     .eq("id", userId)
     .maybeSingle();
+
+  // banned_until may not exist yet if that migration hasn't landed on this
+  // database — fall back to the column set every deployment is guaranteed
+  // to have, rather than failing every session check.
+  if (error) {
+    ({ data, error } = await supabaseServerClient
+      .from("users")
+      .select("id, username, role, status, avatar_level, onboarding_completed, profile_public")
+      .eq("id", userId)
+      .maybeSingle());
+  }
+
   if (error || !data) return null;
-  return data as SessionProfile;
+  const profile = data as SessionProfile;
+
+  // Lazily clear an expired timeout so the account reads as active again.
+  if (profile.status === "banned" && profile.banned_until && new Date(profile.banned_until).getTime() <= Date.now()) {
+    try {
+      await supabaseServerClient.from("users").update({ status: "active", banned_until: null }).eq("id", userId);
+      profile.status = "active";
+      profile.banned_until = null;
+    } catch {
+      // Non-fatal — the account will just read as banned until this succeeds on a later request.
+    }
+  }
+
+  return profile;
 }

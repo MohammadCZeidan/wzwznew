@@ -2,13 +2,12 @@ import { cleanupAppUserData, json, readJsonBody } from "../_lib/authServer.js";
 import { isTrustedOrigin } from "../_lib/requestSecurity.js";
 import { supabaseServerClient } from "../_lib/supabaseServerClient.js";
 import { buildClearedSessionCookie, getRequestUserId } from "../_lib/sessionAuth.js";
+import { checkRateLimit, rateLimitErrorResponse } from "../_lib/rateLimit.js";
 
 export const config = { runtime: "edge" };
 
 type DeleteBody = { password?: unknown };
 
-// TODO(rate-limit): block production deploy until this endpoint is protected
-// by IP/user throttling at the edge or gateway layer.
 export default async function handler(request: Request): Promise<Response> {
   if (!supabaseServerClient) return json({ error: "supabase_not_configured" }, 503);
   if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -16,6 +15,11 @@ export default async function handler(request: Request): Promise<Response> {
 
   const userId = await getRequestUserId(request);
   if (!userId) return json({ error: "unauthorized" }, 401);
+
+  // Per-user throttle: 5 attempts / 10 min, same policy as change-password.
+  // Keyed by userId (not IP) since this is an authenticated, per-account action.
+  const rate = await checkRateLimit("delete_account", userId);
+  if (!rate.ok) return rateLimitErrorResponse(rate);
 
   const body = await readJsonBody<DeleteBody>(request);
   const password = typeof body?.password === "string" ? body.password : "";

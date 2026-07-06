@@ -93,7 +93,9 @@ describe("CommunityRoomList", () => {
       freeCommunitySlotsRemaining: 1,
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Open Chat — Free" }));
+    // The free-slot button is labeled plain "Open Chat" since c251f5b; what
+    // distinguishes it from the joined-state button is the callback it fires.
+    fireEvent.click(screen.getByRole("button", { name: "Open Chat" }));
 
     expect(props.onUnlockCommunity).toHaveBeenCalledWith("public");
   });
@@ -137,13 +139,13 @@ describe("CommunityRoomList", () => {
     expect(props.onPaidJoinCommunity).toHaveBeenCalledWith("locked", true);
   });
 
-  it("unjoined unlocked cards call onUnlockCommunity via the unlock button", () => {
+  it("unjoined unlocked cards with no free slots call the paid join callback", () => {
     const props = renderRoomList({
       communities: [community({ id: "public", title: "Public Room", locked: false })],
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /Unlock — \d+ tokens/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Join" }));
 
-    expect(props.onUnlockCommunity).toHaveBeenCalledWith("public");
+    expect(props.onPaidJoinCommunity).toHaveBeenCalledWith("public", true);
   });
 });

@@ -2,19 +2,29 @@
 // landing, onboarding, and the spin/claim systems. Anytime you'd
 // hardcode an avatar array elsewhere, import from here instead.
 
-export const FREE_SPIN_AVATAR_IDS = [43, 42, 52, 41, 13, 47, 40, 35, 20, 26] as const;
+// One avatar per rank tier (R1 Grey → R11 S1). See src/lib/avatarRank.ts for the full ladder.
+// Id 35 (old "Platinum") was removed — mis-colored artwork.
+// Id 36 (Green Relic, R3) added — fills the Green tier gap.
+// Id 26 (Rainbow Pulse, R11 S1) restored — previously swapped out for a second Purple slot.
+// Id 54 (Pearl Siren, R8) replaces 21 (Rose Warden) — visually distinct R8 artwork.
+// Id 38 (Ember Core, R9) replaces 23 (Gold Specter) — male avatar at R9.
+// Id 28 (Copper Echo, R10) replaces 20 (White Mirage) — different R10 artwork.
+export const FREE_SPIN_AVATAR_IDS = [43, 52, 36, 42, 41, 13, 47, 54, 38, 28, 26] as const;
 
 // Early-signup reward pool. Must NOT overlap with FREE_SPIN_AVATAR_IDS.
-export const EARLY_SIGNUP_AVATAR_IDS = [29, 21, 25, 33] as const;
+// Emptied: all four ids were retired (21 was promoted into the spin pool above).
+export const EARLY_SIGNUP_AVATAR_IDS = [] as const;
 
 // Cutoff for who counts as an "early signup". Users with created_at
 // strictly before this timestamp can claim the early-signup reward;
 // users created at or after this timestamp cannot.
 export const EARLY_SIGNUP_CUTOFF_ISO = "2026-06-07T00:00:00Z";
 
-/** Helper: full /public/avatars URL for a numeric avatar id. */
+/** Helper: full /public/avatars URL for a numeric avatar id. All numeric
+ * avatars are served as optimized .webp (the .png originals stay on disk as a
+ * fallback but are no longer referenced). */
 export function avatarImageSrc(id: number): string {
-  return `/avatars/${id}.png`;
+  return `/avatars/${id}.webp`;
 }
 
 /** Dev-time sanity check: the two pools must not overlap. */

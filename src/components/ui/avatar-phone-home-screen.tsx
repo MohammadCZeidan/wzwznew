@@ -1,5 +1,7 @@
 import { AvatarFigure } from "@/components/ui/avatar-figure";
 import { getAvatar } from "@/lib/avataridentity";
+import { BrandName } from "@/components/ui/brand-name";
+import { tryAvatarPngFallback } from "@/lib/avatarImageFallback";
 
 interface AvatarPhoneHomeScreenProps {
   avatarIndex: number;
@@ -24,6 +26,11 @@ export function AvatarPhoneHomeScreen({ avatarIndex, compact = false, previewAva
       alt={activeAvatar.name ?? "raW avatar"}
       loading="eager"
       decoding="async"
+      onError={(event) => {
+        if (!tryAvatarPngFallback(event.currentTarget, activeAvatar.imageSrc)) {
+          event.currentTarget.style.display = "none";
+        }
+      }}
       draggable={false}
       className={`relative h-full w-full animate-[iconPop_420ms_ease-out] object-contain ${compact ? "p-1.5" : "p-2"}`}
       style={{ objectPosition: "center 35%" }}
@@ -62,7 +69,7 @@ export function AvatarPhoneHomeScreen({ avatarIndex, compact = false, previewAva
               <div className="absolute inset-0 bg-gradient-to-b from-white/[0.08] via-transparent to-black/20" />
               {avatarArt}
             </div>
-            <span className="font-display text-[9px] tracking-[0.16em] text-[#222]">raW</span>
+            <BrandName className="font-display text-[9px] tracking-[0.16em] text-[#222]" />
           </div>
 
           <AppIcon kind="podcasts" label="Podcasts" compact />
@@ -119,7 +126,7 @@ export function AvatarPhoneHomeScreen({ avatarIndex, compact = false, previewAva
             <div className="absolute inset-0 bg-gradient-to-b from-white/[0.06] to-transparent" />
             {avatarArt}
           </div>
-          <span className="font-display text-[10px] tracking-[0.18em] text-[#222]">raW</span>
+          <BrandName className="font-display text-[10px] tracking-[0.18em] text-[#222]" />
         </div>
 
         <AppIcon kind="podcasts" label="Podcasts" />

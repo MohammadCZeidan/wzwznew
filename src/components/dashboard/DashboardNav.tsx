@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { BrandName } from "@/components/ui/brand-name";
 import { track } from "@/lib/analytics";
 import type { PersistedCommunityRecord } from "@/lib/communityChat.types";
 import {
   ArrowLeft,
   Bell,
-  Ban,
   Camera,
   ChevronDown,
   Check,
@@ -20,15 +20,11 @@ import {
   UserRound,
 } from "lucide-react";
 import { AvatarFigure } from "@/components/ui/avatar-figure";
-import { LevelProgressBanner } from "@/components/dashboard/LevelProgressBanner";
 import { TokenBalanceButton } from "@/components/ui/TokenBalanceButton";
-import { apiFetch } from "@/lib/http";
 import { cn } from "@/lib/utils";
 import { readIssueReports, writeIssueReports, type IssueReportRecord } from "@/lib/adminData";
-import { readBlockedCommunitySenders, writeBlockedCommunitySenders } from "@/lib/blockedCommunitySenders";
 import { useTheme } from "@/providers/useTheme";
 import { THEME_MODE_LABELS, type AccentPresetId, type ThemeMode } from "@/providers/theme-context";
-import { xpProgressInLevel } from "@/lib/userProgress";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -47,14 +43,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "@/hooks/use-toast";
 import { spendTokens } from "@/lib/api/tokens";
 import { supabase } from "@/lib/supabase";
-import { listUserAliases, type UserAliasRow } from "@/backend/supabase/controllers/userController";
-import { getPinNotifications, type PinNotificationRecord } from "@/backend/supabase/controllers/userExtrasController";
+import { listUserAliases, setChatIdentity, type UserAliasRow } from "@/backend/supabase/controllers/userController";
+import { getFoundingInviteRedemptions } from "@/backend/supabase/controllers/userExtrasController";
 import { getPrivateAvatarLevel } from "@/lib/avataridentity";
+import { CHAT_IDENTITY_CHANGED_EVENT, readSelectedChatAlias, writeSelectedChatAlias } from "@/lib/identitySelection";
 
-export type DashboardTab = "home" | "polls" | "challenges" | "daily-spin" | "communities" | "profile" | "settings" | "wallet" | "store";
+export type DashboardTab = "home" | "polls" | "challenges" | "daily-spin" | "communities" | "profile" | "settings" | "wallet" | "store" | "inventory";
 
 interface DashboardNavProps {
   userId: string;
@@ -67,8 +64,6 @@ interface DashboardNavProps {
   communityTitle?: string;
   onBack?: () => void;
   communities: PersistedCommunityRecord[];
-  xp?: number;
-  level?: number;
 }
 
 const ISSUE_TYPE_OPTIONS = ["Harmful content", "Bug or broken screen", "Account or billing", "Other"];
@@ -82,8 +77,6 @@ const ACCENT_PREVIEW_DURATION_MS = 60_000;
 const ACCENT_FREE_ID: AccentPresetId = "gold";
 const FREE_ACCENT_IDS: AccentPresetId[] = ["gold", "indigo"];
 const OWNED_ACCENTS_CACHE_PREFIX = "raw.theme.accent.owned.v2.";
-const CHAT_IDENTITY_PREFIX = "raw.chat.identity.v1.";
-const CHAT_IDENTITY_CHANGED_EVENT = "raw:chat-identity-changed";
 
 function readOwnedAccentsCache(userId: string): AccentPresetId[] {
   if (typeof window === "undefined") return [ACCENT_FREE_ID];
@@ -113,80 +106,10 @@ function writeOwnedAccentsCache(userId: string, ids: AccentPresetId[]): void {
   }
 }
 
-const DEADLINE_TARGET = new Date(2026, 5, 19, 13, 0, 0).getTime();
-
-type DeadlineCountdown = {
-  days: number;
-  hours: number;
-  minutes: number;
-  seconds: number;
-  isComplete: boolean;
-};
-
-function getDeadlineCountdown(now = Date.now()): DeadlineCountdown {
-  const remaining = Math.max(DEADLINE_TARGET - now, 0);
-  const totalSeconds = Math.floor(remaining / 1000);
-  const days = Math.floor(totalSeconds / 86400);
-  const hours = Math.floor((totalSeconds % 86400) / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  return {
-    days,
-    hours,
-    minutes,
-    seconds,
-    isComplete: remaining === 0,
-  };
-}
-
-function DeadlineCountdownBadge({ isLight }: { isLight: boolean }) {
-  const [countdown, setCountdown] = useState(() => getDeadlineCountdown());
-
-  useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      setCountdown(getDeadlineCountdown());
-    }, 1000);
-
-    return () => window.clearInterval(intervalId);
-  }, []);
-
-  if (countdown.isComplete) {
-    return (
-      <div
-        className={cn(
-          "hidden rounded-full border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] sm:block",
-          isLight ? "border-amber-300 bg-amber-50 text-amber-800" : "border-raw-gold/35 bg-raw-gold/10 text-raw-gold",
-        )}
-        aria-label="Deadline countdown complete"
-      >
-        Deadline reached
-      </div>
-    );
-  }
-
-  const timeLabel = `${countdown.days}d ${countdown.hours}h ${countdown.minutes}m ${countdown.seconds}s`;
-
-  return (
-    <div
-      className={cn(
-        "rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] shadow-sm sm:px-3 sm:py-1.5 sm:text-[11px]",
-        isLight
-          ? "border-amber-300 bg-amber-50 text-amber-800 shadow-amber-100"
-          : "border-raw-gold/35 bg-raw-gold/10 text-raw-gold shadow-raw-gold/10",
-      )}
-      aria-label={`Deadline countdown: ${timeLabel}`}
-      title="Deadline: June 19, 2026 at 1:00 PM"
-    >
-      <span className="hidden sm:inline">Deadline </span>
-      {timeLabel}
-    </div>
-  );
-}
 
 type DashboardNotification = {
   id: string;
-  type: "mention" | "like" | "community" | "pinned";
+  type: "mention" | "like" | "community" | "invite-claimed";
   title: string;
   communityTitle: string;
   senderName?: string;
@@ -195,16 +118,19 @@ type DashboardNotification = {
   likeCount?: number;
 };
 
+type ReferralNotificationRecord = {
+  id: string;
+  referredUsername: string;
+  referralCode: string;
+  createdAt: string;
+};
+
 function deliveredNotificationsKey(userId: string) {
   return `${DELIVERED_NOTIFICATIONS_PREFIX}.${userId}`;
 }
 
-function notificationDayKey(date = new Date()): string {
-  return date.toISOString().slice(0, 10);
-}
-
 function seenNotificationsKey(userId: string) {
-  return `${SEEN_NOTIFICATIONS_PREFIX}.${userId}.${notificationDayKey()}`;
+  return `${SEEN_NOTIFICATIONS_PREFIX}.${userId}`;
 }
 
 function readSeenNotificationIds(userId: string): string[] {
@@ -234,16 +160,15 @@ function readStoredTokenBalance(userId: string): number {
   }
 }
 
-export function DashboardNav({ userId, username, avatarLevel, onProfileClick, onSettingsClick, onBillingClick, onLogout, communityTitle, onBack, communities, xp = 0, level = 1 }: DashboardNavProps) {
+export function DashboardNav({ userId, username, avatarLevel, onProfileClick, onSettingsClick, onBillingClick, onLogout, communityTitle, onBack, communities }: DashboardNavProps) {
   const { mode, accent, accentPresets, setMode, setAccent } = useTheme();
   const [hoveredMode, setHoveredMode] = useState<ThemeMode | null>(null);
   const [hoveredAccent, setHoveredAccent] = useState<AccentPresetId | null>(null);
   const [notifOpen, setNotifOpen] = useState(false);
   const [seenNotificationIds, setSeenNotificationIds] = useState<string[]>(() => readSeenNotificationIds(userId));
   const [appearanceOpen, setAppearanceOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
-  const [blockedUsersOpen, setBlockedUsersOpen] = useState(false);
-  const [blockedSenderKeys, setBlockedSenderKeys] = useState<string[]>(() => readBlockedCommunitySenders(userId));
   const [issueType, setIssueType] = useState(ISSUE_TYPE_OPTIONS[0]);
   const [issueDetails, setIssueDetails] = useState("");
   const [screenshotName, setScreenshotName] = useState("");
@@ -253,11 +178,8 @@ export function DashboardNav({ userId, username, avatarLevel, onProfileClick, on
   const [ownedAccentIds, setOwnedAccentIds] = useState<AccentPresetId[]>(() => readOwnedAccentsCache(userId));
   const [tokenBalanceForUnlocks, setTokenBalanceForUnlocks] = useState<number>(() => readStoredTokenBalance(userId));
   const [privateAliases, setPrivateAliases] = useState<UserAliasRow[]>([]);
-  const [pinNotifications, setPinNotifications] = useState<PinNotificationRecord[]>([]);
-  const [selectedChatAlias, setSelectedChatAlias] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    return window.localStorage.getItem(`${CHAT_IDENTITY_PREFIX}${userId}`);
-  });
+  const [referralNotifications, setReferralNotifications] = useState<ReferralNotificationRecord[]>([]);
+  const [selectedChatAlias, setSelectedChatAlias] = useState<string | null>(() => readSelectedChatAlias(userId));
   const notifRef = useRef<HTMLDivElement>(null);
   const effectiveAvatarLevel = selectedChatAlias ? getPrivateAvatarLevel(userId) : avatarLevel;
 
@@ -279,25 +201,32 @@ export function DashboardNav({ userId, username, avatarLevel, onProfileClick, on
 
   const saveChatIdentity = (alias: string | null) => {
     setSelectedChatAlias(alias);
-    if (typeof window === "undefined") return;
-    const storageKey = `${CHAT_IDENTITY_PREFIX}${userId}`;
-    if (alias) {
-      window.localStorage.setItem(storageKey, alias);
-    } else {
-      window.localStorage.removeItem(storageKey);
-    }
-    window.dispatchEvent(new CustomEvent(CHAT_IDENTITY_CHANGED_EVENT, { detail: { userId, alias } }));
+    writeSelectedChatAlias(userId, alias);
+    void setChatIdentity(alias, getPrivateAvatarLevel(userId)).catch(() => {});
   };
+
+  useEffect(() => {
+    setSelectedChatAlias(readSelectedChatAlias(userId));
+    if (typeof window === "undefined") return;
+    const handleIdentityChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ userId?: string; alias?: string | null }>).detail;
+      if (detail?.userId !== userId) return;
+      setSelectedChatAlias(detail.alias ?? null);
+    };
+    window.addEventListener(CHAT_IDENTITY_CHANGED_EVENT, handleIdentityChange);
+    return () => window.removeEventListener(CHAT_IDENTITY_CHANGED_EVENT, handleIdentityChange);
+  }, [userId]);
 
   useEffect(() => {
     setTokenBalanceForUnlocks(readStoredTokenBalance(userId));
   }, [userId]);
 
+
   useEffect(() => {
     let cancelled = false;
-    getPinNotifications(userId)
+    getFoundingInviteRedemptions(userId)
       .then((rows) => {
-        if (!cancelled) setPinNotifications(rows);
+        if (!cancelled) setReferralNotifications(rows);
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -365,19 +294,18 @@ export function DashboardNav({ userId, username, avatarLevel, onProfileClick, on
         }
       }
     }
-    for (const pin of pinNotifications) {
+    for (const referral of referralNotifications) {
       results.push({
-        id: `pinned:${pin.id}`,
-        type: "pinned",
-        title: `${pin.actorName} pinned your message to their profile`,
-        communityTitle: pin.communityTitle ?? "",
-        senderName: pin.actorName,
-        text: pin.messageText ?? "",
-        createdAt: pin.createdAt,
+        id: `invite-claimed:${referral.id}`,
+        type: "invite-claimed",
+        title: "A shared invitation code has been claimed!",
+        communityTitle: "Founding invitations",
+        text: `Your code ${referral.referralCode} has been used.`,
+        createdAt: referral.createdAt,
       });
     }
     return results.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [userId, username, communities, pinNotifications]);
+  }, [userId, username, communities, referralNotifications]);
   const unseenNotificationCount = useMemo(() => {
     const seen = new Set(seenNotificationIds);
     return notifications.filter((notification) => !seen.has(notification.id)).length;
@@ -385,30 +313,8 @@ export function DashboardNav({ userId, username, avatarLevel, onProfileClick, on
 
   useEffect(() => {
     setSeenNotificationIds(readSeenNotificationIds(userId));
-    setBlockedSenderKeys(readBlockedCommunitySenders(userId));
   }, [userId]);
 
-  const blockedSenderLabels = useMemo(() => {
-    const labels = new Map<string, string>();
-    for (const community of communities) {
-      for (const message of community.messages) {
-        const key = (message.senderId || message.senderName).trim().toLowerCase();
-        if (blockedSenderKeys.includes(key)) labels.set(key, message.senderName);
-      }
-      for (const member of community.members) {
-        const key = (member.userId || member.username).trim().toLowerCase();
-        if (blockedSenderKeys.includes(key)) labels.set(key, member.username);
-      }
-    }
-    return blockedSenderKeys.map((key) => ({ key, label: labels.get(key) ?? key }));
-  }, [blockedSenderKeys, communities]);
-
-  const handleUnblockSender = (senderKey: string) => {
-    const next = blockedSenderKeys.filter((key) => key !== senderKey);
-    setBlockedSenderKeys(next);
-    writeBlockedCommunitySenders(userId, next);
-    window.dispatchEvent(new StorageEvent("storage", { key: "raw.community.blocked-senders.v1" }));
-  };
 
   useEffect(() => {
     if (!userId) return;
@@ -578,18 +484,7 @@ export function DashboardNav({ userId, username, avatarLevel, onProfileClick, on
       status: "open",
     };
 
-    try {
-      const response = await apiFetch("/api/moderation/issue-reports", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(report),
-      });
-      if (!response.ok) {
-        throw new Error("Issue report API failed");
-      }
-    } catch {
-      writeIssueReports([report, ...readIssueReports()]);
-    }
+    writeIssueReports([report, ...readIssueReports()]);
 
     setIssueDetails("");
     setScreenshotName("");
@@ -612,7 +507,6 @@ export function DashboardNav({ userId, username, avatarLevel, onProfileClick, on
   ];
   const modeIndex = modeOptions.findIndex((option) => option.mode === mode);
   const effectiveModeIndex = modeOptions.findIndex((option) => option.mode === effectiveMode);
-  const mobileXpProgress = xpProgressInLevel(xp, level);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -648,9 +542,8 @@ export function DashboardNav({ userId, username, avatarLevel, onProfileClick, on
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           {/* Logo — hidden on mobile when inside a community */}
           <a href="/" className={cn("font-display text-base tracking-[0.3em] shrink-0 sm:text-lg", isEffectiveLight ? "text-slate-950" : "text-raw-text", communityTitle ? "hidden sm:block" : "")}>
-            ra<span className="text-raw-gold">W</span>
+            <BrandName />
           </a>
-          <DeadlineCountdownBadge isLight={isEffectiveLight} />
         </div>
 
         {/* Community name — mobile only, shown instead of logo when in a community */}
@@ -679,14 +572,19 @@ export function DashboardNav({ userId, username, avatarLevel, onProfileClick, on
               className={cn(
                 "relative flex h-10 w-10 items-center justify-center rounded-full transition-colors",
                 isEffectiveLight
-                  ? "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                  ? "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
                   : "text-raw-silver/60 hover:bg-raw-surface/40 hover:text-raw-silver",
               )}
               aria-label="Notifications"
             >
               <Bell className="h-5 w-5" />
               {unseenNotificationCount > 0 && (
-                <div className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-raw-gold px-1 text-[9px] font-bold text-raw-ink">
+                <div className={cn(
+                  "absolute -right-1 -top-1 z-10 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none",
+                  isEffectiveLight
+                    ? "bg-red-500 text-white"
+                    : "bg-red-500 text-white",
+                )}>
                   {unseenNotificationCount > 99 ? "99+" : unseenNotificationCount}
                 </div>
               )}
@@ -705,19 +603,22 @@ export function DashboardNav({ userId, username, avatarLevel, onProfileClick, on
                 <div className="max-h-[60vh] overflow-y-auto sm:max-h-80">
                   {notifications.length === 0 ? (
                     <p className={cn("px-4 py-6 text-center text-sm", isEffectiveLight ? "text-slate-500" : "text-raw-silver/35")}>No notifications yet</p>
-                  ) : notifications.map((n, i) => (
-                    <div key={i} className={cn("border-b px-4 py-3 last:border-0", isEffectiveLight ? "border-slate-100" : "border-raw-border/15")}>
+                  ) : notifications.map((n, i) => {
+                    const isRead = seenNotificationIds.includes(n.id);
+                    return (
+                    <div key={i} className={cn("border-b px-4 py-3 last:border-0 transition-opacity", isEffectiveLight ? "border-slate-100" : "border-raw-border/15", isRead && "opacity-45")}>
                       <div className="flex items-center gap-2">
+                        {!isRead && <span className="h-1.5 w-1.5 rounded-full bg-raw-accent flex-shrink-0" />}
                         <span className={`text-[9px] uppercase tracking-wider font-semibold rounded-full px-2 py-0.5 ${n.type === "like" ? "bg-raw-gold/15 text-raw-gold" : "bg-raw-silver/10 text-raw-silver/60"}`}>
-                          {n.type === "like" ? `♥ ${n.likeCount} like${(n.likeCount ?? 0) > 1 ? "s" : ""}` : n.type === "community" ? "New community" : n.type === "pinned" ? "📌 Pinned" : "@ mention"}
+                          {n.type === "like" ? `♥ ${n.likeCount} like${(n.likeCount ?? 0) > 1 ? "s" : ""}` : n.type === "community" ? "New community" : n.type === "invite-claimed" ? "Code used" : "@ mention"}
                         </span>
                         <p className={cn("text-[10px]", isEffectiveLight ? "text-slate-500" : "text-raw-silver/40")}>{n.communityTitle}</p>
                       </div>
                       {n.type === "mention" && <p className={cn("mt-1 text-xs", isEffectiveLight ? "text-slate-500" : "text-raw-silver/60")}>from @{n.senderName}</p>}
-                      {n.type === "pinned" && <p className={cn("mt-1 text-xs", isEffectiveLight ? "text-slate-500" : "text-raw-silver/60")}>{n.title}</p>}
                       <p className={cn("mt-1 text-sm leading-relaxed line-clamp-2", isEffectiveLight ? "text-slate-800" : "text-raw-text/80")}>{n.text}</p>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -773,7 +674,7 @@ export function DashboardNav({ userId, username, avatarLevel, onProfileClick, on
             })}
           </div>
 
-          <DropdownMenu onOpenChange={(open) => { if (!open) setAppearanceOpen(false); }}>
+          <DropdownMenu open={profileMenuOpen} onOpenChange={(open) => { setProfileMenuOpen(open); if (!open) setAppearanceOpen(false); }}>
             <DropdownMenuTrigger asChild>
               <button
                 className="flex items-center transition-opacity hover:opacity-80"
@@ -786,16 +687,16 @@ export function DashboardNav({ userId, username, avatarLevel, onProfileClick, on
             <DropdownMenuContent
               align="end"
               sideOffset={10}
-              collisionPadding={12}
+              collisionPadding={16}
               className={cn(
-                "w-[min(21rem,calc(100vw-1.25rem))] overflow-visible rounded-2xl p-1.5 text-raw-text sm:max-h-[min(78dvh,620px)] sm:w-[min(22rem,calc(100vw-1rem))] sm:overflow-y-auto sm:overscroll-contain sm:p-2",
+                "max-h-[min(78dvh,620px)] w-[min(17.5rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain rounded-2xl p-1.5 text-raw-text sm:w-[min(22rem,calc(100vw-1rem))] sm:p-2",
                 isEffectiveLight
                   ? "border border-slate-300/80 bg-[linear-gradient(160deg,rgba(255,255,255,0.97),rgba(242,247,255,0.96))] shadow-[0_20px_50px_rgba(28,38,58,0.18)]"
                   : "border border-raw-border/40 bg-[linear-gradient(160deg,rgba(17,17,17,0.96),rgba(9,9,9,0.98))] shadow-[0_20px_50px_rgba(0,0,0,0.55)]",
               )}
             >
               <button
-                onClick={onProfileClick}
+                onClick={() => { setProfileMenuOpen(false); onProfileClick?.(); }}
                 className={cn(
                   "mb-1 flex w-full items-center gap-2 rounded-xl border px-2 py-1 text-left transition-colors sm:gap-3 sm:px-3 sm:py-2",
                   isEffectiveLight
@@ -858,28 +759,8 @@ export function DashboardNav({ userId, username, avatarLevel, onProfileClick, on
                 })}
               </div>
 
-              <div className={cn("mx-1 mb-1 rounded-lg border px-2 py-1.5 sm:hidden", isEffectiveLight ? "border-slate-200 bg-slate-50" : "border-raw-border/25 bg-raw-black/30")}>
-                <div className="mb-1 flex items-center justify-between gap-2">
-                  <span className="font-display text-[10px] tracking-wide text-[#8f96ff]">Lvl {level}</span>
-                  <span className={cn("text-[9px]", isEffectiveLight ? "text-slate-500" : "text-raw-silver/55")}>{xp.toLocaleString()} XP</span>
-                </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-raw-border/20">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-raw-gold/75 to-raw-gold"
-                    style={{ width: `${mobileXpProgress.pct}%` }}
-                  />
-                </div>
-              </div>
-
-              <LevelProgressBanner
-                xp={xp}
-                level={level}
-                compact
-                className={cn("mx-1 mb-1 hidden sm:block", isEffectiveLight ? "border-slate-200 bg-slate-50" : "border-raw-border/25 bg-raw-black/30")}
-              />
-
               <DropdownMenuItem
-                onClick={onSettingsClick}
+                onClick={() => { setProfileMenuOpen(false); onSettingsClick(); }}
                 className={cn("cursor-pointer rounded-lg px-2 py-1.5 text-xs focus:text-raw-text sm:px-3 sm:py-2.5 sm:text-sm", isEffectiveLight ? "text-slate-700 focus:bg-slate-100" : "text-raw-silver/80 focus:bg-raw-surface/80")}
               >
                 <Settings className="mr-3 h-4 w-4" />
@@ -887,23 +768,11 @@ export function DashboardNav({ userId, username, avatarLevel, onProfileClick, on
               </DropdownMenuItem>
 
               <DropdownMenuItem
-                onClick={onBillingClick}
+                onClick={() => { setProfileMenuOpen(false); onBillingClick(); }}
                 className={cn("cursor-pointer rounded-lg px-2 py-1.5 text-xs focus:text-raw-text sm:px-3 sm:py-2.5 sm:text-sm", isEffectiveLight ? "text-slate-700 focus:bg-slate-100" : "text-raw-silver/80 focus:bg-raw-surface/80")}
               >
                 <Receipt className="mr-3 h-4 w-4" />
                 Billing
-              </DropdownMenuItem>
-
-              <DropdownMenuItem
-                onSelect={(event) => {
-                  event.preventDefault();
-                  setBlockedSenderKeys(readBlockedCommunitySenders(userId));
-                  setBlockedUsersOpen(true);
-                }}
-                className={cn("cursor-pointer rounded-lg px-2 py-1.5 text-xs focus:text-raw-text sm:px-3 sm:py-2.5 sm:text-sm", isEffectiveLight ? "text-slate-700 focus:bg-slate-100" : "text-raw-silver/80 focus:bg-raw-surface/80")}
-              >
-                <Ban className="mr-3 h-4 w-4" />
-                Blocked users
               </DropdownMenuItem>
 
               <DropdownMenuSeparator className={cn("my-1 sm:my-2", isEffectiveLight ? "bg-slate-200" : "bg-raw-border/30")} />
@@ -1174,53 +1043,6 @@ export function DashboardNav({ userId, username, avatarLevel, onProfileClick, on
         </DialogContent>
       </Dialog>
 
-      <Dialog open={blockedUsersOpen} onOpenChange={setBlockedUsersOpen}>
-        <DialogContent className="border-raw-border/40 bg-raw-black text-raw-text sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-display text-xl tracking-wide">Blocked users</DialogTitle>
-            <DialogDescription className="text-raw-silver/50">
-              Unblock someone to show their community messages again.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-2">
-            {blockedSenderLabels.length === 0 ? (
-              <p className="rounded-2xl border border-raw-border/25 bg-raw-surface/20 px-4 py-6 text-center text-sm text-raw-silver/40">
-                You have not blocked anyone yet.
-              </p>
-            ) : blockedSenderLabels.map((sender) => (
-              <div
-                key={sender.key}
-                className="flex items-center justify-between gap-3 rounded-2xl border border-raw-border/25 bg-raw-surface/25 px-4 py-3"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-raw-text">@{sender.label}</p>
-                  <p className="truncate text-[10px] text-raw-silver/35">{sender.key}</p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => handleUnblockSender(sender.key)}
-                  className="shrink-0 rounded-xl border-raw-gold/30 bg-raw-gold/10 px-3 text-xs text-raw-gold hover:bg-raw-gold/15 hover:text-raw-gold"
-                >
-                  Unblock
-                </Button>
-              </div>
-            ))}
-          </div>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setBlockedUsersOpen(false)}
-              className="rounded-xl text-raw-silver/70 hover:text-raw-text"
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </nav>
   );
 }

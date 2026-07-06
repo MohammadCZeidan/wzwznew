@@ -1,27 +1,33 @@
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ContainerTextFlipLazy } from "@/components/ui/container-text-flip.lazy";
-import { ChevronRight, Dices, Zap, Flame, Users, BarChart3 } from "lucide-react";
+import { Suspense, lazy, useMemo, useState } from "react";
+import { Check, ChevronDown, ChevronRight, Copy, Dices, Zap, Flame, Share2, ShieldOff, Ticket, UserRound, Users, BarChart3 } from "lucide-react";
+import { buildInviteShareText } from "@/lib/foundingInvites";
+import { useFoundingInvites } from "@/hooks/useFoundingInvites";
+import { toast } from "@/hooks/use-toast";
 import type { Poll } from "@/store/useRawStore";
 import type { DashboardTab } from "./DashboardNav";
 import type { PersistedCommunityRecord } from "@/lib/communityChat.types";
 import { COMMUNITY_COVER_IMAGES, COMMUNITY_COVER_VIDEOS } from "@/lib/communityConstants";
-import { getTodayKey } from "@/store/useRawStore.storage";
 import { useTheme } from "@/providers/useTheme";
-import { LevelProgressBanner } from "@/components/dashboard/LevelProgressBanner";
-import { WheelOfFortune } from "@/components/wheel/WheelOfFortune";
-import { buildSpinPrizes, DashboardDailySpin } from "@/components/dashboard/DashboardDailySpin";
-import { GeneralFeedBox } from "@/components/dashboard/GeneralFeedBox";
+import { BrandName } from "@/components/ui/brand-name";
+import { TrendingPollsBox } from "@/components/dashboard/TrendingPollsBox";
+import { LaunchCountdown } from "@/components/ui/LaunchCountdown";
+
+const DashboardDailySpin = lazy(() =>
+  import("@/components/dashboard/DashboardDailySpin").then((m) => ({ default: m.DashboardDailySpin }))
+);
 
 interface DashboardHomeProps {
   username: string;
+  identityName?: string;
+  identityMode?: "public" | "private";
+  identityOptions?: Array<{ label: string; mode: "public" | "private"; value: string | null }>;
+  onIdentityChange?: (alias: string | null) => void;
   userId?: string;
   avatarLevel: number;
   polls: Poll[];
   votedPolls: Set<string>;
   dailyAnsweredCount: number;
   dailyPollLimit: number;
-  xp: number;
-  xpLevel: number;
   communities: PersistedCommunityRecord[];
   onNavigate: (tab: DashboardTab) => void;
   onOpenCommunity: (communityId: string) => void;
@@ -88,100 +94,16 @@ function CommunityCard({
   );
 }
 
-const UPCOMING_COMMUNITIES = [
-  {
-    abbr: "UH",
-    title: "Unfiltered Hours",
-    description: "Late thoughts, honest takes, no profile pressure.",
-    accent: "from-amber-100 via-rose-50 to-white",
-  },
-  {
-    abbr: "RR",
-    title: "Reality Check Room",
-    description: "Quick gut checks for the choices people overthink.",
-    accent: "from-sky-100 via-indigo-50 to-white",
-  },
-  {
-    abbr: "NT",
-    title: "No-Name Therapy",
-    description: "A softer place for venting without being known.",
-    accent: "from-violet-100 via-fuchsia-50 to-white",
-  },
-  {
-    abbr: "PV",
-    title: "Plot Twist Votes",
-    description: "Strange dilemmas, funny turns, and anonymous calls.",
-    accent: "from-emerald-100 via-teal-50 to-white",
-  },
-];
-
-function UpcomingCommunitiesPreview({
-  isLight,
-}: {
-  isLight: boolean;
-}) {
-  const cardPositions = [
-    "left-3 top-5 rotate-[-7deg]",
-    "right-5 top-4 rotate-[6deg]",
-    "left-12 bottom-4 rotate-[5deg]",
-    "right-16 bottom-5 rotate-[-5deg]",
-  ];
-
-  return (
-    <div
-      className={`relative min-h-[260px] overflow-hidden rounded-[2rem] border ${
-        isLight
-          ? "border-slate-200 bg-white/85 shadow-[0_18px_44px_rgba(15,23,42,0.1)]"
-          : "border-white/10 bg-[#181818]"
-      }`}
-    >
-      <div className={`absolute inset-0 bg-gradient-to-br ${isLight ? "from-white via-slate-50 to-indigo-50" : "from-white/5 via-raw-gold/5 to-indigo-500/10"}`} />
-      <div className="absolute inset-0 select-none blur-[7px]" aria-hidden="true">
-        {UPCOMING_COMMUNITIES.map((community, index) => (
-          <div
-            key={community.title}
-            className={`absolute h-32 w-52 rounded-3xl border p-4 opacity-55 ${cardPositions[index]} ${
-              isLight
-                ? "border-slate-200 bg-white shadow-[0_12px_32px_rgba(15,23,42,0.12)]"
-                : "border-white/10 bg-white/10"
-            }`}
-          >
-            <div className={`absolute inset-x-0 top-0 h-16 bg-gradient-to-br ${community.accent} ${isLight ? "opacity-90" : "opacity-25"}`} />
-            <div className="relative flex h-full flex-col justify-between">
-              <div className={`flex size-11 items-center justify-center rounded-2xl border font-display text-sm font-black ${
-                isLight ? "border-slate-200 bg-white text-slate-800" : "border-white/10 bg-white/10 text-white"
-              }`}>
-                {community.abbr}
-              </div>
-              <div>
-                <h3 className={`text-xs font-bold ${isLight ? "text-slate-950" : "text-white"}`}>{community.title}</h3>
-                <p className={`mt-1 text-[10px] leading-snug ${isLight ? "text-slate-500" : "text-white/45"}`}>{community.description}</p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white/85 to-transparent" />
-      <div className="relative flex min-h-[260px] items-center justify-center p-6">
-        <div className={`flex min-h-[150px] w-full max-w-xl flex-col items-center justify-center rounded-[1.75rem] border px-6 text-center backdrop-blur-xl ${
-          isLight
-            ? "border-raw-gold/25 bg-white/88 shadow-[0_18px_45px_rgba(15,23,42,0.12)]"
-            : "border-raw-gold/25 bg-black/70"
-        }`}>
-          <Users className="mb-3 size-5 text-raw-gold" />
-          <span className="text-xs font-semibold uppercase tracking-[0.3em] text-raw-gold">Coming Soon</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function DashboardHome({
+  username,
+  identityName = username,
+  identityMode = "public",
+  identityOptions,
+  onIdentityChange,
   userId,
+  polls,
   dailyAnsweredCount,
   dailyPollLimit,
-  xp,
-  xpLevel,
   communities,
   onNavigate,
   onOpenCommunity,
@@ -189,52 +111,48 @@ export function DashboardHome({
   onAwardXP,
   onAvatarWon,
 }: DashboardHomeProps) {
-  const { mode, accent, accentPresets } = useTheme();
-  const accentRgb = useMemo(
-    () => accentPresets.find((preset) => preset.id === accent)?.rgb ?? "241 196 45",
-    [accent, accentPresets],
-  );
-  const spinPrizes = useMemo(
-    () => buildSpinPrizes(mode === "light" ? "light" : "dark", accentRgb),
-    [mode, accentRgb],
-  );
+  const { mode } = useTheme();
   const isLight = mode === "light";
-  const dailyItemsLeft = Math.max(0, dailyPollLimit - dailyAnsweredCount);
-  const allCommunities = communities;
+  const [identityMenuOpen, setIdentityMenuOpen] = useState(false);
+  const [openInviteIndex, setOpenInviteIndex] = useState<number | null>(null);
+  const [heroInviteOpen, setHeroInviteOpen] = useState(false);
+  const { codes: inviteCodes, redeemedCodes } = useFoundingInvites(userId);
 
-  const spinStorageKey = userId ? `raw.daily-spin.${userId}` : null;
-  const hasSpunToday = useMemo(() => {
-    if (!spinStorageKey) return false;
+  async function handleCopyInvite(code: string) {
     try {
-      const stored = localStorage.getItem(spinStorageKey);
-      if (!stored) return false;
-      return (JSON.parse(stored) as { date: string }).date === getTodayKey();
-    } catch { return false; }
-  }, [spinStorageKey]);
+      await navigator.clipboard.writeText(code);
+      toast({ title: "Invite code copied", description: code });
+    } catch {
+      toast({ title: "Could not copy invite", description: "Select the code and copy it manually." });
+    }
+  }
 
-  const [spinCountdown, setSpinCountdown] = useState("");
-  const spinTimerRef = useRef<number | null>(null);
-  const updateSpinCountdown = useCallback(() => {
-    const now = new Date();
-    const midnight = new Date();
-    midnight.setHours(24, 0, 0, 0);
-    const diff = midnight.getTime() - now.getTime();
-    const h = Math.floor(diff / 3_600_000);
-    const m = Math.floor((diff % 3_600_000) / 60_000);
-    const s = Math.floor((diff % 60_000) / 1_000);
-    setSpinCountdown(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`);
-  }, []);
-  useEffect(() => {
-    if (!hasSpunToday) { setSpinCountdown(""); return; }
-    updateSpinCountdown();
-    spinTimerRef.current = window.setInterval(updateSpinCountdown, 1000);
-    return () => { if (spinTimerRef.current) window.clearInterval(spinTimerRef.current); };
-  }, [hasSpunToday, updateSpinCountdown]);
+  async function handleShareInvite(code: string) {
+    const text = buildInviteShareText(code);
+    if (navigator.share) {
+      try {
+        await navigator.share({ text });
+        return;
+      } catch {
+        // fall through to clipboard
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: "Invite text copied", description: "Paste it anywhere to share." });
+    } catch {
+      toast({ title: "Could not share", description: "Copy the code manually." });
+    }
+  }
+  const allCommunities = communities;
+  const switcherOptions = identityOptions ?? [{ label: username, mode: "public" as const, value: null }];
 
-  const trending = useMemo(
-    () => [...allCommunities].sort((a, b) => b.members.length - a.members.length).slice(0, 4),
-    [allCommunities],
-  );
+  const joinedCommunities = useMemo(() => {
+    if (!userId) return [];
+    return allCommunities.filter((community) =>
+      community.members.some((member) => member.userId === userId),
+    );
+  }, [allCommunities, userId]);
 
   const hasReachedDailyPollLimit = dailyAnsweredCount >= dailyPollLimit;
   const pollProgress = dailyPollLimit > 0 ? Math.min(100, (dailyAnsweredCount / dailyPollLimit) * 100) : 0;
@@ -245,10 +163,71 @@ export function DashboardHome({
       {/* ── Hero ── */}
       <section className="relative">
         <div className="relative z-10">
-          <h1 className={`font-display max-w-2xl text-2xl leading-[1.08] sm:text-3xl md:text-4xl md:leading-[1.15] ${isLight ? "text-slate-950" : "text-white"}`}>
-            Welcome to <span className="text-raw-gold">raW</span>.
+          <h1 className={`font-display max-w-2xl text-xl leading-[1.08] sm:text-2xl md:text-3xl md:leading-[1.15] ${isLight ? "text-slate-950" : "text-white"}`}>
+            Feeling <BrandName />,{" "}
+            <span className="relative inline-flex align-baseline">
+              <button
+                type="button"
+                onClick={() => setIdentityMenuOpen((open) => !open)}
+                className={`inline-flex max-w-[11rem] items-center gap-1 rounded-xl px-1.5 text-left transition-colors sm:max-w-[18rem] ${
+                  isLight ? "hover:bg-slate-100" : "hover:bg-white/5"
+                }`}
+                aria-expanded={identityMenuOpen}
+                aria-haspopup="menu"
+              >
+                <span className="truncate">{identityName}</span>
+                <ChevronDown className="mt-1 h-4 w-4 shrink-0 text-raw-gold" />
+              </button>
+              {identityMenuOpen && (
+                <div
+                  role="menu"
+                  className={`absolute left-0 top-full z-20 mt-2 w-64 rounded-2xl border p-1.5 text-sm shadow-xl ${
+                    isLight
+                      ? "border-slate-200 bg-white text-slate-950 shadow-slate-900/10"
+                      : "border-white/10 bg-[#151515] text-white shadow-black/40"
+                  }`}
+                >
+                  {switcherOptions.map((option) => {
+                    const isSelected = option.mode === identityMode && option.label === identityName;
+                    const Icon = option.mode === "public" ? UserRound : ShieldOff;
+                    return (
+                      <button
+                        key={`${option.mode}-${option.value ?? "public"}`}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={isSelected}
+                        onClick={() => {
+                          onIdentityChange?.(option.value);
+                          setIdentityMenuOpen(false);
+                        }}
+                        className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left transition-colors ${
+                          isSelected
+                            ? "bg-raw-gold/15 text-raw-gold"
+                            : isLight
+                              ? "text-slate-700 hover:bg-slate-100"
+                              : "text-white/75 hover:bg-white/5"
+                        }`}
+                      >
+                        <span className="flex min-w-0 items-center gap-2">
+                          <Icon className="h-4 w-4 shrink-0" />
+                          <span className="truncate">@{option.label}</span>
+                        </span>
+                        {isSelected && <Check className="h-4 w-4 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </span>
+            ?
           </h1>
           <div className="mt-6 flex flex-wrap items-center gap-3">
+            <div className={`flex items-center gap-2 rounded-full border px-4 py-2 ${isLight ? "border-slate-200 bg-white/85" : "border-white/10 bg-white/5"}`}>
+              <Flame className="size-3.5 text-raw-gold" />
+              <span className={`text-xs font-medium capitalize tracking-wide ${isLight ? "text-slate-600" : "text-white/60"}`}>
+                {identityMode} identity
+              </span>
+            </div>
             <div className={`flex items-center gap-2 px-4 py-2 rounded-full border ${isLight ? "border-slate-200 bg-white/85" : "border-white/10 bg-white/5"}`}>
               <BarChart3 className="size-3.5 text-raw-gold" />
               <span className={`text-xs font-medium tracking-wide ${isLight ? "text-slate-600" : "text-white/60"}`}>{dailyAnsweredCount} polls answered</span>
@@ -257,52 +236,127 @@ export function DashboardHome({
               <Users className={`size-3.5 ${isLight ? "text-slate-500" : "text-white/60"}`} />
               <span className={`text-xs font-medium tracking-wide ${isLight ? "text-slate-600" : "text-white/60"}`}>{allCommunities.length} communities</span>
             </div>
+            {inviteCodes.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setHeroInviteOpen((o) => !o)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-colors ${
+                  heroInviteOpen
+                    ? "border-raw-gold/50 bg-raw-gold/10 text-raw-gold"
+                    : isLight
+                      ? "border-slate-200 bg-white/85 text-slate-600 hover:border-amber-400"
+                      : "border-white/10 bg-white/5 text-white/60 hover:border-raw-gold/40 hover:text-raw-gold"
+                }`}
+              >
+                <Ticket className="size-3.5" />
+                <span className="text-xs font-medium tracking-wide">{inviteCodes.length} invites</span>
+              </button>
+            )}
           </div>
+
+          {heroInviteOpen && inviteCodes.length > 0 && (
+            <div className={`mt-4 rounded-2xl border p-4 space-y-3 ${isLight ? "border-amber-200/70 bg-amber-50/60" : "border-raw-gold/20 bg-raw-gold/5"}`}>
+              <p className={`text-[11px] uppercase tracking-[0.15em] font-semibold ${isLight ? "text-amber-700/70" : "text-raw-gold/60"}`}>
+                Founding Invitations
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {inviteCodes.map((code, index) => {
+                  const used = redeemedCodes.has(code.toUpperCase());
+                  return (
+                  <div key={code} className={`rounded-xl border p-3 space-y-2 ${used ? "opacity-60" : ""} ${isLight ? "border-slate-200 bg-white" : "border-raw-border/30 bg-raw-black/30"}`}>
+                    <p className={`text-[10px] uppercase tracking-[0.15em] ${isLight ? "text-slate-400" : "text-raw-silver/40"}`}>Invitation {index + 1}</p>
+                    <code className="block select-all break-all font-mono text-xs font-bold tracking-[0.1em] text-raw-gold">{code}</code>
+                    {used ? (
+                      <p className="flex items-center gap-1 text-[10px] font-semibold text-raw-gold/70">
+                        <Check className="h-3 w-3" /> Code has been used
+                      </p>
+                    ) : (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void handleCopyInvite(code)}
+                        className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-[10px] font-semibold transition-colors ${
+                          isLight
+                            ? "border-slate-200 text-slate-600 hover:border-amber-400 hover:text-amber-700"
+                            : "border-raw-border/40 text-raw-silver/65 hover:border-raw-gold/40 hover:text-raw-gold"
+                        }`}
+                      >
+                        <Copy className="h-3 w-3" /> Copy
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleShareInvite(code)}
+                        className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-raw-gold px-2 py-1.5 text-[10px] font-bold text-raw-ink transition-opacity hover:opacity-90"
+                      >
+                        <Share2 className="h-3 w-3" /> Share
+                      </button>
+                    </div>
+                    )}
+                  </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
         <div className="absolute -right-12 -top-12 w-64 h-64 bg-raw-gold/5 blur-[80px] rounded-full pointer-events-none" />
       </section>
 
-      {/* ── Trending ── */}
+      <LaunchCountdown isLight={isLight} variant="section" />
+
+      {/* ── Your Communities ── */}
       <section className="space-y-5">
         <div className="flex justify-between items-end">
           <div className="space-y-0.5">
             <div className="flex items-center gap-2">
-              <Flame className="size-4 text-raw-gold" />
-              <h2 className={`text-xl font-bold tracking-tight ${isLight ? "text-slate-950" : "text-white"}`}>Trending</h2>
+              <Users className="size-4 text-raw-gold" />
+              <h2 className={`text-xl font-bold tracking-tight ${isLight ? "text-slate-950" : "text-white"}`}>Your Communities</h2>
             </div>
-            <p className={`text-[13px] ${isLight ? "text-slate-500" : "text-white/40"}`}>Most active anonymous circles.</p>
+            <p className={`text-[13px] ${isLight ? "text-slate-500" : "text-white/40"}`}>
+              {joinedCommunities.length > 0
+                ? "Anonymous circles you've joined."
+                : "You haven't joined any communities yet."}
+            </p>
           </div>
           <button
             onClick={() => onNavigate("communities")}
             className="text-sm text-raw-gold hover:underline flex items-center gap-1 font-bold"
           >
-            View All <ChevronRight className="size-4" />
+            {joinedCommunities.length > 0 ? "View All" : "Browse"} <ChevronRight className="size-4" />
           </button>
         </div>
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {trending.map((community, i) => (
-            <CommunityCard key={community.id} community={community} rank={i} isLight={isLight} onOpenCommunity={onOpenCommunity} />
-          ))}
-        </div>
-      </section>
-
-      {/* General Feed */}
-      <section className={`space-y-5 border-t pt-10 ${isLight ? "border-slate-200" : "border-white/5"}`}>
-        <GeneralFeedBox userId={userId} isLight={isLight} />
-      </section>
-
-      {/* Recommended Rooms */}
-      <section className={`space-y-5 border-t pt-10 ${isLight ? "border-slate-200" : "border-white/5"}`}>
-        <div className="flex justify-between items-end">
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-2">
-              <Users className="size-4 text-raw-gold" />
-              <h2 className={`text-xl font-bold tracking-tight ${isLight ? "text-slate-950" : "text-white"}`}>Recommended Rooms</h2>
-            </div>
-            <p className={`text-[13px] ${isLight ? "text-slate-500" : "text-white/40"}`}>Recommended Rooms are specifically selected for you based on our raW matchmaker engine. How it works explained in FAQ.</p>
+        {joinedCommunities.length > 0 ? (
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {joinedCommunities.slice(0, 4).map((community) => (
+              <CommunityCard key={community.id} community={community} isLight={isLight} onOpenCommunity={onOpenCommunity} />
+            ))}
           </div>
-        </div>
-        <UpcomingCommunitiesPreview isLight={isLight} />
+        ) : (
+          <button
+            type="button"
+            onClick={() => onNavigate("communities")}
+            className={`flex w-full flex-col items-center gap-2 rounded-2xl border border-dashed px-6 py-8 text-center transition ${
+              isLight
+                ? "border-slate-300 bg-white/60 text-slate-600 hover:border-amber-400 hover:text-amber-700"
+                : "border-white/15 bg-raw-black/30 text-white/55 hover:border-raw-gold/40 hover:text-raw-gold"
+            }`}
+          >
+            <Users className="size-6 text-raw-gold" />
+            <p className="text-sm font-semibold">Find your people</p>
+            <p className={`text-xs ${isLight ? "text-slate-500" : "text-white/40"}`}>
+              Tap to browse the {allCommunities.length} anonymous communities and join the ones that fit.
+            </p>
+          </button>
+        )}
+      </section>
+
+      {/* Trending Polls */}
+      <section className={`space-y-5 border-t pt-10 ${isLight ? "border-slate-200" : "border-white/5"}`}>
+        <TrendingPollsBox
+          isLight={isLight}
+          polls={polls}
+          userId={userId}
+        />
       </section>
 
       {/* ── Challenges ── */}
@@ -311,36 +365,40 @@ export function DashboardHome({
           <Zap className="size-4 text-raw-gold" />
           <h2 className={`text-xl font-bold ${isLight ? "text-slate-950" : "text-white"}`}>Challenges</h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 md:items-stretch gap-6">
+        <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-2 md:mx-0 md:grid md:grid-cols-2 md:items-stretch md:gap-6 md:overflow-visible md:px-0 md:pb-0">
           {/* Daily Spin */}
-          <div className={`p-6 rounded-[1.5rem] space-y-5 ${isLight ? "border border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.08)]" : "border border-white/10 bg-[#1a1a1a]"}`}>
+          <div className={`flex w-[90vw] max-w-[22rem] shrink-0 flex-col overflow-visible p-4 rounded-[1.5rem] md:w-auto md:max-w-none md:p-6 ${isLight ? "border border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.08)]" : "border border-white/10 bg-[#1a1a1a]"}`}>
             <div className="flex items-start justify-between">
               <div className="space-y-0.5">
-                <h3 className={`text-xl font-bold tracking-tight ${isLight ? "text-slate-950" : "text-white"}`}>Daily Spin</h3>
+                <h3 className={`text-lg font-bold tracking-tight md:text-xl ${isLight ? "text-slate-950" : "text-white"}`}>Daily Spin</h3>
                 <p className={`text-xs ${isLight ? "text-slate-500" : "text-white/40"}`}>Luck of the anonymous</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-raw-gold/5 flex items-center justify-center border border-raw-gold/10">
                 <Dices className="size-5 text-raw-gold" />
               </div>
             </div>
-            {userId ? (
-              <DashboardDailySpin
-                userId={userId}
-                isAdmin={isAdmin ?? false}
-                onAwardXP={onAwardXP}
-                onAvatarWon={onAvatarWon}
-              />
-            ) : null}
+            <div className="mt-3 min-h-0 flex-1 overflow-visible md:mt-5">
+              {userId ? (
+                <Suspense fallback={null}>
+                  <DashboardDailySpin
+                    userId={userId}
+                    isAdmin={isAdmin ?? false}
+                    onAwardXP={onAwardXP}
+                    onAvatarWon={onAvatarWon}
+                  />
+                </Suspense>
+              ) : null}
+            </div>
           </div>
 
           {/* Right column: Daily Poll Progress on top, Level Up below */}
-          <div className="flex flex-col gap-6">
+          <div className="flex w-[78vw] max-w-[18rem] shrink-0 flex-col gap-4 md:w-auto md:max-w-none md:flex-1 md:gap-6">
             {/* Daily Poll Progress */}
-            <div className={`p-6 rounded-[1.5rem] flex flex-1 flex-col space-y-5 ${isLight ? "border border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.08)]" : "border border-white/10 bg-[#1a1a1a]"}`}>
+            <div className={`flex min-h-[15.5rem] flex-col space-y-4 p-4 rounded-[1.5rem] md:min-h-0 md:flex-1 md:space-y-5 md:p-6 ${isLight ? "border border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.08)]" : "border border-white/10 bg-[#1a1a1a]"}`}>
               <div className="flex items-start justify-between">
                 <div className="space-y-0.5">
-                  <h3 className={`text-xl font-bold tracking-tight ${isLight ? "text-slate-950" : "text-white"}`}>Daily Poll Progress</h3>
-                  <p className={`text-xs ${isLight ? "text-slate-500" : "text-white/40"}`}>50 XP per poll · anonymous</p>
+                  <h3 className={`text-lg font-bold tracking-tight md:text-xl ${isLight ? "text-slate-950" : "text-white"}`}>Daily Poll Progress</h3>
+                  <p className={`text-xs ${isLight ? "text-slate-500" : "text-white/40"}`}>anonymous</p>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-raw-gold/5 flex items-center justify-center border border-raw-gold/10">
                   <BarChart3 className="size-5 text-raw-gold" />
@@ -362,29 +420,97 @@ export function DashboardHome({
                 {hasReachedDailyPollLimit ? "Buy More - 10 Tokens" : "Answer Now"}
               </button>
             </div>
-
-            {/* Level Up */}
-            <div className={`p-6 rounded-[1.5rem] flex flex-1 flex-col space-y-6 ${isLight ? "border border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.08)]" : "border border-white/10 bg-[#1a1a1a]"}`}>
-              <div className="flex items-start justify-between">
-                <div className="space-y-0.5">
-                  <h3 className={`text-xl font-bold tracking-tight ${isLight ? "text-slate-950" : "text-white"}`}>Level Up</h3>
-                  <p className={`text-xs ${isLight ? "text-slate-500" : "text-white/40"}`}>Complete interactions to earn XP</p>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-raw-gold/5 flex items-center justify-center border border-raw-gold/10">
-                  <Zap className="size-5 text-raw-gold" />
-                </div>
-              </div>
-              <LevelProgressBanner xp={xp} level={xpLevel} />
-              <button
-                onClick={() => onNavigate("challenges")}
-                className="mt-auto w-full py-4 rounded-xl border border-raw-gold/30 text-raw-gold font-bold text-xs uppercase tracking-[0.2em] hover:bg-raw-gold/5 transition-all"
-              >
-                View Missions
-              </button>
-            </div>
           </div>
         </div>
       </section>
+
+      {/* ── Founding Invitations ── */}
+      {inviteCodes.length > 0 && (
+        <section className={`space-y-4 border-t pt-10 ${isLight ? "border-slate-200" : "border-white/5"}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Ticket className="size-4 text-raw-gold" />
+              <h2 className={`text-xl font-bold ${isLight ? "text-slate-950" : "text-white"}`}>Founding Invitations</h2>
+            </div>
+            <span className="rounded-full border border-raw-gold/25 bg-raw-gold/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-raw-gold/70">
+              {inviteCodes.length} total
+            </span>
+          </div>
+          <p className={`text-[13px] ${isLight ? "text-slate-500" : "text-white/40"}`}>
+            Reveal and share your exclusive invite codes with friends.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {inviteCodes.map((code, index) => {
+              const isOpen = openInviteIndex === index;
+              const isUsed = redeemedCodes.has(code.toUpperCase());
+              return (
+                <div
+                  key={code}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => !isUsed && setOpenInviteIndex(isOpen ? null : index)}
+                  onKeyDown={(e) => {
+                    if (!isUsed && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setOpenInviteIndex(isOpen ? null : index); }
+                  }}
+                  className={`group relative overflow-hidden rounded-2xl border border-dashed p-4 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-raw-gold/45 ${
+                    isUsed
+                      ? `cursor-default opacity-60 ${isLight ? "border-slate-200 bg-slate-50" : "border-raw-border/20 bg-raw-black/15"}`
+                      : `cursor-pointer ${isLight
+                          ? "border-amber-300/60 bg-amber-50/60 hover:border-amber-400 hover:bg-amber-50"
+                          : "border-raw-gold/30 bg-raw-black/25 hover:-translate-y-0.5 hover:border-raw-gold/55 hover:bg-raw-gold/10"}`
+                  }`}
+                  aria-expanded={isOpen}
+                >
+                  <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-raw-gold/10 blur-xl opacity-0 transition-opacity group-hover:opacity-100" />
+                  <div className="relative flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-raw-gold/55">Invitation {index + 1}</p>
+                      <p className={`mt-1 text-xs ${isLight ? "text-slate-500" : "text-raw-silver/35"}`}>
+                        {isUsed ? "Code has been used" : `Tap to ${isOpen ? "hide" : "reveal"}`}
+                      </p>
+                    </div>
+                    {isUsed ? (
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-raw-gold/15">
+                        <Check className="h-4 w-4 text-raw-gold" />
+                      </span>
+                    ) : (
+                      <Ticket className="h-7 w-7 text-raw-gold/50" />
+                    )}
+                  </div>
+
+                  {isOpen && !isUsed && (
+                    <div className={`relative mt-4 space-y-3 rounded-xl border p-3 ${isLight ? "border-slate-200 bg-white" : "border-raw-border/35 bg-raw-black/35"}`}>
+                      <code className={`block select-all break-all font-mono text-sm font-bold tracking-[0.12em] text-raw-gold`}>
+                        {code}
+                      </code>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); void handleCopyInvite(code); }}
+                          className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-[11px] font-semibold transition-colors ${
+                            isLight
+                              ? "border-slate-200 text-slate-600 hover:border-amber-400 hover:text-amber-700"
+                              : "border-raw-border/40 text-raw-silver/65 hover:border-raw-gold/40 hover:text-raw-gold"
+                          }`}
+                        >
+                          <Copy className="h-3.5 w-3.5" /> Copy
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); void handleShareInvite(code); }}
+                          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-raw-gold px-3 py-2 text-[11px] font-bold text-raw-ink transition-opacity hover:opacity-90"
+                        >
+                          <Share2 className="h-3.5 w-3.5" /> Share
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
     </div>
   );
