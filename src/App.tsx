@@ -1,13 +1,14 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useEffect, useRef } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 import { AnalyticsProvider } from "@/components/analytics/AnalyticsProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { RouteSeo } from "@/components/seo/RouteSeo";
 import { useBlockedWordsSeed } from "@/hooks/useBlockedWordsSeed";
+import { logRouteLoad } from "@/lib/devPerf";
 
 const Index = lazy(() => import("./pages/Index"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -33,6 +34,18 @@ function ModerationInit() {
   return null;
 }
 
+function RoutePerfLogger() {
+  const location = useLocation();
+  const routeStartRef = useRef(typeof performance !== "undefined" ? performance.now() : 0);
+
+  useEffect(() => {
+    logRouteLoad(location.pathname, routeStartRef.current);
+    routeStartRef.current = typeof performance !== "undefined" ? performance.now() : 0;
+  }, [location.pathname]);
+
+  return null;
+}
+
 const App = () => (
   <ErrorBoundary>
     <ThemeProvider>
@@ -43,6 +56,7 @@ const App = () => (
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <AnalyticsProvider>
             <RouteSeo />
+            <RoutePerfLogger />
             <Suspense fallback={routeFallback}>
               <Routes>
                 <Route path="/" element={<Index />} />

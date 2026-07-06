@@ -9,6 +9,7 @@ import {
   upsertCommunityMessage,
 } from "@/lib/communityChatState";
 import type { PersistedCommunityRecord } from "@/lib/communityChat.types";
+import { trackDevRealtimeSubscription } from "@/lib/devPerf";
 
 type Updater = (mutate: (current: PersistedCommunityRecord[]) => PersistedCommunityRecord[]) => void;
 
@@ -23,6 +24,7 @@ type Updater = (mutate: (current: PersistedCommunityRecord[]) => PersistedCommun
  */
 export function useCommunityMessagesRealtime(updateCommunities: Updater): void {
   useEffect(() => {
+    const cleanupPerfSubscription = trackDevRealtimeSubscription("community-messages");
     const channel = supabase
       .channel("community-messages")
       .on(
@@ -30,7 +32,7 @@ export function useCommunityMessagesRealtime(updateCommunities: Updater): void {
         { event: "*", schema: "public", table: "community_messages" },
         (payload) => {
           if (import.meta.env.DEV) {
-            console.debug("[realtime] community_messages", payload.eventType, payload.new ?? payload.old);
+            console.debug("[realtime] community_messages", { eventType: payload.eventType });
           }
           if (payload.eventType === "DELETE") {
             const oldRow = payload.old as { id?: string; community_id?: string } | null;
@@ -51,6 +53,7 @@ export function useCommunityMessagesRealtime(updateCommunities: Updater): void {
       .subscribe();
 
     return () => {
+      cleanupPerfSubscription();
       void supabase.removeChannel(channel);
     };
   }, [updateCommunities]);
