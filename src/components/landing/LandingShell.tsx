@@ -108,7 +108,6 @@ export default function LandingShell({
     });
   }, [siteReady]);
 
-  // An invite link (?invite=CODE) pre-fills the code and opens signup.
   useEffect(() => {
     if (typeof window === "undefined") return;
 
