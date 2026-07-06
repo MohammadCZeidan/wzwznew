@@ -68,8 +68,28 @@ export async function fetchCommunities(): Promise<PersistedCommunityRecord[]> {
     'fetchCommunities',
     supabase
       .from('communities')
-      .select('*, community_members(*)')
-      .order('created_at', { ascending: true }),
+      .select(`
+        id,
+        abbr,
+        title,
+        description,
+        topic,
+        status,
+        locked,
+        logo_url,
+        created_at,
+        created_by,
+        community_members (
+          user_id,
+          username,
+          joined_at,
+          last_seen_at,
+          last_read_at,
+          notifications_enabled
+        )
+      `)
+      .order('created_at', { ascending: true })
+      .limit(50),
   );
 
   if (error) throw error;
