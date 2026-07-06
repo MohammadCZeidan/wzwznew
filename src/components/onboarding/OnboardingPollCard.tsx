@@ -239,7 +239,7 @@ export function OnboardingPollCard({
               <p
                 className="mt-5 font-display text-[22px] font-medium leading-[1.18] tracking-wide"
                 style={{
-                  fontFamily: 'var(--font-display, "Orbitron", "Inter", system-ui, sans-serif)',
+                  fontFamily: 'var(--font-display, "Orbitron", "Raleway", system-ui, sans-serif)',
                   color: isLight ? "#1a1a1a" : "#EBEBEB",
                 }}
               >
