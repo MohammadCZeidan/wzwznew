@@ -10,11 +10,21 @@ import { installGlobalCrashAlerts } from "@/lib/crashAlerts";
 import { initSentry } from "@/lib/sentry";
 import { ensureOneSignalInit, isOneSignalServiceWorker } from "@/lib/onesignal";
 import { logAppBoot, markAppBootStart } from "@/lib/devPerf";
+import { buildCanonicalAppUrl } from "@/lib/canonicalHost";
 import App from "./App.tsx";
 import "./index.css";
 import "./styles/raw-reveal-button.css";
 import posthog from "posthog-js";
 
+function redirectToCanonicalHost(): boolean {
+  if (typeof window === "undefined") return false;
+  if (window.location.hostname !== "myraw.app") return false;
+
+  window.location.replace(buildCanonicalAppUrl(window.location));
+  return true;
+}
+
+const shouldMountApp = !redirectToCanonicalHost();
 const appBootStart = markAppBootStart();
 const queryClient = new QueryClient();
 let monitoringStarted = false;
@@ -133,20 +143,22 @@ function cleanupLegacyServiceWorkers() {
     });
 }
 
-cleanupLegacyServiceWorkers();
+if (shouldMountApp) {
+  cleanupLegacyServiceWorkers();
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <App />
-        {shouldEnableSpeedInsights ? <SpeedInsights /> : null}
-      </QueryClientProvider>
-    </ErrorBoundary>
-  </StrictMode>
-);
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      <ErrorBoundary>
+        <QueryClientProvider client={queryClient}>
+          <App />
+          {shouldEnableSpeedInsights ? <SpeedInsights /> : null}
+        </QueryClientProvider>
+      </ErrorBoundary>
+    </StrictMode>
+  );
 
-runAfterFirstPaint(() => {
-  initMonitoringAndAnalytics();
-  logAppBoot(appBootStart);
-});
+  runAfterFirstPaint(() => {
+    initMonitoringAndAnalytics();
+    logAppBoot(appBootStart);
+  });
+}
