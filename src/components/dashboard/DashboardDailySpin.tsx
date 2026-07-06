@@ -23,42 +23,42 @@ const SPIN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 interface DashboardDailySpinProps {
   userId: string;
   isAdmin?: boolean;
-  onAwardXP?: (amount: number) => Promise<void>;
+  onAwardTokens?: (amount: number) => void;
   onAvatarWon?: (level: number) => void;
 }
 
 
 const PRIZE_WEIGHTS: Partial<Record<string, number>> = {
-  "xp-500": 0.01,
+  "tokens-50": 0.01,
   "try-1": 0.15,
   "try-2": 0.15,
   "try-3": 0.15,
   "try-4": 0.15,
-  "xp-50": 0.10,
-  "xp-50b": 0.10,
-  "xp-50c": 0.10,
-  "xp-100": 0.06,
-  "xp-100b": 0.06,
-  "xp-200": 0.04,
+  "tokens-5": 0.10,
+  "tokens-5b": 0.10,
+  "tokens-5c": 0.10,
+  "tokens-10": 0.06,
+  "sticker-pack": 0.06,
+  "profile-glow": 0.04,
   theme: 0.03,
 };
 
 const prizeMessages: Record<string, { title: string; desc: string; icon: typeof Gift; poolLabel: string; rarity: string; poolColor: string }> = {
-  "xp-50": { title: "50 XP Earned!", desc: "Every bit counts on your journey.", icon: Zap, poolLabel: "50 XP", rarity: "Common", poolColor: "text-raw-silver/50" },
-  "xp-50b": { title: "50 XP Earned!", desc: "Every bit counts on your journey.", icon: Zap, poolLabel: "50 XP", rarity: "Common", poolColor: "text-raw-silver/50" },
-  "xp-100": { title: "100 XP Earned!", desc: "Solid spin! Your avatar grows stronger.", icon: Star, poolLabel: "100 XP", rarity: "Common", poolColor: "text-raw-gold/60" },
-  "xp-100b": { title: "100 XP Earned!", desc: "Solid spin! Your avatar grows stronger.", icon: Star, poolLabel: "100 XP", rarity: "Common", poolColor: "text-raw-gold/60" },
-  "xp-200": { title: "200 XP Earned!", desc: "Big win! You're leveling up fast.", icon: Sparkles, poolLabel: "200 XP", rarity: "Rare", poolColor: "text-raw-gold/80" },
-  "xp-500": { title: "500 XP Jackpot!", desc: "Incredible! The wheel favors the bold.", icon: Gift, poolLabel: "500 XP", rarity: "Jackpot", poolColor: "text-raw-gold" },
+  "tokens-5": { title: "5 Tokens Won!", desc: "A little extra fuel for unlocks.", icon: Zap, poolLabel: "5 Tokens", rarity: "Common", poolColor: "text-raw-silver/50" },
+  "tokens-5b": { title: "5 Tokens Won!", desc: "A little extra fuel for unlocks.", icon: Zap, poolLabel: "5 Tokens", rarity: "Common", poolColor: "text-raw-silver/50" },
+  "tokens-10": { title: "10 Tokens Won!", desc: "Nice spin. Spend them on your next unlock.", icon: Star, poolLabel: "10 Tokens", rarity: "Common", poolColor: "text-raw-gold/60" },
+  "sticker-pack": { title: "Sticker Pack Unlocked!", desc: "A new reaction pack is queued for your profile.", icon: Star, poolLabel: "Sticker Pack", rarity: "Common", poolColor: "text-raw-gold/60" },
+  "profile-glow": { title: "Profile Glow Unlocked!", desc: "A new profile effect is ready for your identity.", icon: Sparkles, poolLabel: "Profile Glow", rarity: "Rare", poolColor: "text-raw-gold/80" },
+  "tokens-50": { title: "50 Token Jackpot!", desc: "Big win. The wheel paid out.", icon: Gift, poolLabel: "50 Tokens", rarity: "Jackpot", poolColor: "text-raw-gold" },
   theme: { title: "Avatar Theme Unlocked!", desc: "A new look awaits you in the Marketplace.", icon: Gift, poolLabel: "Avatar Theme", rarity: "Rare", poolColor: "text-raw-gold/80" },
   "try-1": { title: "Not This Time", desc: "The wheel will turn again tomorrow.", icon: Clock, poolLabel: "Try Again", rarity: "Miss", poolColor: "text-raw-silver/45" },
   "try-2": { title: "Not This Time", desc: "The wheel will turn again tomorrow.", icon: Clock, poolLabel: "Try Again", rarity: "Miss", poolColor: "text-raw-silver/45" },
   "try-3": { title: "Not This Time", desc: "The wheel will turn again tomorrow.", icon: Clock, poolLabel: "Try Again", rarity: "Miss", poolColor: "text-raw-silver/45" },
   "try-4": { title: "Not This Time", desc: "The wheel will turn again tomorrow.", icon: Clock, poolLabel: "Try Again", rarity: "Miss", poolColor: "text-raw-silver/45" },
-  "xp-50c": { title: "50 XP Earned!", desc: "Every bit counts on your journey.", icon: Zap, poolLabel: "50 XP", rarity: "Common", poolColor: "text-raw-silver/50" },
+  "tokens-5c": { title: "5 Tokens Won!", desc: "A little extra fuel for unlocks.", icon: Zap, poolLabel: "5 Tokens", rarity: "Common", poolColor: "text-raw-silver/50" },
 };
 
-export function DashboardDailySpin({ userId, isAdmin = false, onAwardXP, onAvatarWon }: DashboardDailySpinProps) {
+export function DashboardDailySpin({ userId, isAdmin = false, onAwardTokens, onAvatarWon }: DashboardDailySpinProps) {
   const { mode, accent, accentPresets } = useTheme();
   const storageKey = useMemo(() => `raw.daily-spin.${userId}`, [userId]);
   const accentRgb = useMemo(
@@ -73,11 +73,12 @@ export function DashboardDailySpin({ userId, isAdmin = false, onAwardXP, onAvata
   const adminRewardOptions = useMemo(
     () => [
       { id: "random", label: "Random (weighted)" },
-      { id: "xp-50", label: "50 XP" },
-      { id: "xp-100", label: "100 XP" },
-      { id: "xp-200", label: "200 XP" },
-      { id: "xp-500", label: "500 XP Jackpot" },
+      { id: "tokens-5", label: "5 Tokens" },
+      { id: "tokens-10", label: "10 Tokens" },
+      { id: "profile-glow", label: "Profile Glow" },
+      { id: "tokens-50", label: "50 Token Jackpot" },
       { id: "theme", label: "Avatar Theme" },
+      { id: "sticker-pack", label: "Sticker Pack" },
       { id: "try-1", label: "Try Again" },
     ],
     [],
@@ -184,9 +185,9 @@ export function DashboardDailySpin({ userId, isAdmin = false, onAwardXP, onAvata
     setSelectedRewardId(prize.id);
     setPrizeModal(prize);
 
-    const xpMatch = prize.id.match(/^xp-(\d+)/);
-    if (xpMatch && onAwardXP) {
-      void onAwardXP(Number.parseInt(xpMatch[1], 10)).catch(() => {});
+    const tokenMatch = prize.id.match(/^tokens-(\d+)/);
+    if (tokenMatch && onAwardTokens) {
+      onAwardTokens(Number.parseInt(tokenMatch[1], 10));
     }
   };
 
@@ -241,7 +242,7 @@ export function DashboardDailySpin({ userId, isAdmin = false, onAwardXP, onAvata
   );
   const ModalIcon = modalMessage?.icon ?? Gift;
   const isWin = prizeModal ? !prizeModal.id.startsWith("try") : false;
-  const isJackpot = prizeModal?.id === "xp-500";
+  const isJackpot = prizeModal?.id === "tokens-50";
   const isSpinDisabled = !isAdmin && isCooldownActive;
   const forcedPrizeId = isAdmin && adminSelectedRewardId !== "random" ? adminSelectedRewardId : null;
 

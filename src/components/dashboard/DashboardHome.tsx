@@ -32,7 +32,7 @@ interface DashboardHomeProps {
   onNavigate: (tab: DashboardTab) => void;
   onOpenCommunity: (communityId: string) => void;
   isAdmin?: boolean;
-  onAwardXP?: (amount: number) => Promise<void>;
+  onAwardTokens?: (amount: number) => void;
   onAvatarWon?: (level: number) => void;
 }
 
@@ -108,7 +108,7 @@ export function DashboardHome({
   onNavigate,
   onOpenCommunity,
   isAdmin,
-  onAwardXP,
+  onAwardTokens,
   onAvatarWon,
 }: DashboardHomeProps) {
   const { mode } = useTheme();
@@ -383,7 +383,7 @@ export function DashboardHome({
                   <DashboardDailySpin
                     userId={userId}
                     isAdmin={isAdmin ?? false}
-                    onAwardXP={onAwardXP}
+                    onAwardTokens={onAwardTokens}
                     onAvatarWon={onAvatarWon}
                   />
                 </Suspense>
