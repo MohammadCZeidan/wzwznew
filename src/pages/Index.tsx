@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect } from "react";
+import LandingShell from "@/components/landing/LandingShell";
 import { useHostMode } from "@/hooks/use-host-mode";
 import { POLL_SHARE_PARAM } from "@/lib/pollShare";
 import { useRawStore } from "@/store/useRawStore";
@@ -10,7 +11,6 @@ import { saveOnboardingIdentities } from "@/backend/supabase/controllers/userCon
 import { APP_CANONICAL_HOST, buildCanonicalAppUrl } from "@/lib/canonicalHost";
 import { BrandName } from "@/components/ui/brand-name";
 
-const LandingShellLazy = lazy(() => import("@/components/landing/LandingShell"));
 const DashboardLazy = lazy(() => import("@/pages/Dashboard"));
 const OnboardingJourneyLazy = lazy(() =>
   import("@/components/onboarding/OnboardingJourney").then((m) => ({ default: m.OnboardingJourney })),
@@ -258,18 +258,14 @@ const Index = () => {
   }
 
   return (
-    <Suspense
-      fallback={<LandingShellFallback />}
-    >
-      <LandingShellLazy
-        user={user}
-        isLoggedIn={isLoggedIn}
-        showSignup={showSignup}
-        setShowSignup={setShowSignup}
-        signup={signup}
-        login={login}
-      />
-    </Suspense>
+    <LandingShell
+      user={user}
+      isLoggedIn={isLoggedIn}
+      showSignup={showSignup}
+      setShowSignup={setShowSignup}
+      signup={signup}
+      login={login}
+    />
   );
 };
 
