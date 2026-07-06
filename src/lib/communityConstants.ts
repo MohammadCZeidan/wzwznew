@@ -8,14 +8,14 @@ export const FEATURED_COMMUNITY_ID_SET = new Set<string>(FEATURED_COMMUNITY_IDS)
 export const COMMUNITY_COVER_IMAGES: Record<string, string> = {
   syt: "https://images.unsplash.com/photo-1534131707746-25d604851a1f?auto=format&fit=crop&w=1200&q=80",
   iijm: "/assets/itisjustme-bounce.gif",
-  li: "/assets/community-covers/lebanese-initiatives.png",
+  li: "/assets/community-covers/lebanese-initiatives.webp",
   sic: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1200&q=80",
   mw: "https://images.unsplash.com/photo-1493836512294-502baa1986e2?auto=format&fit=crop&w=1200&q=80",
 
   "the-ick": "/assets/community-covers/the-ick.png",
   "am-i-evil": "/assets/community-covers/am-i-evil.png",
   "weirdest-thoughts": "/assets/community-covers/weirdest-thoughts.png",
-  "is-this-normal": "/assets/community-covers/is-this-normal.svg",
+  "is-this-normal": "/assets/community-covers/is-this-normal.webp",
   mancave: "/assets/community-covers/mancave.png",
   "gamer-gang": "/assets/community-covers/gamer-gang.png",
   "bizniz-minded": "/assets/community-covers/bizniz-minded.png",

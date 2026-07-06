@@ -100,7 +100,7 @@ export function buildDefaultCommunities(): PersistedCommunityRecord[] {
     {
       id: "is-this-normal",
       abbr: "ITN",
-      logoUrl: "/assets/community-covers/is-this-normal.svg",
+      logoUrl: "/assets/community-covers/is-this-normal.webp",
       title: "Is This Normal?",
       description: "A quick gut-check from strangers.",
       topic: "What are you wondering is normal right now?",
