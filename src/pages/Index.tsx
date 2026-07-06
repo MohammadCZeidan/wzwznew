@@ -21,6 +21,45 @@ const SignupModalLazy = lazy(() =>
   import("@/components/landing/SignupModal").then((m) => ({ default: m.SignupModal })),
 );
 
+function DashboardShellFallback() {
+  return (
+    <main className="min-h-screen bg-raw-black px-4 py-5 text-raw-silver">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between">
+        <div>
+          <div className="h-4 w-20 rounded bg-raw-gold/30" />
+          <div className="mt-3 h-8 w-44 rounded bg-raw-charcoal/80" />
+        </div>
+        <div className="h-10 w-10 rounded-full border border-raw-border bg-raw-charcoal" />
+      </div>
+      <div className="mx-auto mt-8 grid w-full max-w-6xl gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <aside className="hidden min-h-[420px] rounded border border-raw-border/60 bg-raw-charcoal/40 lg:block" />
+        <section className="grid gap-4 sm:grid-cols-2">
+          <div className="h-48 rounded border border-raw-border/60 bg-raw-charcoal/50" />
+          <div className="h-48 rounded border border-raw-border/60 bg-raw-charcoal/40" />
+          <div className="h-40 rounded border border-raw-border/60 bg-raw-charcoal/35 sm:col-span-2" />
+        </section>
+      </div>
+    </main>
+  );
+}
+
+function LandingShellFallback() {
+  return (
+    <main className="min-h-screen bg-raw-black px-5 py-6 text-raw-silver">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between">
+        <div className="font-display text-lg text-raw-gold">RAW</div>
+        <div className="h-9 w-24 rounded border border-raw-border/60 bg-raw-charcoal/60" />
+      </div>
+      <section className="mx-auto mt-20 w-full max-w-6xl">
+        <div className="h-5 w-28 rounded bg-raw-gold/30" />
+        <div className="mt-6 h-12 w-full max-w-2xl rounded bg-raw-charcoal/80" />
+        <div className="mt-4 h-12 w-3/4 max-w-xl rounded bg-raw-charcoal/60" />
+        <div className="mt-8 h-11 w-36 rounded border border-raw-gold/50 bg-raw-gold/15" />
+      </section>
+    </main>
+  );
+}
+
 const Index = () => {
 
   const {
@@ -97,11 +136,7 @@ const Index = () => {
   // Don't flash the landing page (and its poll popup) while auth is still
   // resolving on refresh. Wait for the session to load first.
   if (!sessionLoaded && !sharedPollRef) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-raw-black">
-        <div className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-raw-border border-t-raw-gold" />
-      </div>
-    );
+    return <LandingShellFallback />;
   }
 
   if (isLoggedIn && user && isTheRawMe) {
@@ -117,7 +152,7 @@ const Index = () => {
 
   if (!isLoggedIn && sharedPollRef) {
     return (
-      <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-raw-black"><div className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-raw-border border-t-raw-gold" /></div>}>
+      <Suspense fallback={<LandingShellFallback />}>
         <SharedPollPageLazy
           polls={polls}
           shareCode={sharedPollRef}
@@ -137,21 +172,14 @@ const Index = () => {
   }
 
   if (isLoggedIn && user && !isOnboardingResolved) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-raw-black to-raw-black/80">
-        <div className="text-center">
-          <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-raw-border border-t-raw-gold mb-4"></div>
-          <p className="text-raw-silver/60 text-sm">Loading your dashboard...</p>
-        </div>
-      </div>
-    );
+    return <DashboardShellFallback />;
   }
 
   // Show dashboard when logged in
   if (isLoggedIn && user) {
     if (!onboardingCompleted) {
       return (
-        <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-raw-black"><div className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-raw-border border-t-raw-gold" /></div>}>
+        <Suspense fallback={<DashboardShellFallback />}>
         <OnboardingJourneyLazy
           user={user}
           polls={polls}
@@ -204,7 +232,7 @@ const Index = () => {
     }
 
     return (
-      <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-raw-black"><div className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-raw-border border-t-raw-gold" /></div>}>
+      <Suspense fallback={<DashboardShellFallback />}>
       <DashboardLazy
         user={user}
         polls={polls}
@@ -232,11 +260,7 @@ const Index = () => {
 
   return (
     <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center bg-raw-black">
-          <div className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-raw-border border-t-raw-gold" />
-        </div>
-      }
+      fallback={<LandingShellFallback />}
     >
       <LandingShellLazy
         user={user}
