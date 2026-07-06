@@ -5,6 +5,7 @@ import { SpeedInsights } from "@vercel/speed-insights/react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { track } from "@/lib/analytics";
 import { setClient } from "@/lib/analytics/client";
+import { initBrowserAnalytics } from "@/lib/browserAnalytics";
 import { installGlobalCrashAlerts } from "@/lib/crashAlerts";
 import { initSentry } from "@/lib/sentry";
 import { ensureOneSignalInit, isOneSignalServiceWorker } from "@/lib/onesignal";
@@ -18,6 +19,7 @@ const appBootStart = markAppBootStart();
 const queryClient = new QueryClient();
 
 initSentry();
+initBrowserAnalytics();
 installGlobalCrashAlerts();
 
 const posthogKey = import.meta.env.VITE_POSTHOG_KEY;
