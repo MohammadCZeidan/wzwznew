@@ -209,6 +209,9 @@ ON CONFLICT (id) DO UPDATE SET
   label = EXCLUDED.label,
   position = EXCLUDED.position;
 
+-- Return type changed from the prior definition; Postgres rejects a plain
+-- CREATE OR REPLACE that alters a function's return type (42P13), so drop first.
+DROP FUNCTION IF EXISTS public.get_polls_with_vote_counts(integer);
 CREATE OR REPLACE FUNCTION public.get_polls_with_vote_counts(p_limit integer DEFAULT 10)
 RETURNS TABLE (
   id text,
