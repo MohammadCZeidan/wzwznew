@@ -9,7 +9,6 @@ import { apiRequest } from '@/lib/api/client';
 type DbMessage = DbCommunityMessage;
 
 type DbMember = {
-  community_id: string;
   user_id: string;
   username: string;
   joined_at: string;
@@ -66,8 +65,29 @@ function mapCommunity(c: DbCommunity): PersistedCommunityRecord {
 export async function fetchCommunities(): Promise<PersistedCommunityRecord[]> {
   const { data, error } = await supabase
     .from('communities')
-    .select('*, community_members(*)')
-    .order('created_at', { ascending: true });
+    .select(`
+      id,
+      abbr,
+      title,
+      description,
+      topic,
+      status,
+      locked,
+      logo_url,
+      created_at,
+      created_by,
+      community_members(
+        user_id,
+        username,
+        joined_at,
+        last_seen_at,
+        last_read_at,
+        notifications_enabled
+      )
+    `)
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true })
+    .limit(100);
 
   if (error) throw error;
   return (data as DbCommunity[]).map(mapCommunity);
