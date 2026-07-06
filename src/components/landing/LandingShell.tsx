@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { BrandName } from "@/components/ui/brand-name";
 import { highlightRawWordmark } from "@/components/ui/highlightRawWordmark";
@@ -7,9 +7,6 @@ import MatrixBackground from "@/components/ui/matrix-background";
 import { Navbar } from "@/components/landing/Navbar";
 import { LaunchCountdown } from "@/components/ui/LaunchCountdown";
 import { ProblemSection } from "@/components/landing/ProblemSection";
-const GlobeHero = lazy(() =>
-  import("@/components/landing/GlobeHero").then((m) => ({ default: m.GlobeHero }))
-);
 import { PollShowcase } from "@/components/landing/PollShowcase";
 import { Communities } from "@/components/landing/Communities";
 import { PersonalityInsightsSection } from "@/components/landing/PersonalityInsightsSection";
@@ -21,11 +18,18 @@ import PerforatedBackground from "@/components/ui/perforated-background";
 import type { AuthResult, User } from "@/store/types";
 import { INVITE_PARAM } from "@/lib/inviteLink";
 
+const loadGlobeHero = () =>
+  import("@/components/landing/GlobeHero").then((m) => ({ default: m.GlobeHero }));
+const GlobeHero = lazy(loadGlobeHero);
+
 const SignupModalLazy = lazy(() =>
   import("@/components/landing/SignupModal").then((module) => ({ default: module.SignupModal }))
 );
 
 const SKIP_SHOWCASE_KEY = "raw.skip-poll-showcase-once";
+const POLL_EXIT_MARK = "raw.poll-exit";
+const LANDING_VISIBLE_MARK = "raw.landing-visible";
+const POLL_EXIT_TO_LANDING_MEASURE = "raw.poll-exit-to-landing-visible";
 
 function shouldSkipPollShowcase(): boolean {
   if (typeof window === "undefined") return false;
@@ -57,8 +61,45 @@ export default function LandingShell({
   const navigate = useNavigate();
   const location = useLocation();
   const [skipPollShowcase] = useState(shouldSkipPollShowcase);
-  const [siteReady, setSiteReady] = useState(skipPollShowcase);
   const [pendingInviteCode, setPendingInviteCode] = useState("");
+
+  useEffect(() => {
+    if (!skipPollShowcase) {
+      void loadGlobeHero();
+    }
+  }, [skipPollShowcase]);
+
+  const handlePollOpenChange = useCallback((open: boolean) => {
+    if (open) setSiteReady(false);
+  }, []);
+
+  const handlePollResolved = useCallback(() => {
+    if (typeof window !== "undefined" && "performance" in window) {
+      window.performance.mark(POLL_EXIT_MARK);
+    }
+    setSiteReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!siteReady || typeof window === "undefined" || !("performance" in window)) return;
+
+    window.requestAnimationFrame(() => {
+      window.performance.mark(LANDING_VISIBLE_MARK);
+
+      const hasPollExitMark = window.performance
+        .getEntriesByName(POLL_EXIT_MARK, "mark")
+        .some((entry) => entry.name === POLL_EXIT_MARK);
+
+      if (!hasPollExitMark) return;
+
+      window.performance.measure(POLL_EXIT_TO_LANDING_MEASURE, POLL_EXIT_MARK, LANDING_VISIBLE_MARK);
+
+      if (import.meta.env.DEV || window.location.search.includes("debugPerformance=1")) {
+        const [measure] = window.performance.getEntriesByName(POLL_EXIT_TO_LANDING_MEASURE, "measure").slice(-1);
+        console.info(`[perf] ${POLL_EXIT_TO_LANDING_MEASURE}: ${measure.duration.toFixed(1)}ms`);
+      }
+    });
+  }, [siteReady]);
 
   // An invite link (?invite=CODE) pre-fills the code and opens signup.
   useEffect(() => {
@@ -74,10 +115,8 @@ export default function LandingShell({
     <div className="landing-page-shell min-h-screen overflow-x-hidden bg-raw-black">
       <PollShowcase
         initialOpen={!skipPollShowcase}
-        onOpenChange={(open) => {
-          if (open) setSiteReady(false);
-        }}
-        onResolved={() => setSiteReady(true)}
+        onOpenChange={handlePollOpenChange}
+        onResolved={handlePollResolved}
       />
 
       <Navbar
@@ -103,10 +142,10 @@ export default function LandingShell({
             animate={{ opacity: 1, filter: "blur(0px)" }}
             transition={{ duration: 0.75, ease: "easeOut" }}
           >
-          <PerforatedBackground />
-          <MatrixBackground />
+            <PerforatedBackground />
+            <MatrixBackground />
 
-          <div className="relative max-sm:z-10">
+            <div className="relative max-sm:z-10">
             <Suspense fallback={<div className="min-h-[620px] sm:min-h-[680px]" />}>
               <GlobeHero onSignupClick={() => setShowSignup(true)} />
             </Suspense>
@@ -161,8 +200,8 @@ export default function LandingShell({
               </div>
             </section>
 
-            <LandingFooter />
-          </div>
+              <LandingFooter />
+            </div>
           </motion.div>
         )}
       </div>
