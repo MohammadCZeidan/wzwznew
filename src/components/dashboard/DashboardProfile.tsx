@@ -80,7 +80,7 @@ function AvatarGrid({ levels, activeLevel, activeIdentity, onSelect, onPreview }
           aria-label={`Use avatar ${lvl} for ${activeIdentity} identity`}
           aria-pressed={lvl === activeLevel}
         >
-          <AvatarFigure avatarIndex={lvl} size="sm" selected={lvl === activeLevel} />
+          <AvatarFigure avatarIndex={lvl} size="sm" selected={lvl === activeLevel} loading="lazy" />
         </button>
       ))}
     </div>

@@ -143,7 +143,7 @@ export function AvatarShop({
             <div className="pointer-events-none absolute inset-0 opacity-30 [background-image:radial-gradient(rgba(255,255,255,0.12)_0.6px,transparent_0.6px)] [background-size:8px_8px]" />
 
             <div className="relative">
-              <AvatarFigure avatarIndex={catalogLevel} size="md" selected={owned} rarity={rarity} themeOverride={avatar} />
+              <AvatarFigure avatarIndex={catalogLevel} size="md" selected={owned} rarity={rarity} themeOverride={avatar} loading="lazy" />
             </div>
 
             <div className="relative text-center">
@@ -348,6 +348,7 @@ export function LootSpin({ tokenBalance, avatarCatalog, ownedAvatarLevels, userI
                   size="md"
                   rarity={result.wonAvatar.rarity ?? "common"}
                   themeOverride={result.wonAvatar}
+                  loading="lazy"
                 />
               </div>
               <p className="mt-1 text-xs text-raw-silver/60">
@@ -432,7 +433,7 @@ export function DashboardInventory({
                   aria-label={`Use ${avatarName(avatar)} avatar`}
                 >
                   <div className="pointer-events-none absolute inset-0 opacity-30 [background-image:radial-gradient(rgba(255,255,255,0.12)_0.6px,transparent_0.6px)] [background-size:8px_8px]" />
-                  <AvatarFigure avatarIndex={catalogLevel} size="md" selected={catalogLevel === avatarLevel} rarity={rarity} />
+                  <AvatarFigure avatarIndex={catalogLevel} size="md" selected={catalogLevel === avatarLevel} rarity={rarity} loading="lazy" />
                   <div className="relative text-center">
                     <p className="text-xs font-medium text-raw-text line-clamp-1">{avatarName(avatar)}</p>
                     <p className="mt-1 text-[10px] text-raw-silver/45">

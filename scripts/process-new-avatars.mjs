@@ -191,7 +191,7 @@ async function readExistingGenerated() {
 
 function entryLiteral({ level, dominantHex, bgHex }) {
   const glow = `${dominantHex}80`;
-  return `  { id: "avatar-${level}", level: ${level}, name: "Avatar ${level}", price: "50", imageSrc: "/avatars/${level}.png", bg: "${bgHex}", figure: "${dominantHex}", ring: "${dominantHex}", glow: "${glow}", isActive: true, showIn: "both", rarity: "common" },`;
+  return `  { id: "avatar-${level}", level: ${level}, name: "Avatar ${level}", price: "50", imageSrc: "/avatars/${level}.webp", bg: "${bgHex}", figure: "${dominantHex}", ring: "${dominantHex}", glow: "${glow}", isActive: true, showIn: "both", rarity: "common" },`;
 }
 
 async function writeGeneratedFile(allEntries) {

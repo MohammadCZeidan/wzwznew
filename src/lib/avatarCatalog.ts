@@ -82,7 +82,7 @@ export const DEFAULT_AVATAR_CATALOG: readonly AvatarCatalogItem[] = [
   { id: "crimson-muse", level: 14, name: avatarDisplayName(6), price: "50", imageSrc: "/avatars/6.webp", bg: "#2a0b0b", figure: "#f97316", ring: "#f97316", glow: "#f9731680", isActive: true, showIn: "both", rarity: "common" },
   { id: "solar-flame", level: 15, name: avatarDisplayName(7), price: "50", imageSrc: "/avatars/landing/solar-flame.webp", bg: "#241005", figure: "#facc15", ring: "#facc15", glow: "#facc1590", isActive: true, showIn: "both", rarity: "common" },
   { id: "pink-circuit", level: 16, name: "Pink Circuit", price: "50", imageSrc: "/avatars/landing/pink-circuit.webp", bg: "#2a0b1c", figure: "#fb7185", ring: "#fb7185", glow: "#fb718580", isActive: true, showIn: "both", rarity: "common" },
-  { id: "s1-custom", level: 100, name: "S1 Custom", price: "40000", imageSrc: "/avatars/s1-custom.png", bg: "#0a0a0a", figure: "#ffd700", ring: "#ffd700", glow: "#ffd700cc", isActive: true, showIn: "admin", rarity: "legendary", rank_tier: 11, frame_color: "gold" },
+  { id: "s1-custom", level: 100, name: "S1 Custom", price: "40000", bg: "#0a0a0a", figure: "#ffd700", ring: "#ffd700", glow: "#ffd700cc", isActive: true, showIn: "admin", rarity: "legendary", rank_tier: 11, frame_color: "gold" },
   ...Array.from({ length: 18 }, (_, index): AvatarCatalogItem | null => {
     const level = index + 17;
     // Skip image ids already represented by a semantic alias above
@@ -93,7 +93,7 @@ export const DEFAULT_AVATAR_CATALOG: readonly AvatarCatalogItem[] = [
       level,
       name: avatarDisplayName(level),
       price: "50",
-      imageSrc: `/avatars/${level}.${[20, 21, 26].includes(level) ? "webp" : "png"}`,
+      imageSrc: `/avatars/${level}.webp`,
       bg: "#111827",
       figure: "#cbd5e1",
       ring: "#cbd5e1",

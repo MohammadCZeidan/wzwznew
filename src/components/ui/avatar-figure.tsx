@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { LEVEL_THEMES, type AvatarTheme } from "@/lib/avataridentity";
 import { RARITY_CONFIG, type AvatarRarity } from "@/lib/avatarRarity";
+import { tryAvatarPngFallback } from "@/lib/avatarImageFallback";
 
 interface AvatarFigureProps {
   avatarIndex: number;
@@ -57,7 +58,10 @@ export function AvatarFigure({ avatarIndex, size = "md", selected = false, class
             alt={theme.name}
             loading={loading}
             decoding="async"
-            onError={() => setImageFailed(true)}
+            onError={(event) => {
+              if (tryAvatarPngFallback(event.currentTarget, theme.imageSrc)) return;
+              setImageFailed(true);
+            }}
             draggable={false}
             className="h-full w-full object-cover"
             style={{ objectPosition: "center 35%" }}
