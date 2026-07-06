@@ -16,7 +16,7 @@ export default {
     extend: {
       fontFamily: {
         display: ["Michroma", "sans-serif"],
-        sans: ["Inter", "sans-serif"],
+        sans: ["Raleway", "sans-serif"],
       },
       colors: {
         raw: {

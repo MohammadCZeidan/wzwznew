@@ -145,7 +145,7 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Raleway', sans-serif;
     overflow-x: hidden;
     scrollbar-width: thin;
     scrollbar-color: rgb(var(--raw-accent) / 0.72) var(--scrollbar-track);
@@ -647,6 +647,13 @@ html.theme-light .spiral-banner {
 
 .landing-page-shell :is(p, a, button, label, li, input, textarea) {
   font-family: inherit;
+}
+
+/* Titles, subheadings and Michroma accents keep the hero font; only plain body
+   copy falls through to the Raleway shell base above. Higher specificity than
+   the inherit rule so .font-display elements stay Michroma. */
+.landing-page-shell :is(.font-display, .landing-heading, h1, h2, h3, h4, h5, h6) {
+  font-family: "Michroma", sans-serif;
 }
 
 .landing-page-shell p {
