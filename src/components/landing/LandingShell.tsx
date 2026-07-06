@@ -61,7 +61,6 @@ export default function LandingShell({
   const navigate = useNavigate();
   const location = useLocation();
   const [skipPollShowcase] = useState(shouldSkipPollShowcase);
-  const [siteReady, setSiteReady] = useState(skipPollShowcase);
   const [pendingInviteCode, setPendingInviteCode] = useState("");
 
   useEffect(() => {
