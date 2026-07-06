@@ -57,7 +57,6 @@ export default function LandingShell({
   const navigate = useNavigate();
   const location = useLocation();
   const [skipPollShowcase] = useState(shouldSkipPollShowcase);
-  const [siteReady, setSiteReady] = useState(skipPollShowcase);
   const [pendingInviteCode, setPendingInviteCode] = useState("");
 
   // An invite link (?invite=CODE) pre-fills the code and opens signup.
@@ -72,13 +71,7 @@ export default function LandingShell({
 
   return (
     <div className="landing-page-shell min-h-screen overflow-x-hidden bg-raw-black">
-      <PollShowcase
-        initialOpen={!skipPollShowcase}
-        onOpenChange={(open) => {
-          if (open) setSiteReady(false);
-        }}
-        onResolved={() => setSiteReady(true)}
-      />
+      <PollShowcase initialOpen={!skipPollShowcase} />
 
       <Navbar
         isLoggedIn={isLoggedIn}
@@ -90,19 +83,12 @@ export default function LandingShell({
         <LaunchCountdown variant="banner" />
       </div>
       <div className="relative min-h-screen overflow-x-hidden">
-        {!siteReady && (
-          <div className="fixed inset-0 z-0 bg-raw-black">
-            <PerforatedBackground />
-          </div>
-        )}
-
-        {siteReady && (
-          <motion.div
-            className="relative overflow-x-hidden"
-            initial={{ opacity: 0, filter: "blur(14px)" }}
-            animate={{ opacity: 1, filter: "blur(0px)" }}
-            transition={{ duration: 0.75, ease: "easeOut" }}
-          >
+        <motion.div
+          className="relative overflow-x-hidden"
+          initial={{ opacity: 0, filter: "blur(14px)" }}
+          animate={{ opacity: 1, filter: "blur(0px)" }}
+          transition={{ duration: 0.75, ease: "easeOut" }}
+        >
           <PerforatedBackground />
           <MatrixBackground />
 
@@ -163,8 +149,7 @@ export default function LandingShell({
 
             <LandingFooter />
           </div>
-          </motion.div>
-        )}
+        </motion.div>
       </div>
 
       <Suspense fallback={null}>
