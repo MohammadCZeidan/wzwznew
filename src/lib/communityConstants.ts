@@ -15,7 +15,7 @@ export const COMMUNITY_COVER_IMAGES: Record<string, string> = {
   "the-ick": "/assets/community-covers/the-ick.png",
   "am-i-evil": "/assets/community-covers/am-i-evil.png",
   "weirdest-thoughts": "/assets/community-covers/weirdest-thoughts.png",
-  "is-this-normal": "/assets/community-covers/is-this-normal.svg",
+  "is-this-normal": "/assets/community-covers/is-this-normal.webp",
   mancave: "/assets/community-covers/mancave.png",
   "gamer-gang": "/assets/community-covers/gamer-gang.png",
   "bizniz-minded": "/assets/community-covers/bizniz-minded.png",
