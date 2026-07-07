@@ -58,6 +58,7 @@ export function Communities({ onSignupClick }: CommunitiesProps) {
   const [anonId, setAnonId] = useState("");
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const firstPreviewCardRef = useRef<HTMLDivElement | null>(null);
 
   function openCommunityPreview(element: HTMLElement, community: (typeof communities)[number]) {
     const rect = element.getBoundingClientRect();
@@ -155,7 +156,10 @@ export function Communities({ onSignupClick }: CommunitiesProps) {
               <button
                 type="button"
                 onClick={() => {
-                  document.getElementById("raw-community-card-Late Night Talks")?.focus();
+                  const firstCommunity = communities.find((community) => !community.waitlist);
+                  if (firstCommunity && firstPreviewCardRef.current) {
+                    openCommunityPreview(firstPreviewCardRef.current, firstCommunity);
+                  }
                 }}
                 className="shrink-0 rounded-full border border-raw-gold/35 bg-raw-gold/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-raw-gold transition hover:border-raw-gold/60 hover:bg-raw-gold/15"
               >
@@ -171,6 +175,11 @@ export function Communities({ onSignupClick }: CommunitiesProps) {
             return (
               <div
                 key={c.title}
+                ref={(node) => {
+                  if (!c.waitlist && firstPreviewCardRef.current === null) {
+                    firstPreviewCardRef.current = node;
+                  }
+                }}
                 id={`raw-community-card-${c.title}`}
                 tabIndex={c.waitlist ? -1 : 0}
                 role={c.waitlist ? undefined : "button"}
