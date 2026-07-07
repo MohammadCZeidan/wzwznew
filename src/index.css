@@ -1,9 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Michroma&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap");
-/* Landing page redesign fonts — scoped to .landing-page-shell */
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&display=swap");
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -196,20 +192,6 @@
   font-family: 'Instrument Serif', Georgia, serif;
 }
 
-/* Landing redesign — Fraunces replaces Michroma/Instrument Serif for display
-   and editorial type, scoped to the landing page only. */
-.landing-page-shell .font-display {
-  font-family: 'Fraunces', Georgia, serif;
-  font-weight: 600;
-  font-optical-sizing: auto;
-}
-
-.landing-page-shell .font-editorial {
-  font-family: 'Fraunces', Georgia, serif;
-  font-style: italic;
-  font-weight: 400;
-  font-optical-sizing: auto;
-}
 
 /* Gold glow effect */
 .glow-gold {
@@ -341,9 +323,8 @@ html.theme-light .raw-logo-w {
 }
 
 .landing-heading {
-  font-family: 'Fraunces', Georgia, serif;
+  font-family: 'Michroma', sans-serif;
   font-weight: 600;
-  font-optical-sizing: auto;
   font-size: 1.875rem;
   line-height: 1.12;
   letter-spacing: 0.01em;
@@ -601,17 +582,11 @@ html.theme-light .dashboard-enhanced-bg [class*="text-raw-silver/"] {
 
 .landing-page-shell {
   background: rgb(var(--raw-black));
-  font-family: "Geist", "Inter", system-ui, sans-serif;
+  font-family: "Raleway", sans-serif;
   /* Softer corners for a less "boxed" feel across cards and panels */
   --radius: 1.25rem;
 }
 
-.landing-page-shell :is(h1, h2, h3, h4, h5, h6) {
-  font-family: "Fraunces", Georgia, serif;
-  font-weight: 600;
-  font-optical-sizing: auto;
-  letter-spacing: 0.005em;
-}
 
 html:not(.theme-light) .landing-page-shell {
   /* Dark mode only: lift landing background palette by ~20% for better legibility. */
@@ -649,7 +624,7 @@ html.theme-light .spiral-banner {
   font-family: inherit;
 }
 
-/* Titles, subheadings and Michroma accents keep the hero font; only plain body
+/* Titles, subheadings and Michroma accents keep the hero font; plain body
    copy falls through to the Raleway shell base above. Higher specificity than
    the inherit rule so .font-display elements stay Michroma. */
 .landing-page-shell :is(.font-display, .landing-heading, h1, h2, h3, h4, h5, h6) {
