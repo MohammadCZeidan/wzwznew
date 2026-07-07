@@ -8,6 +8,26 @@ import type {
 } from '../models/community-poll';
 import { assertUserTextAllowed } from '@/lib/inputSecurity';
 
+const COMMUNITY_POLL_FETCH_LIMIT = 25;
+
+type CommunityPollSummaryOption = {
+  id: string;
+  text: string;
+  votes: number | string | null;
+};
+
+type CommunityPollSummaryRow = {
+  id: string;
+  community_id: string;
+  question: string;
+  created_by_user_id: string;
+  created_by_username: string;
+  created_at: string;
+  options: CommunityPollSummaryOption[] | string | null;
+  total_votes: number | string | null;
+  user_vote_option_id: string | null;
+};
+
 function mapPoll(row: CommunityPollRow, currentUserId: string | null): CommunityPollRecord {
   const options = [...((row.community_poll_options as CommunityPollOptionRow[]) ?? [])]
     .sort((a, b) => a.position - b.position);
@@ -39,7 +59,45 @@ function mapPoll(row: CommunityPollRow, currentUserId: string | null): Community
   };
 }
 
-export async function fetchCommunityPolls(
+function parseSummaryOptions(options: CommunityPollSummaryRow['options']): CommunityPollSummaryOption[] {
+  if (Array.isArray(options)) return options;
+  if (typeof options !== 'string') return [];
+
+  try {
+    const parsed: unknown = JSON.parse(options);
+    return Array.isArray(parsed) ? (parsed as CommunityPollSummaryOption[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function mapSummaryPoll(row: CommunityPollSummaryRow): CommunityPollRecord {
+  const options = parseSummaryOptions(row.options);
+
+  return {
+    id: row.id,
+    communityId: row.community_id,
+    question: row.question,
+    createdByUserId: row.created_by_user_id,
+    createdByUsername: row.created_by_username,
+    createdAt: row.created_at,
+    options: options.map((opt) => ({
+      id: opt.id,
+      text: opt.text,
+      votes: Number(opt.votes ?? 0),
+    })),
+    userVoteOptionId: row.user_vote_option_id,
+    totalVotes: Number(row.total_votes ?? 0),
+  };
+}
+
+function isMissingPollSummaryRpcError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as { code?: string; message?: string; status?: number };
+  return candidate.code === 'PGRST202' || candidate.status === 404 || candidate.message?.includes('get_community_poll_summaries') === true;
+}
+
+async function fetchCommunityPollsFallback(
   communityId: string,
   currentUserId: string | null,
 ): Promise<CommunityPollRecord[]> {
@@ -47,10 +105,32 @@ export async function fetchCommunityPolls(
     .from('community_polls')
     .select('*, community_poll_options(*), community_poll_votes(*)')
     .eq('community_id', communityId)
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: true })
+    .limit(COMMUNITY_POLL_FETCH_LIMIT);
 
   if (error) throw error;
   return (data as CommunityPollRow[]).map((row) => mapPoll(row, currentUserId));
+}
+
+export async function fetchCommunityPolls(
+  communityId: string,
+  currentUserId: string | null,
+): Promise<CommunityPollRecord[]> {
+  const { data, error } = await supabase.rpc('get_community_poll_summaries', {
+    p_community_id: communityId,
+    p_user_id: currentUserId,
+    p_limit: COMMUNITY_POLL_FETCH_LIMIT,
+  });
+
+  if (!error) {
+    return ((data ?? []) as CommunityPollSummaryRow[]).map(mapSummaryPoll);
+  }
+
+  if (isMissingPollSummaryRpcError(error)) {
+    return fetchCommunityPollsFallback(communityId, currentUserId);
+  }
+
+  throw error;
 }
 
 export async function createCommunityPoll(
