@@ -1,5 +1,7 @@
 import { supabase } from '../client';
 
+const DONATION_INTEREST_FETCH_LIMIT = 200;
+
 type DbRow = {
   id: string;
   name: string;
@@ -40,7 +42,8 @@ export async function fetchDonationInterests(): Promise<DonationInterestRecord[]
   const { data, error } = await supabase
     .from('donation_interests')
     .select('*')
-    .order('submitted_at', { ascending: false });
+    .order('submitted_at', { ascending: false })
+    .limit(DONATION_INTEREST_FETCH_LIMIT);
   if (error) throw error;
   return (data as DbRow[]).map(mapRow);
 }

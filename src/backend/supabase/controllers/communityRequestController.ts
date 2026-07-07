@@ -2,6 +2,8 @@ import { supabase } from '../client';
 import type { CommunityRequestRecord } from '@/lib/adminData';
 import { assertUserTextAllowed } from '@/lib/inputSecurity';
 
+const COMMUNITY_REQUEST_FETCH_LIMIT = 200;
+
 type DbRequest = {
   id: string;
   requester_id: string;
@@ -74,7 +76,8 @@ export async function fetchCommunityRequests(requesterId?: string): Promise<Comm
   let query = supabase
     .from('community_requests')
     .select('*')
-    .order('submitted_at', { ascending: false });
+    .order('submitted_at', { ascending: false })
+    .limit(COMMUNITY_REQUEST_FETCH_LIMIT);
 
   if (requesterId) {
     query = query.eq('requester_id', requesterId);
