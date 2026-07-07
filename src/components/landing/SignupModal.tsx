@@ -10,6 +10,7 @@ import {
 } from "@/lib/inputSecurity";
 import type { AuthResult } from "@/store/useRawStore";
 import { track } from "@/lib/analytics";
+import { submitInviteWaitlistRequest } from "@/backend/supabase/controllers/inviteWaitlistController";
 
 interface SignupModalProps {
   open: boolean;
@@ -38,6 +39,11 @@ export function SignupModal({ open, onClose, onSignup, onLogin, source, initialR
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showTermsPopup, setShowTermsPopup] = useState(false);
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
+  const [waitlistContact, setWaitlistContact] = useState("");
+  const [waitlistNote, setWaitlistNote] = useState("");
+  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
+  const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
   const openedFiredRef = useRef(false);
 
   useEffect(() => {
@@ -57,6 +63,11 @@ export function SignupModal({ open, onClose, onSignup, onLogin, source, initialR
       setShowPassword(false);
       setShowConfirmPassword(false);
       setShowTermsPopup(false);
+      setWaitlistOpen(false);
+      setWaitlistContact("");
+      setWaitlistNote("");
+      setWaitlistSubmitting(false);
+      setWaitlistSubmitted(false);
     }
   }, [open, source, initialReferralCode]);
 
@@ -119,6 +130,33 @@ export function SignupModal({ open, onClose, onSignup, onLogin, source, initialR
       track("signup_failed", { reason: result.error ?? "unknown", step: "details" });
       setError(result.error ?? "Unable to create account.");
       setIsSubmitting(false);
+    }
+  };
+
+  const handleInviteWaitlistSubmit = async (event?: React.FormEvent | React.MouseEvent) => {
+    event?.preventDefault();
+
+    const contact = normalizePlainText(waitlistContact).trim();
+    const note = normalizePlainText(waitlistNote).trim();
+
+    if (!contact) {
+      setError("Add Instagram, WhatsApp, email, or any contact we can use.");
+      return;
+    }
+
+    setWaitlistSubmitting(true);
+    setError("");
+
+    try {
+      await submitInviteWaitlistRequest({ contact, note, source: source ?? "signup_modal" });
+      track("waitlist_submitted", { role: "user", source: source ?? "signup_modal" });
+      setWaitlistSubmitted(true);
+      setWaitlistContact("");
+      setWaitlistNote("");
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Could not send request. Try again.");
+    } finally {
+      setWaitlistSubmitting(false);
     }
   };
 
@@ -297,6 +335,61 @@ export function SignupModal({ open, onClose, onSignup, onLogin, source, initialR
             >
               {isSubmitting ? "Creating account..." : "Sign Up"}
             </button>
+
+            <div className="rounded-2xl border border-raw-gold/20 bg-raw-black/35 p-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setWaitlistOpen((current) => !current);
+                  setError("");
+                }}
+                className="flex w-full items-center justify-between gap-3 text-left text-xs font-semibold text-raw-gold/85 transition-colors hover:text-raw-gold"
+              >
+                <span>No code? Request to join the waitlist.</span>
+                <span className="text-raw-silver/35">{waitlistOpen ? "Close" : "Open"}</span>
+              </button>
+
+              {waitlistOpen && (
+                <div className="mt-3 space-y-3">
+                  {waitlistSubmitted ? (
+                    <p className="rounded-xl border border-raw-gold/20 bg-raw-gold/10 px-3 py-2 text-xs leading-relaxed text-raw-gold/90">
+                      Request sent. We will reach out when we can send a code.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-[11px] leading-relaxed text-raw-silver/45">
+                        Leave any contact you choose: Instagram, WhatsApp, email, or another way we can reach you.
+                      </p>
+                      <input
+                        type="text"
+                        value={waitlistContact}
+                        onChange={(event) => setWaitlistContact(normalizePlainText(event.target.value))}
+                        placeholder="@instagram, WhatsApp, email..."
+                        maxLength={120}
+                        autoComplete="off"
+                        className="w-full rounded-xl border border-raw-border bg-raw-black/50 px-4 py-3 text-sm text-raw-text placeholder:text-raw-silver/25 transition-all focus:border-raw-gold/30 focus:outline-none focus:ring-1 focus:ring-raw-gold/20"
+                      />
+                      <textarea
+                        value={waitlistNote}
+                        onChange={(event) => setWaitlistNote(normalizePlainText(event.target.value))}
+                        placeholder="Optional note"
+                        maxLength={240}
+                        rows={2}
+                        className="w-full resize-none rounded-xl border border-raw-border bg-raw-black/50 px-4 py-3 text-sm text-raw-text placeholder:text-raw-silver/25 transition-all focus:border-raw-gold/30 focus:outline-none focus:ring-1 focus:ring-raw-gold/20"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleInviteWaitlistSubmit}
+                        disabled={waitlistSubmitting}
+                        className="w-full rounded-xl border border-raw-gold/35 bg-raw-gold/10 py-2.5 text-sm font-bold text-raw-gold transition-all hover:border-raw-gold/60 hover:bg-raw-gold/15 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {waitlistSubmitting ? "Sending request..." : "Request Waitlist"}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </form>
         ) : (
           <form onSubmit={handleLogin} className="space-y-4">
