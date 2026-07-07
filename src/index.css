@@ -631,6 +631,20 @@ html.theme-light .spiral-banner {
   font-family: "Michroma", sans-serif;
 }
 
+/* Restore previous ProblemSection typography without changing the rest of landing. */
+#problem .font-display {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600;
+  font-optical-sizing: auto;
+}
+
+#problem .font-editorial {
+  font-family: 'Fraunces', Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  font-optical-sizing: auto;
+}
+
 .landing-page-shell p {
   letter-spacing: 0.01em;
   line-height: 1.58;

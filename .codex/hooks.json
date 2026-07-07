@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "'c:\\Users\\user\\OneDrive\\Desktop\\wzwz\\.codex\\hooks\\check-gstack.sh'"
+            "command": "'c:\\Users\\user\\OneDrive\\Desktop\\wzwz\\.claude\\hooks\\check-gstack.sh'"
           }
         ]
       }
