@@ -12,6 +12,7 @@ import { Communities } from "@/components/landing/Communities";
 import { PersonalityInsightsSection } from "@/components/landing/PersonalityInsightsSection";
 import { AvatarShowcaseSection } from "@/components/landing/AvatarShowcaseSection";
 import { LandingPollsSection } from "@/components/landing/LandingPollsSection";
+import { PollToCommunityFlow } from "@/components/landing/PollToCommunityFlow";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 import { FAQSection } from "@/components/landing/FAQSection";
 import PerforatedBackground from "@/components/ui/perforated-background";
@@ -168,6 +169,7 @@ export default function LandingShell({
 
               <ProblemSection />
               <LandingPollsSection onSignupClick={() => setShowSignup(true)} />
+              <PollToCommunityFlow />
               <Communities onSignupClick={() => setShowSignup(true)} />
               <AvatarShowcaseSection onSignupClick={() => setShowSignup(true)} />
 
