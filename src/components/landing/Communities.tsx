@@ -58,9 +58,10 @@ export function Communities({ onSignupClick }: CommunitiesProps) {
   const [anonId, setAnonId] = useState("");
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const firstPreviewCardRef = useRef<HTMLDivElement | null>(null);
 
-  function openCommunityPreview(e: React.MouseEvent<HTMLDivElement>, community: (typeof communities)[number]) {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  function openCommunityPreview(element: HTMLElement, community: (typeof communities)[number]) {
+    const rect = element.getBoundingClientRect();
     const pool = getMessagesForCommunity(community.title);
     const shuffled = [...pool].sort(() => Math.random() - 0.5);
     const msgs = shuffled.slice(0, 3);
@@ -137,9 +138,34 @@ export function Communities({ onSignupClick }: CommunitiesProps) {
             <h2 className="landing-heading">
               Find the room where your truth makes sense.
             </h2>
-            <p className="mx-auto mt-3 max-w-xl text-sm text-raw-silver/50 sm:mt-4 sm:text-base">
-              Explore anonymous online communities built around moods, interests, and lived experiences — from late-night honesty to niche conversations that make you feel less alone.
+            <p className="mx-auto mt-3 max-w-2xl text-sm text-raw-silver/50 sm:mt-4 sm:text-base">
+              Communities are anonymous by design: people see your username and avatar, not your real name. Rooms stay live 24/7, so there is always someone online when you are bored, lonely, need to rant, or just want a place to talk.
             </p>
+          </div>
+
+          <div className="mx-auto mb-7 max-w-3xl rounded-3xl border border-raw-gold/20 bg-raw-black/30 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] sm:mb-9 sm:p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-display text-sm tracking-wide text-raw-gold sm:text-base">
+                  Click a room. See how it feels.
+                </p>
+                <p className="mt-2 text-xs leading-relaxed text-raw-silver/50 sm:text-sm">
+                  Open any community below to preview the anonymous live chat. Your voice shows up as a username and avatar only.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const firstCommunity = communities.find((community) => !community.waitlist);
+                  if (firstCommunity && firstPreviewCardRef.current) {
+                    openCommunityPreview(firstPreviewCardRef.current, firstCommunity);
+                  }
+                }}
+                className="shrink-0 rounded-full border border-raw-gold/35 bg-raw-gold/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-raw-gold transition hover:border-raw-gold/60 hover:bg-raw-gold/15"
+              >
+                Try a preview
+              </button>
+            </div>
           </div>
 
           <div className="grid gap-4 sm:gap-6 grid-cols-2 md:grid-cols-4">
@@ -149,8 +175,23 @@ export function Communities({ onSignupClick }: CommunitiesProps) {
             return (
               <div
                 key={c.title}
-                onClick={(e) => { if (!c.waitlist) openCommunityPreview(e, c); }}
-                className="cursor-pointer"
+                ref={(node) => {
+                  if (!c.waitlist && firstPreviewCardRef.current === null) {
+                    firstPreviewCardRef.current = node;
+                  }
+                }}
+                id={`raw-community-card-${c.title}`}
+                tabIndex={c.waitlist ? -1 : 0}
+                role={c.waitlist ? undefined : "button"}
+                aria-label={c.waitlist ? undefined : `Preview ${c.title}`}
+                onClick={(e) => { if (!c.waitlist) openCommunityPreview(e.currentTarget, c); }}
+                onKeyDown={(e) => {
+                  if (!c.waitlist && (e.key === "Enter" || e.key === " ")) {
+                    e.preventDefault();
+                    openCommunityPreview(e.currentTarget, c);
+                  }
+                }}
+                className="cursor-pointer outline-none transition focus-visible:ring-2 focus-visible:ring-raw-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-raw-black"
               >
               <div
                 className={
@@ -301,11 +342,14 @@ export function Communities({ onSignupClick }: CommunitiesProps) {
                   </div>
 
                   <p className="text-center text-[10px] uppercase tracking-[0.3em] text-raw-gold/70">
-                    Anonymous chat preview
+                    24/7 anonymous room
                   </p>
                   <h3 className="mt-1 text-center font-display text-lg tracking-wide text-raw-text">
                     {selectedCommunity}
                   </h3>
+                  <p className="mx-auto mt-2 max-w-[17rem] text-center text-[11px] leading-relaxed text-raw-silver/45">
+                    Only username and avatar show. Come in whenever you need to talk.
+                  </p>
 
                   {/* messages feed */}
                   <div className="mt-4 max-h-52 space-y-2 overflow-y-auto pr-1">
