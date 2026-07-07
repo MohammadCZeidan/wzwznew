@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import LandingShell from "@/components/landing/LandingShell";
+import { ThemeProvider } from "@/providers/ThemeProvider";
 
 vi.mock("@/components/landing/Navbar", () => ({
   Navbar: () => <nav data-testid="navbar" />,
@@ -65,16 +66,18 @@ describe("LandingShell", () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     render(
-      <MemoryRouter>
-        <LandingShell {...baseProps} />
-      </MemoryRouter>
+      <ThemeProvider>
+        <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <LandingShell {...baseProps} />
+        </MemoryRouter>
+      </ThemeProvider>
     );
 
     expect(screen.queryByTestId("globe-hero")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("close-poll-showcase"));
 
-    expect(await screen.findByTestId("globe-hero")).toBeInTheDocument();
+    expect(await screen.findByText("Your place.")).toBeInTheDocument();
     expect(screen.getByTestId("matrix-background")).toBeInTheDocument();
 
     await waitFor(() => {
