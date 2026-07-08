@@ -8,22 +8,22 @@ describe("avatar rank pricing", () => {
     expect(Object.fromEntries(
       Object.entries(RANK_TIER_PRICING).map(([rank, config]) => [rank, config.price]),
     )).toEqual({
-      "1": 25,
-      "2": 75,
-      "3": 100,
-      "4": 150,
-      "5": 300,
-      "6": 600,
-      "7": 1200,
-      "8": 2500,
-      "9": 5000,
-      "10": 10000,
-      "11": 25000,
-      "12": 50000,
+      "1": 10,
+      "2": 30,
+      "3": 40,
+      "4": 60,
+      "5": 120,
+      "6": 240,
+      "7": 480,
+      "8": 1000,
+      "9": 2000,
+      "10": 4000,
+      "11": 10000,
+      "12": 20000,
     });
   });
 
-  it("prices known R2 shop avatars at 75 tokens", () => {
+  it("prices known R2 shop avatars at 30 tokens", () => {
     const names = ["Neon Lynx", "Teal Siren", "Aqua Phantom", "Teal Ghost", "Blue Cipher", "Cyan Relic"];
     const offenders = names
       .map((name) => {
@@ -32,14 +32,14 @@ describe("avatar rank pricing", () => {
 
         const rank = getAvatarRank(avatar);
         const price = RANK_TIER_PRICING[rank]?.price;
-        return rank === 2 && price === 75 ? null : `${name}: R${rank}, ${price ?? "missing"} tokens`;
+        return rank === 2 && price === 30 ? null : `${name}: R${rank}, ${price ?? "missing"} tokens`;
       })
       .filter((message): message is string => message !== null);
 
     expect(offenders, `R2 shop avatar price drift: ${offenders.join("; ")}`).toEqual([]);
   });
 
-  it("prices known R3 shop avatars at 100 tokens", () => {
+  it("prices known R3 shop avatars at 40 tokens", () => {
     const names = ["Quartz Reaper", "Green Relic", "Lime Warden", "Night Prism"];
     const offenders = names
       .map((name) => {
@@ -48,14 +48,14 @@ describe("avatar rank pricing", () => {
 
         const rank = getAvatarRank(avatar);
         const price = RANK_TIER_PRICING[rank]?.price;
-        return rank === 3 && price === 100 ? null : `${name}: R${rank}, ${price ?? "missing"} tokens`;
+        return rank === 3 && price === 40 ? null : `${name}: R${rank}, ${price ?? "missing"} tokens`;
       })
       .filter((message): message is string => message !== null);
 
     expect(offenders, `R3 shop avatar price drift: ${offenders.join("; ")}`).toEqual([]);
   });
 
-  it("prices known R4 shop avatars at 150 tokens", () => {
+  it("prices known R4 shop avatars at 60 tokens", () => {
     const names = ["Crimson Muse", "Void Runner", "Orange Vortex"];
     const offenders = names
       .map((name) => {
@@ -64,14 +64,14 @@ describe("avatar rank pricing", () => {
 
         const rank = getAvatarRank(avatar);
         const price = RANK_TIER_PRICING[rank]?.price;
-        return rank === 4 && price === 150 ? null : `${name}: R${rank}, ${price ?? "missing"} tokens`;
+        return rank === 4 && price === 60 ? null : `${name}: R${rank}, ${price ?? "missing"} tokens`;
       })
       .filter((message): message is string => message !== null);
 
     expect(offenders, `R4 shop avatar price drift: ${offenders.join("; ")}`).toEqual([]);
   });
 
-  it("prices known R5 shop avatars at 300 tokens", () => {
+  it("prices known R5 shop avatars at 120 tokens", () => {
     const names = [
       "Violet Mask",
       "Violet Fang",
@@ -90,14 +90,14 @@ describe("avatar rank pricing", () => {
 
         const rank = getAvatarRank(avatar);
         const price = RANK_TIER_PRICING[rank]?.price;
-        return rank === 5 && price === 300 ? null : `${name}: R${rank}, ${price ?? "missing"} tokens`;
+        return rank === 5 && price === 120 ? null : `${name}: R${rank}, ${price ?? "missing"} tokens`;
       })
       .filter((message): message is string => message !== null);
 
     expect(offenders, `R5 shop avatar price drift: ${offenders.join("; ")}`).toEqual([]);
   });
 
-  it("prices known R6 shop avatars at 600 tokens", () => {
+  it("prices known R6 shop avatars at 240 tokens", () => {
     const names = ["Black Comet", "Ruby Signal"];
     const offenders = names
       .map((name) => {
@@ -106,20 +106,20 @@ describe("avatar rank pricing", () => {
 
         const rank = getAvatarRank(avatar);
         const price = RANK_TIER_PRICING[rank]?.price;
-        return rank === 6 && price === 600 ? null : `${name}: R${rank}, ${price ?? "missing"} tokens`;
+        return rank === 6 && price === 240 ? null : `${name}: R${rank}, ${price ?? "missing"} tokens`;
       })
       .filter((message): message is string => message !== null);
 
     const redFiferRank = SLUG_AVATAR_RANKS["blu-fifer"];
     const redFiferPrice = redFiferRank ? RANK_TIER_PRICING[redFiferRank]?.price : undefined;
-    if (redFiferRank !== 6 || redFiferPrice !== 600) {
+    if (redFiferRank !== 6 || redFiferPrice !== 240) {
       offenders.push(`Red Fifer: R${redFiferRank ?? "missing"}, ${redFiferPrice ?? "missing"} tokens`);
     }
 
     expect(offenders, `R6 shop avatar price drift: ${offenders.join("; ")}`).toEqual([]);
   });
 
-  it("prices known R7 shop avatars at 1200 tokens", () => {
+  it("prices known R7 shop avatars at 480 tokens", () => {
     const names = ["Pink Circuit", "Pink Nova", "Crimson Echo"];
     const offenders = names
       .map((name) => {
@@ -128,14 +128,14 @@ describe("avatar rank pricing", () => {
 
         const rank = getAvatarRank(avatar);
         const price = RANK_TIER_PRICING[rank]?.price;
-        return rank === 7 && price === 1200 ? null : `${name}: R${rank}, ${price ?? "missing"} tokens`;
+        return rank === 7 && price === 480 ? null : `${name}: R${rank}, ${price ?? "missing"} tokens`;
       })
       .filter((message): message is string => message !== null);
 
     expect(offenders, `R7 shop avatar price drift: ${offenders.join("; ")}`).toEqual([]);
   });
 
-  it("prices known R8 shop avatars at 2500 tokens", () => {
+  it("prices known R8 shop avatars at 1000 tokens", () => {
     const names = ["Rose Warden", "Bronze Herald", "Gold Warden", "Pearl Siren", "Blush Monarch"];
     const offenders = names
       .map((name) => {
@@ -144,14 +144,14 @@ describe("avatar rank pricing", () => {
 
         const rank = getAvatarRank(avatar);
         const price = RANK_TIER_PRICING[rank]?.price;
-        return rank === 8 && price === 2500 ? null : `${name}: R${rank}, ${price ?? "missing"} tokens`;
+        return rank === 8 && price === 1000 ? null : `${name}: R${rank}, ${price ?? "missing"} tokens`;
       })
       .filter((message): message is string => message !== null);
 
     expect(offenders, `R8 shop avatar price drift: ${offenders.join("; ")}`).toEqual([]);
   });
 
-  it("prices known R9 shop avatars at 5000 tokens", () => {
+  it("prices known R9 shop avatars at 2000 tokens", () => {
     const names = ["Gold Specter", "Glass Monarch", "Ember Core"];
     const offenders = names
       .map((name) => {
@@ -160,7 +160,7 @@ describe("avatar rank pricing", () => {
 
         const rank = getAvatarRank(avatar);
         const price = RANK_TIER_PRICING[rank]?.price;
-        return rank === 9 && price === 5000 ? null : `${name}: R${rank}, ${price ?? "missing"} tokens`;
+        return rank === 9 && price === 2000 ? null : `${name}: R${rank}, ${price ?? "missing"} tokens`;
       })
       .filter((message): message is string => message !== null);
 
