@@ -88,8 +88,7 @@ VALUES
   (83, 'instagram-poll-083', 'Do you think more men or women are "heartbroken"?', 'Men', 360, 'Women', 640),
   (84, 'instagram-poll-084', 'Can you gain the same trust after losing it before?', 'Yes', 210, 'No', 790),
   (85, 'instagram-poll-085', 'Do you think sharing memes is a great way to connect?', 'Yes', 850, 'No', 150),
-  (86, 'instagram-poll-086', 'Would you rather be an ugly genius, or be beautiful but dumb?', 'Ugly genius', 740, 'Beautiful but dumb', 260),
-  (87, 'instagram-poll-087', 'Would you want to live in this kind of house?', 'Yes', 670, 'No', 330)
+  (86, 'instagram-poll-086', 'Would you rather be an ugly genius, or be beautiful but dumb?', 'Ugly genius', 740, 'Beautiful but dumb', 260)
 )
 INSERT INTO public.polls (id, question, options, status, is_onboarding, created_at)
 SELECT
@@ -197,8 +196,7 @@ VALUES
   (83, 'instagram-poll-083', 'Do you think more men or women are "heartbroken"?', 'Men', 360, 'Women', 640),
   (84, 'instagram-poll-084', 'Can you gain the same trust after losing it before?', 'Yes', 210, 'No', 790),
   (85, 'instagram-poll-085', 'Do you think sharing memes is a great way to connect?', 'Yes', 850, 'No', 150),
-  (86, 'instagram-poll-086', 'Would you rather be an ugly genius, or be beautiful but dumb?', 'Ugly genius', 740, 'Beautiful but dumb', 260),
-  (87, 'instagram-poll-087', 'Would you want to live in this kind of house?', 'Yes', 670, 'No', 330)
+  (86, 'instagram-poll-086', 'Would you rather be an ugly genius, or be beautiful but dumb?', 'Ugly genius', 740, 'Beautiful but dumb', 260)
 )
 INSERT INTO public.poll_options (id, poll_id, label, position)
 SELECT id || '-a', id, option_a, 0 FROM instagram_polls

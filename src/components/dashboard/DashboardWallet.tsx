@@ -1,103 +1,14 @@
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import { CheckCircle2, Zap, X, Lock } from "lucide-react";
+import { useState } from "react";
+import { CheckCircle2, Zap } from "lucide-react";
 import TokenImage from "@/assets/tokens.webp";
 import { useRawStore } from "@/store/useRawStore";
 import { PACKAGES } from "@/lib/wallet-packages";
-
-export interface PaymentModalProps {
-  selectedPackage: (typeof PACKAGES)[number];
-  onBack: () => void;
-  onClose: () => void;
-}
-
-export function PaymentModal({
-  selectedPackage,
-  onClose,
-}: PaymentModalProps) {
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
-  }, []);
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[9999] flex items-end justify-center sm:items-center p-0 sm:p-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      {/* backdrop */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-
-      {/* sheet */}
-      <div className="relative z-10 w-full max-w-md rounded-t-3xl sm:rounded-3xl border border-raw-gold/30 bg-raw-black overflow-y-auto max-h-[92dvh] sm:max-h-[90vh]">
-        <div className="p-5 sm:p-6">
-          {/* header */}
-          <div className="mb-5 flex items-center justify-between">
-            <h3 className="font-display text-lg tracking-wide text-raw-text">Payments coming soon</h3>
-            <button
-              onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-raw-border/40 text-raw-silver/60 transition hover:border-raw-gold/40 hover:text-raw-text"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          {/* order summary */}
-          <div className="mb-5 rounded-xl border border-raw-gold/25 bg-raw-gold/5 p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-raw-silver/50">Order Summary</p>
-            <div className="mt-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <img src={TokenImage} alt="Token" className="h-5 w-5 object-contain" />
-                <span className="font-display text-lg text-raw-text">{selectedPackage.tokens.toLocaleString()} tokens</span>
-              </div>
-              <span className="font-display text-lg text-raw-gold">${selectedPackage.price.toFixed(2)}</span>
-            </div>
-          </div>
-
-          <div className="mb-5 rounded-xl border border-raw-border/40 bg-raw-surface/25 p-4">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-raw-gold/10 text-raw-gold">
-                <Lock className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-raw-text">Checkout is not available yet.</p>
-                <p className="mt-1 text-xs leading-relaxed text-raw-silver/50">
-                  Token purchases are coming soon. No card details can be entered or stored right now.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <button
-            disabled
-            className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-raw-gold/20 px-8 py-3.5 text-sm font-semibold text-raw-gold/55"
-          >
-            <Lock className="h-4 w-4" />
-            Coming Soon
-          </button>
-
-          <p className="mt-4 text-center text-[10px] text-raw-silver/30">
-            Payment integration coming soon · UI preview only
-          </p>
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
-}
-
-function closePayment(
-  setPaymentOpen: (v: boolean) => void,
-) {
-  setPaymentOpen(false);
-}
+import { useRequestTokens } from "@/components/dashboard/RequestTokensModal";
 
 export function DashboardWallet() {
   const { tokenBalance: balance } = useRawStore();
+  const { openRequestTokens } = useRequestTokens();
   const [selected, setSelected] = useState<string | null>(null);
-  const [paymentOpen, setPaymentOpen] = useState(false);
-
-  const handleClose = () => closePayment(setPaymentOpen);
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -158,12 +69,11 @@ export function DashboardWallet() {
               {/* CTA */}
               <div className="flex flex-col gap-1.5 sm:items-end">
                 <button
-                  disabled
-                  className="w-full cursor-not-allowed rounded-xl border border-raw-gold/25 bg-raw-gold/10 px-6 py-3 text-sm font-semibold text-raw-gold/50 sm:w-auto sm:rounded-2xl sm:px-8 sm:py-3.5"
+                  onClick={() => openRequestTokens()}
+                  className="w-full rounded-xl border border-raw-gold/40 bg-raw-gold/90 px-6 py-3 text-sm font-semibold text-raw-ink transition hover:bg-raw-gold sm:w-auto sm:rounded-2xl sm:px-8 sm:py-3.5"
                 >
-                  Coming Soon
+                  Request tokens
                 </button>
-                <p className="text-center text-[10px] text-raw-silver/25 sm:text-right">Payments coming soon</p>
               </div>
             </div>
           </div>
@@ -179,7 +89,7 @@ export function DashboardWallet() {
             return (
               <button
                 key={pkg.id}
-                onClick={() => { setSelected(pkg.id); setPaymentOpen(true); }}
+                onClick={() => { setSelected(pkg.id); openRequestTokens(pkg.id); }}
                 className={`group relative overflow-hidden rounded-2xl border p-3 sm:p-5 text-left transition-all ${
                   isSelected
                     ? "border-raw-gold/60 shadow-[0_0_24px_rgba(241,196,45,0.2)]"
@@ -220,15 +130,7 @@ export function DashboardWallet() {
         </div>
       </section>
 
-      <p className="text-xs text-raw-silver/35">Token purchases are coming soon. Tokens never expire.</p>
-
-      {paymentOpen && selected && (
-        <PaymentModal
-          selectedPackage={PACKAGES.find((p) => p.id === selected)!}
-          onBack={handleClose}
-          onClose={handleClose}
-        />
-      )}
+      <p className="text-xs text-raw-silver/35">Tokens never expire.</p>
     </div>
   );
 }

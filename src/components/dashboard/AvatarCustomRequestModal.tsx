@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { createAvatarCustomRequest } from "@/lib/adminData";
 import { spendTokens } from "@/lib/api/tokens";
+import { useRequestTokens } from "@/components/dashboard/RequestTokensModal";
 import TokenImage from "@/assets/tokens.webp";
 
 const REQUEST_COST = 40000;
@@ -22,6 +23,7 @@ export function AvatarCustomRequestModal({
   onClose,
   tokenBalance,
 }: AvatarCustomRequestModalProps) {
+  const { openRequestTokens } = useRequestTokens();
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const canAfford = tokenBalance >= REQUEST_COST;
@@ -38,10 +40,8 @@ export function AvatarCustomRequestModal({
     }
 
     if (!canAfford) {
-      toast({
-        title: "Not enough tokens",
-        description: `You need ${REQUEST_COST.toLocaleString()} tokens to submit a request. Go to the Wallet tab to get more.`,
-      });
+      onClose();
+      openRequestTokens(undefined, `You need ${REQUEST_COST.toLocaleString()} tokens to submit a request.`);
       return;
     }
 

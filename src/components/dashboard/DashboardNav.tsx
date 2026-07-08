@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { AvatarFigure } from "@/components/ui/avatar-figure";
 import { TokenBalanceButton } from "@/components/ui/TokenBalanceButton";
+import { useRequestTokens } from "@/components/dashboard/RequestTokensModal";
 import { cn } from "@/lib/utils";
 import { readIssueReports, writeIssueReports, type IssueReportRecord } from "@/lib/adminData";
 import { useTheme } from "@/providers/useTheme";
@@ -173,6 +174,7 @@ export function DashboardNav({ userId, username, avatarLevel, onProfileClick, on
   const [issueDetails, setIssueDetails] = useState("");
   const [screenshotName, setScreenshotName] = useState("");
   const [screenshotDataUrl, setScreenshotDataUrl] = useState("");
+  const { openRequestTokens } = useRequestTokens();
   const [unlockingAccentId, setUnlockingAccentId] = useState<AccentPresetId | null>(null);
   const [accentPurchaseId, setAccentPurchaseId] = useState<AccentPresetId | null>(null);
   const [ownedAccentIds, setOwnedAccentIds] = useState<AccentPresetId[]>(() => readOwnedAccentsCache(userId));
@@ -352,7 +354,7 @@ export function DashboardNav({ userId, username, avatarLevel, onProfileClick, on
   const handleAccentPurchase = async (presetId: AccentPresetId) => {
     if (unlockingAccentId) return;
     if (tokenBalanceForUnlocks < ACCENT_UNLOCK_COST) {
-      toast({ title: "Not enough tokens", description: `You need ${ACCENT_UNLOCK_COST} tokens to unlock this theme.` });
+      openRequestTokens(undefined, `You need ${ACCENT_UNLOCK_COST} tokens to unlock this theme.`);
       return;
     }
     setUnlockingAccentId(presetId);
@@ -964,14 +966,21 @@ export function DashboardNav({ userId, username, avatarLevel, onProfileClick, on
                   </Button>
                   <Button
                     type="button"
-                    disabled={unlockingAccentId !== null || tokenBalanceForUnlocks < ACCENT_UNLOCK_COST}
-                    onClick={() => { void handleAccentPurchase(accentPurchasePreset.id); }}
+                    disabled={unlockingAccentId !== null}
+                    onClick={() => {
+                      if (tokenBalanceForUnlocks < ACCENT_UNLOCK_COST) {
+                        setAccentPurchaseId(null);
+                        openRequestTokens();
+                        return;
+                      }
+                      void handleAccentPurchase(accentPurchasePreset.id);
+                    }}
                     className="rounded-xl bg-raw-gold text-raw-ink hover:bg-raw-gold/90 disabled:opacity-45"
                   >
                     {unlockingAccentId === accentPurchasePreset.id
                       ? "Buying..."
                       : tokenBalanceForUnlocks < ACCENT_UNLOCK_COST
-                        ? `Need ${ACCENT_UNLOCK_COST} tokens`
+                        ? "Request tokens"
                         : `Buy for ${ACCENT_UNLOCK_COST} tokens`}
                   </Button>
                 </DialogFooter>

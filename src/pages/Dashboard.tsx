@@ -17,6 +17,7 @@ import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { DashboardHome } from "@/components/dashboard/DashboardHome";
 import { DashboardStore } from "@/components/dashboard/DashboardStore";
 import { DashboardSectionShell } from "@/components/dashboard/DashboardSectionShell";
+import { RequestTokensProvider } from "@/components/dashboard/RequestTokensModal";
 import { CommunityHoldSwitcher } from "@/components/dashboard/CommunityHoldSwitcher";
 import { NotificationConsentPrompt } from "@/components/notifications/NotificationConsentPrompt";
 import { useUserProgress } from "@/store/useUserProgress";
@@ -637,6 +638,7 @@ export default function Dashboard({
   };
 
   return (
+    <RequestTokensProvider>
     <div
       className="dashboard-enhanced-bg relative min-h-screen overflow-hidden bg-raw-black"
     >
@@ -749,5 +751,6 @@ export default function Dashboard({
         </div>
       </main>
     </div>
+    </RequestTokensProvider>
   );
 }
