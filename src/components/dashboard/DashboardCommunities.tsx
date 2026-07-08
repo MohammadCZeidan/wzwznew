@@ -561,8 +561,8 @@ export function DashboardCommunities({
 
     return (
       <motion.div
-        className="fixed inset-x-0 top-14 z-30 flex flex-col overflow-hidden sm:static sm:inset-auto sm:z-auto sm:block sm:h-auto sm:overflow-visible sm:space-y-6"
-        style={{ bottom: "max(72px, calc(56px + env(safe-area-inset-bottom)))" }}
+        className="fixed inset-x-0 z-30 flex flex-col overflow-hidden sm:static sm:inset-auto sm:z-auto sm:block sm:h-auto sm:overflow-visible sm:space-y-6"
+        style={{ top: "calc(3.5rem + env(safe-area-inset-top))", bottom: "max(72px, calc(56px + env(safe-area-inset-bottom)))" }}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.16, ease: "easeOut" }}
