@@ -24,15 +24,28 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function matchesTerm(lowerText: string, term: string): boolean {
+  if (!term) return false;
+  const pattern = new RegExp(
+    `(^|[^\\p{L}\\p{N}_])${escapeRegExp(term)}(?=$|[^\\p{L}\\p{N}_])`,
+    "iu",
+  );
+  return pattern.test(lowerText);
+}
+
 function findDenylistedTerm(text: string, terms: string[]): boolean {
   const lower = text.toLocaleLowerCase();
-  return terms.some((term) => {
-    const pattern = new RegExp(
-      `(^|[^\\p{L}\\p{N}_])${escapeRegExp(term)}(?=$|[^\\p{L}\\p{N}_])`,
-      "iu",
-    );
-    return pattern.test(lower);
-  });
+  return terms.some((term) => matchesTerm(lower, term));
+}
+
+/**
+ * Return every term (whole-word, case-insensitive) present in `text`. Used by
+ * the banned-words auto-moderation filter, which needs to know *which* words
+ * matched (and their per-word action), not just whether any did.
+ */
+export function findDenylistedTerms(text: string, terms: string[]): string[] {
+  const lower = normalizeServerText(text).toLocaleLowerCase();
+  return terms.filter((term) => matchesTerm(lower, term));
 }
 
 /** Parse a comma- or newline-separated denylist string (e.g. from an env var). */
