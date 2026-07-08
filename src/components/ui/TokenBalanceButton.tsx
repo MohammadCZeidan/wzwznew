@@ -5,7 +5,6 @@ import { useTheme } from "@/providers/useTheme";
 import { PACKAGES } from "@/lib/wallet-packages";
 import { useRequestTokens } from "@/components/dashboard/RequestTokensModal";
 
-
 export function TokenBalanceButton() {
   const { tokenBalance: balance } = useRawStore();
   const { mode } = useTheme();

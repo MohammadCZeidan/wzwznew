@@ -639,9 +639,9 @@ export default function Dashboard({
 
   return (
     <RequestTokensProvider userId={user.id} username={user.username}>
-      <div
-        className="dashboard-enhanced-bg relative min-h-screen overflow-hidden bg-raw-black"
-      >
+    <div
+      className="dashboard-enhanced-bg relative min-h-screen overflow-hidden bg-raw-black"
+    >
       <NotificationConsentPrompt userId={user.id} />
       <DashboardNav
         userId={user.id}
@@ -750,7 +750,7 @@ export default function Dashboard({
           {renderContent()}
         </div>
       </main>
-      </div>
+    </div>
     </RequestTokensProvider>
   );
 }

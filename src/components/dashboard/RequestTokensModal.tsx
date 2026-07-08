@@ -14,11 +14,19 @@ import { PACKAGES } from "@/lib/wallet-packages";
 import { submitTokenRequest } from "@/backend/supabase/controllers/tokenRequestController";
 
 interface RequestTokensContextValue {
+  /**
+   * Open the request-tokens popup, optionally pre-selecting a package and
+   * showing a reason banner (e.g. "You don't have enough tokens…").
+   */
   openRequestTokens: (initialPackageId?: string, reason?: string) => void;
 }
 
 const RequestTokensContext = createContext<RequestTokensContextValue | null>(null);
 
+/**
+ * Returns `openRequestTokens`. Safe to call outside a provider (no-op), so
+ * shared components can use it without crashing when rendered standalone.
+ */
 export function useRequestTokens(): RequestTokensContextValue {
   return useContext(RequestTokensContext) ?? { openRequestTokens: () => {} };
 }
@@ -142,7 +150,8 @@ function RequestTokensModal({
               <p className="text-sm font-semibold text-raw-text">Request sent</p>
               <p className="text-xs leading-relaxed text-raw-silver/50">
                 Your request for {selected.tokens.toLocaleString()} tokens
-                (${selected.price.toFixed(2)}) was sent to an admin.
+                (${selected.price.toFixed(2)}) was sent to an admin. They&apos;ll add the
+                tokens to your balance once approved.
               </p>
               <button
                 onClick={onClose}
@@ -167,7 +176,7 @@ function RequestTokensModal({
               >
                 {PACKAGES.map((pkg) => (
                   <option key={pkg.id} value={pkg.id} className="bg-raw-black text-raw-text">
-                    {pkg.tokens.toLocaleString()} tokens - ${pkg.price.toFixed(2)} ({pkg.label})
+                    {pkg.tokens.toLocaleString()} tokens — ${pkg.price.toFixed(2)} ({pkg.label})
                   </option>
                 ))}
               </select>
@@ -194,7 +203,7 @@ function RequestTokensModal({
                 disabled={submitting}
                 className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-raw-gold/90 px-8 py-3.5 text-sm font-semibold text-raw-ink transition hover:bg-raw-gold disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {submitting ? "Sending..." : "Request tokens"}
+                {submitting ? "Sending…" : "Request tokens"}
               </button>
             </>
           )}

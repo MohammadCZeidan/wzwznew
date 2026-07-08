@@ -19,6 +19,7 @@ export function DashboardWallet() {
         </p>
       </header>
 
+      {/* Balance */}
       <section className="relative overflow-hidden rounded-2xl border border-raw-gold/25 bg-raw-black/50 p-4 sm:p-5">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_-20%,rgba(241,196,45,0.18),transparent_55%)]" />
         <div className="flex items-center justify-between gap-4">
@@ -31,17 +32,22 @@ export function DashboardWallet() {
         </div>
       </section>
 
+      {/* Monthly Subscription */}
       <section>
         <div className="relative overflow-hidden rounded-2xl border border-raw-gold/30 bg-raw-black sm:rounded-3xl">
+          {/* layered glow */}
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(241,196,45,0.22),transparent)]" />
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_50%_40%_at_90%_110%,rgba(241,196,45,0.10),transparent)]" />
+          {/* dot grid */}
           <div className="pointer-events-none absolute inset-0 opacity-[0.07] [background-image:radial-gradient(rgba(255,255,255,0.8)_0.7px,transparent_0.7px)] [background-size:10px_10px]" />
 
           <div className="relative px-4 pb-4 pt-4 sm:px-8 sm:pb-7 sm:pt-8">
+            {/* badge */}
             <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-raw-gold/40 bg-raw-gold/[0.08] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-raw-gold sm:mb-4 sm:px-3 sm:text-[10px] sm:tracking-[0.18em]">
               <Zap className="h-2.5 w-2.5 fill-current" /> All Access
             </div>
 
+            {/* price + perks row */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-5">
               <div>
                 <p className="font-display text-4xl tracking-tight text-raw-text sm:text-6xl">
@@ -60,6 +66,7 @@ export function DashboardWallet() {
                 </div>
               </div>
 
+              {/* CTA */}
               <div className="flex flex-col gap-1.5 sm:items-end">
                 <button
                   onClick={() => openRequestTokens()}
@@ -73,6 +80,7 @@ export function DashboardWallet() {
         </div>
       </section>
 
+      {/* Packages */}
       <section>
         <p className="mb-4 text-xs uppercase tracking-[0.2em] text-raw-silver/40">Choose a package</p>
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
@@ -81,11 +89,8 @@ export function DashboardWallet() {
             return (
               <button
                 key={pkg.id}
-                onClick={() => {
-                  setSelected(pkg.id);
-                  openRequestTokens(pkg.id);
-                }}
-                className={`group relative overflow-hidden rounded-2xl border p-3 text-left transition-all sm:p-5 ${
+                onClick={() => { setSelected(pkg.id); openRequestTokens(pkg.id); }}
+                className={`group relative overflow-hidden rounded-2xl border p-3 sm:p-5 text-left transition-all ${
                   isSelected
                     ? "border-raw-gold/60 shadow-[0_0_24px_rgba(241,196,45,0.2)]"
                     : pkg.highlight
@@ -106,13 +111,13 @@ export function DashboardWallet() {
 
                 <div className="relative flex items-center gap-1.5">
                   <img src={TokenImage} alt="Token" className="h-4 w-4 object-contain" />
-                  <span className="font-display text-xl text-raw-text sm:text-2xl">{pkg.tokens.toLocaleString()}</span>
+                  <span className="font-display text-xl sm:text-2xl text-raw-text">{pkg.tokens.toLocaleString()}</span>
                 </div>
                 <p className="relative text-[11px] text-raw-silver/50">tokens</p>
 
                 <div className="relative mt-2 flex items-end justify-between">
                   <div>
-                    <p className="font-display text-lg text-raw-text sm:text-xl">${pkg.price.toFixed(2)}</p>
+                    <p className="font-display text-lg sm:text-xl text-raw-text">${pkg.price.toFixed(2)}</p>
                     <p className="text-[10px] text-raw-silver/40">{pkg.perToken}</p>
                   </div>
                   {isSelected && (

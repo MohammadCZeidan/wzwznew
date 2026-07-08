@@ -10,11 +10,21 @@ import { installGlobalCrashAlerts } from "@/lib/crashAlerts";
 import { initSentry } from "@/lib/sentry";
 import { ensureOneSignalInit, isOneSignalServiceWorker } from "@/lib/onesignal";
 import { logAppBoot, markAppBootStart } from "@/lib/devPerf";
+import { buildCanonicalAppUrl } from "@/lib/canonicalHost";
 import App from "./App.tsx";
 import "./index.css";
 import "./styles/raw-reveal-button.css";
 import posthog from "posthog-js";
 
+function redirectToCanonicalHost(): boolean {
+  if (typeof window === "undefined") return false;
+  if (window.location.hostname !== "myraw.app") return false;
+
+  window.location.replace(buildCanonicalAppUrl(window.location));
+  return true;
+}
+
+const shouldMountApp = !redirectToCanonicalHost();
 const appBootStart = markAppBootStart();
 const queryClient = new QueryClient();
 let monitoringStarted = false;
@@ -100,35 +110,55 @@ if (typeof window !== "undefined") {
 }
 
 const shouldEnableSpeedInsights = import.meta.env.PROD;
+const SERVICE_WORKER_CLEANUP_RELOAD_KEY = "raw.sw-cleanup-reloaded";
 
-if ("serviceWorker" in navigator && import.meta.env.PROD) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.getRegistrations()
-      .then((registrations) =>
-        Promise.all(
-          registrations
-            .filter((registration) => !isOneSignalServiceWorker(registration))
-            .map((registration) => registration.unregister()),
-        ),
-      )
-      .catch(() => {
-        // no-op: app works even if service worker cleanup is unavailable.
-      });
-  });
+function cleanupLegacyServiceWorkers() {
+  if (!("serviceWorker" in navigator) || !import.meta.env.PROD) return;
+
+  const hadController = Boolean(navigator.serviceWorker.controller);
+
+  navigator.serviceWorker.getRegistrations()
+    .then((registrations) =>
+      Promise.all(
+        registrations
+          .filter((registration) => !isOneSignalServiceWorker(registration))
+          .map((registration) => registration.unregister()),
+      ),
+    )
+    .then((results) => {
+      if (!hadController || !results.some(Boolean)) return;
+
+      try {
+        if (window.sessionStorage.getItem(SERVICE_WORKER_CLEANUP_RELOAD_KEY) === "1") return;
+        window.sessionStorage.setItem(SERVICE_WORKER_CLEANUP_RELOAD_KEY, "1");
+      } catch {
+        // If sessionStorage is unavailable, avoid a reload loop.
+        return;
+      }
+
+      window.location.reload();
+    })
+    .catch(() => {
+      // no-op: app works even if service worker cleanup is unavailable.
+    });
 }
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <App />
-        {shouldEnableSpeedInsights ? <SpeedInsights /> : null}
-      </QueryClientProvider>
-    </ErrorBoundary>
-  </StrictMode>
-);
+if (shouldMountApp) {
+  cleanupLegacyServiceWorkers();
 
-runAfterFirstPaint(() => {
-  initMonitoringAndAnalytics();
-  logAppBoot(appBootStart);
-});
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      <ErrorBoundary>
+        <QueryClientProvider client={queryClient}>
+          <App />
+          {shouldEnableSpeedInsights ? <SpeedInsights /> : null}
+        </QueryClientProvider>
+      </ErrorBoundary>
+    </StrictMode>
+  );
+
+  runAfterFirstPaint(() => {
+    initMonitoringAndAnalytics();
+    logAppBoot(appBootStart);
+  });
+}
