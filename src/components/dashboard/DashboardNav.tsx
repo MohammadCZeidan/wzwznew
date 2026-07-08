@@ -49,6 +49,7 @@ import { spendTokens } from "@/lib/api/tokens";
 import { supabase } from "@/lib/supabase";
 import { listUserAliases, setChatIdentity, type UserAliasRow } from "@/backend/supabase/controllers/userController";
 import { getFoundingInviteRedemptions } from "@/backend/supabase/controllers/userExtrasController";
+import { listMyTokenRequestOutcomes, type TokenRequestOutcome } from "@/backend/supabase/controllers/tokenRequestController";
 import { getPrivateAvatarLevel } from "@/lib/avataridentity";
 import { CHAT_IDENTITY_CHANGED_EVENT, readSelectedChatAlias, writeSelectedChatAlias } from "@/lib/identitySelection";
 
@@ -110,7 +111,7 @@ function writeOwnedAccentsCache(userId: string, ids: AccentPresetId[]): void {
 
 type DashboardNotification = {
   id: string;
-  type: "mention" | "like" | "community" | "invite-claimed";
+  type: "mention" | "like" | "community" | "invite-claimed" | "token-approved" | "token-rejected";
   title: string;
   communityTitle: string;
   senderName?: string;
@@ -181,6 +182,7 @@ export function DashboardNav({ userId, username, avatarLevel, onProfileClick, on
   const [tokenBalanceForUnlocks, setTokenBalanceForUnlocks] = useState<number>(() => readStoredTokenBalance(userId));
   const [privateAliases, setPrivateAliases] = useState<UserAliasRow[]>([]);
   const [referralNotifications, setReferralNotifications] = useState<ReferralNotificationRecord[]>([]);
+  const [tokenOutcomes, setTokenOutcomes] = useState<TokenRequestOutcome[]>([]);
   const [selectedChatAlias, setSelectedChatAlias] = useState<string | null>(() => readSelectedChatAlias(userId));
   const notifRef = useRef<HTMLDivElement>(null);
   const effectiveAvatarLevel = selectedChatAlias ? getPrivateAvatarLevel(userId) : avatarLevel;
@@ -229,6 +231,16 @@ export function DashboardNav({ userId, username, avatarLevel, onProfileClick, on
     getFoundingInviteRedemptions(userId)
       .then((rows) => {
         if (!cancelled) setReferralNotifications(rows);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    listMyTokenRequestOutcomes()
+      .then((rows) => {
+        if (!cancelled) setTokenOutcomes(rows);
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -306,8 +318,22 @@ export function DashboardNav({ userId, username, avatarLevel, onProfileClick, on
         createdAt: referral.createdAt,
       });
     }
+    for (const outcome of tokenOutcomes) {
+      const amount = outcome.tokens ? `${outcome.tokens.toLocaleString()} tokens` : "tokens";
+      const approved = outcome.status === "approved";
+      results.push({
+        id: `token-${outcome.status}:${outcome.id}`,
+        type: approved ? "token-approved" : "token-rejected",
+        title: approved ? "Token request approved" : "Token request declined",
+        communityTitle: "Tokens",
+        text: approved
+          ? `Your request for ${amount} was approved and added to your balance.`
+          : `Your request for ${amount} was declined.`,
+        createdAt: outcome.createdAt,
+      });
+    }
     return results.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [userId, username, communities, referralNotifications]);
+  }, [userId, username, communities, referralNotifications, tokenOutcomes]);
   const unseenNotificationCount = useMemo(() => {
     const seen = new Set(seenNotificationIds);
     return notifications.filter((notification) => !seen.has(notification.id)).length;
@@ -612,8 +638,8 @@ export function DashboardNav({ userId, username, avatarLevel, onProfileClick, on
                     <div key={i} className={cn("border-b px-4 py-3 last:border-0 transition-opacity", isEffectiveLight ? "border-slate-100" : "border-raw-border/15", isRead && "opacity-45")}>
                       <div className="flex items-center gap-2">
                         {!isRead && <span className="h-1.5 w-1.5 rounded-full bg-raw-accent flex-shrink-0" />}
-                        <span className={`text-[9px] uppercase tracking-wider font-semibold rounded-full px-2 py-0.5 ${n.type === "like" ? "bg-raw-gold/15 text-raw-gold" : "bg-raw-silver/10 text-raw-silver/60"}`}>
-                          {n.type === "like" ? `♥ ${n.likeCount} like${(n.likeCount ?? 0) > 1 ? "s" : ""}` : n.type === "community" ? "New community" : n.type === "invite-claimed" ? "Code used" : "@ mention"}
+                        <span className={`text-[9px] uppercase tracking-wider font-semibold rounded-full px-2 py-0.5 ${n.type === "like" || n.type === "token-approved" ? "bg-raw-gold/15 text-raw-gold" : "bg-raw-silver/10 text-raw-silver/60"}`}>
+                          {n.type === "like" ? `♥ ${n.likeCount} like${(n.likeCount ?? 0) > 1 ? "s" : ""}` : n.type === "community" ? "New community" : n.type === "invite-claimed" ? "Code used" : n.type === "token-approved" ? "Tokens approved" : n.type === "token-rejected" ? "Tokens declined" : "@ mention"}
                         </span>
                         <p className={cn("text-[10px]", isEffectiveLight ? "text-slate-500" : "text-raw-silver/40")}>{n.communityTitle}</p>
                       </div>
