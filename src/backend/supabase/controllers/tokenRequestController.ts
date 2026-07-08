@@ -15,19 +15,23 @@ function isBadRequest(error: { code?: string; status?: number } | null): boolean
 export async function submitTokenRequest(input: TokenRequestInput): Promise<void> {
   if (!input.userId) throw new Error("Sign in to request tokens.");
 
+  const packageReason = `${input.tokens} tokens`;
+  const combinedNote = input.note?.trim()
+    ? `${packageReason} requested. ${input.note.trim()}`
+    : `${packageReason} requested.`;
+
   const primaryInsert = await supabase.from('token_requests').insert({
     user_id: input.userId,
     username: input.username,
-    tokens: input.tokens,
     price_usd: input.priceUsd,
-    reasons: [],
-    note: input.note ?? null,
+    reasons: [packageReason],
+    note: combinedNote,
   });
 
   if (!primaryInsert.error) return;
 
   // `token_requests` is defined in the shared admin repo, and some deployed
-  // environments still expose the older `price` column instead of `price_usd`.
+  // environments still expose older column sets.
   if (!isBadRequest(primaryInsert.error)) {
     throw new Error(primaryInsert.error.message || "Failed to request tokens.");
   }
