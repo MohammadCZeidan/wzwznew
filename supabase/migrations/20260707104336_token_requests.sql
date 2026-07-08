@@ -1,0 +1,13 @@
+-- Placeholder - DO NOT add DDL here.
+--
+-- The `token_requests` table is owned by the admin repo (welkhazen/merginggggg),
+-- which defines and maintains it on the shared Supabase project. This app only
+-- inserts request rows for admin review.
+--
+-- This file exists solely as a migration-history marker so `supabase db push`
+-- reconciles with the remote history (version 20260707104336, applied by
+-- merginggggg) instead of failing with "Remote migration versions not found in
+-- local migrations directory".
+--
+-- Intentionally empty of SQL: adding the table definition here would define
+-- token_requests in both repos on the same Supabase project.

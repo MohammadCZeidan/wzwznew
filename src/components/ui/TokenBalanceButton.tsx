@@ -1,20 +1,16 @@
-import { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import tokenImg from "@/assets/tokens.webp";
 import { useRawStore } from "@/store/useRawStore";
 import { useTheme } from "@/providers/useTheme";
 import { PACKAGES } from "@/lib/wallet-packages";
-
-const PaymentModal = lazy(() =>
-  import("@/components/dashboard/DashboardWallet").then((m) => ({ default: m.PaymentModal }))
-);
+import { useRequestTokens } from "@/components/dashboard/RequestTokensModal";
 
 
 export function TokenBalanceButton() {
   const { tokenBalance: balance } = useRawStore();
   const { mode } = useTheme();
+  const { openRequestTokens } = useRequestTokens();
   const [open, setOpen] = useState(false);
-  const [selectedPackId, setSelectedPackId] = useState<string | null>(null);
-  const [paymentOpen, setPaymentOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const isLight = mode === "light";
 
@@ -23,13 +19,8 @@ export function TokenBalanceButton() {
   }
 
   function handleBuy(packId: string) {
-    setSelectedPackId(packId);
     setOpen(false);
-    setPaymentOpen(true);
-  }
-
-  function handleClosePayment() {
-    setPaymentOpen(false);
+    openRequestTokens(packId);
   }
 
   useEffect(() => {
@@ -100,7 +91,7 @@ export function TokenBalanceButton() {
           }}
         >
           <div className="mb-2 flex items-center justify-between gap-2">
-            <span className="font-display text-[11px] uppercase tracking-[0.18em] text-raw-gold/75">Buy tokens</span>
+            <span className="font-display text-[11px] uppercase tracking-[0.18em] text-raw-gold/75">Request tokens</span>
             <span className={`text-[11px] ${isLight ? "text-slate-500" : "text-raw-silver/45"}`}>
               Balance {balance}
             </span>
@@ -132,18 +123,9 @@ export function TokenBalanceButton() {
             ))}
           </div>
           <p className={`mt-3 text-[10px] leading-relaxed ${isLight ? "text-slate-500" : "text-raw-silver/40"}`}>
-            Token purchases are coming soon. Earn free tokens daily from the spin and challenges.
+            Pick a package to request tokens. Earn free tokens daily from the spin and challenges.
           </p>
         </div>
-      )}
-      {paymentOpen && selectedPackId && (
-        <Suspense fallback={null}>
-          <PaymentModal
-            selectedPackage={PACKAGES.find((p) => p.id === selectedPackId)!}
-            onBack={handleClosePayment}
-            onClose={handleClosePayment}
-          />
-        </Suspense>
       )}
     </div>
   );

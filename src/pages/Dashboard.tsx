@@ -17,6 +17,7 @@ import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { DashboardHome } from "@/components/dashboard/DashboardHome";
 import { DashboardStore } from "@/components/dashboard/DashboardStore";
 import { DashboardSectionShell } from "@/components/dashboard/DashboardSectionShell";
+import { RequestTokensProvider } from "@/components/dashboard/RequestTokensModal";
 import { CommunityHoldSwitcher } from "@/components/dashboard/CommunityHoldSwitcher";
 import { NotificationConsentPrompt } from "@/components/notifications/NotificationConsentPrompt";
 import { useUserProgress } from "@/store/useUserProgress";
@@ -637,9 +638,10 @@ export default function Dashboard({
   };
 
   return (
-    <div
-      className="dashboard-enhanced-bg relative min-h-screen overflow-hidden bg-raw-black"
-    >
+    <RequestTokensProvider userId={user.id} username={user.username}>
+      <div
+        className="dashboard-enhanced-bg relative min-h-screen overflow-hidden bg-raw-black"
+      >
       <NotificationConsentPrompt userId={user.id} />
       <DashboardNav
         userId={user.id}
@@ -748,6 +750,7 @@ export default function Dashboard({
           {renderContent()}
         </div>
       </main>
-    </div>
+      </div>
+    </RequestTokensProvider>
   );
 }
