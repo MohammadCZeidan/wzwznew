@@ -47,6 +47,7 @@ export default async function handler(request: Request): Promise<Response> {
     price_usd: priceUsd,
     reasons: [packageReason],
     note: combinedNote,
+    status: "pending",
   });
   if (!primaryInsert.error) return json({ ok: true }, 201);
 
