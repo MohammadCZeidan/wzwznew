@@ -19,7 +19,54 @@ function isConstraintError(error: { code?: string; message?: string | null } | n
   return error?.code === "23514" && (error.message ?? "").includes(constraint);
 }
 
+// Derive the requested token count for display: prefer the tokens column, else
+// parse "<n> tokens" out of the reasons/note text the request was created with.
+function tokenCountFor(row: { tokens: number | null; reasons: string[] | null; note: string | null }): number | null {
+  if (typeof row.tokens === "number" && row.tokens > 0) return row.tokens;
+  const text = [...(row.reasons ?? []), row.note ?? ""].join(" ");
+  const match = text.match(/\b(\d+)\s+tokens?\b/i);
+  const amount = match ? Number(match[1]) : NaN;
+  return Number.isInteger(amount) && amount > 0 ? amount : null;
+}
+
+// Reviewed outcomes the user should be notified about. 'fulfilled'/'approved'
+// = granted, 'rejected' = declined. (Live rows use 'fulfilled'.)
+async function handleList(request: Request): Promise<Response> {
+  if (!supabaseServerClient) return json({ error: "supabase_not_configured" }, 503);
+  const userId = await getRequestUserId(request);
+  if (!userId) return json({ error: "unauthorized" }, 401);
+
+  const { data, error } = await supabaseServerClient
+    .from("token_requests")
+    .select("id, tokens, price_usd, reasons, note, status, created_at")
+    .eq("user_id", userId)
+    .in("status", ["fulfilled", "approved", "rejected"])
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (error) {
+    console.error("[token-requests] list error", error);
+    return json({ error: "failed_to_load_token_requests" }, 500);
+  }
+
+  const rows = (data ?? []) as Array<{
+    id: string; tokens: number | null; price_usd: number | null;
+    reasons: string[] | null; note: string | null; status: string; created_at: string;
+  }>;
+
+  return json({
+    tokenRequests: rows.map((row) => ({
+      id: row.id,
+      tokens: tokenCountFor(row),
+      priceUsd: row.price_usd,
+      status: row.status === "fulfilled" ? "approved" : row.status,
+      createdAt: row.created_at,
+    })),
+  }, 200);
+}
+
 export default async function handler(request: Request): Promise<Response> {
+  if (request.method === "GET") return handleList(request);
   if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   if (!supabaseServerClient) return json({ error: "supabase_not_configured" }, 503);
   if (!isTrustedOrigin(request)) return json({ error: "forbidden_origin" }, 403);
