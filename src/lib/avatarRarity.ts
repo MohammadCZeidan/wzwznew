@@ -21,18 +21,18 @@ export interface RarityConfig {
 
 /** Token price and owner cap per rank tier. Higher rank = higher price = fewer owners. */
 export const RANK_TIER_PRICING: Record<number, { price: number; maxOwners: number | null }> = {
-  1:  { price: 25,     maxOwners: null  }, // Grey     — unlimited
-  2:  { price: 75,     maxOwners: 10000 }, // Blue
-  3:  { price: 100,    maxOwners: 7500  }, // Green
-  4:  { price: 150,    maxOwners: 5000  }, // Orange
-  5:  { price: 300,    maxOwners: 2000  }, // Purple
-  6:  { price: 600,    maxOwners: 800   }, // Red
-  7:  { price: 1200,   maxOwners: 300   }, // Pink
-  8:  { price: 2500,   maxOwners: 100   }, // Rose
-  9:  { price: 5000,   maxOwners: 40    }, // Gold
-  10: { price: 10000,  maxOwners: 15    }, // White
-  11: { price: 25000,  maxOwners: 5     }, // S1 (Rainbow)
-  12: { price: 50000,  maxOwners: 1     }, // C1
+  1:  { price: 5,      maxOwners: null  }, // Grey     — unlimited
+  2:  { price: 15,     maxOwners: 10000 }, // Blue
+  3:  { price: 20,     maxOwners: 7500  }, // Green
+  4:  { price: 30,     maxOwners: 5000  }, // Orange
+  5:  { price: 60,     maxOwners: 2000  }, // Purple
+  6:  { price: 120,    maxOwners: 800   }, // Red
+  7:  { price: 240,    maxOwners: 300   }, // Pink
+  8:  { price: 500,    maxOwners: 100   }, // Rose
+  9:  { price: 1000,   maxOwners: 40    }, // Gold
+  10: { price: 2000,   maxOwners: 15    }, // White
+  11: { price: 5000,   maxOwners: 5     }, // S1 (Rainbow)
+  12: { price: 10000,  maxOwners: 1     }, // C1
 };
 
 export const RARITY_CONFIG: Record<AvatarRarity, RarityConfig> = {
