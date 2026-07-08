@@ -12,6 +12,7 @@ import { getAvatarRank, hasAvatarRank } from "@/lib/avatarRank";
 import { getEligibleSpinAvatars, resolveAvatarCatalogLevel } from "@/lib/avatarSpin";
 import { toast } from "@/hooks/use-toast";
 import { AvatarCustomRequestModal } from "./AvatarCustomRequestModal";
+import { useRequestTokens } from "./RequestTokensModal";
 
 interface DashboardInventoryProps {
   avatarLevel: number;
@@ -249,6 +250,7 @@ interface LootSpinProps {
 export function LootSpin({ tokenBalance, avatarCatalog, ownedAvatarLevels, userId, onAvatarPurchased, onUnlockAvatar }: LootSpinProps) {
   const [result, setResult] = useState<SpinResult | null>(null);
   const [isClaiming, setIsClaiming] = useState(false);
+  const { openRequestTokens } = useRequestTokens();
 
   const canSpin = tokenBalance >= SPIN_COST;
 
@@ -370,10 +372,13 @@ export function LootSpin({ tokenBalance, avatarCatalog, ownedAvatarLevels, userI
         </div>
       )}
       {!canSpin && !result && (
-        <div className="mt-4 flex items-center justify-center gap-1.5 rounded-xl border border-raw-border/30 bg-raw-surface/20 py-2.5 text-sm font-semibold text-raw-silver/45">
+        <button
+          onClick={() => openRequestTokens()}
+          className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl border border-raw-gold/40 bg-raw-gold/10 py-2.5 text-sm font-semibold text-raw-gold transition hover:bg-raw-gold/20"
+        >
           <Lock className="h-3.5 w-3.5" />
-          Need {SPIN_COST} tokens
-        </div>
+          Request tokens
+        </button>
       )}
     </div>
   );

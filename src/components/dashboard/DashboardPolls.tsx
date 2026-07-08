@@ -3,6 +3,7 @@ import type { Poll } from "@/store/useRawStore";
 import { getDailyResetStartMs, getTodayKey } from "@/store/useRawStore.storage";
 import { useTheme } from "@/providers/useTheme";
 import { PremiumPollCard } from "@/components/polls/PremiumPollCard";
+import { useRequestTokens } from "@/components/dashboard/RequestTokensModal";
 import {
   Dialog,
   DialogContent,
@@ -173,6 +174,7 @@ export function DashboardPolls({
   onVote,
 }: DashboardPollsProps) {
   const { mode } = useTheme();
+  const { openRequestTokens } = useRequestTokens();
   const isLightMode = mode === "light";
   const answersStorageKey = `raw.poll-history.answers.${userId}`;
   const answerTimestampsStorageKey = `raw.poll-history.answers-ts.${userId}`;
@@ -568,12 +570,11 @@ export function DashboardPolls({
                 <span>Your balance: <span className="text-raw-gold/80 font-medium">{tokenBalance} tokens</span></span>
               </div>
               <button
-                onClick={onUnlockExtra}
-                disabled={tokenBalance < 10}
-                className="mt-1 flex items-center justify-center gap-2 border border-raw-gold/65 bg-raw-gold/90 px-4 py-2.5 text-xs font-semibold text-raw-ink hover:bg-raw-gold disabled:cursor-not-allowed disabled:opacity-50 sm:mt-0 sm:ml-auto"
+                onClick={tokenBalance < 10 ? () => openRequestTokens() : onUnlockExtra}
+                className="mt-1 flex items-center justify-center gap-2 border border-raw-gold/65 bg-raw-gold/90 px-4 py-2.5 text-xs font-semibold text-raw-ink hover:bg-raw-gold sm:mt-0 sm:ml-auto"
               >
                 <Coins className="size-3.5" />
-                {tokenBalance < 10 ? "Need 10 tokens to unlock 7 more" : "Unlock 7 more polls - 10 tokens"}
+                {tokenBalance < 10 ? "Request tokens" : "Unlock 7 more polls - 10 tokens"}
               </button>
             </div>
           </div>
