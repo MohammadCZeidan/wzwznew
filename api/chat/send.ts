@@ -3,7 +3,8 @@ import { isTrustedOrigin } from "../_lib/requestSecurity.js";
 import { supabaseServerClient } from "../_lib/supabaseServerClient.js";
 import { getRequestUserId } from "../_lib/sessionAuth.js";
 import { listBlockedWords } from "../_lib/blockedWordsStore.js";
-import { checkServerText, parseEnvDenylist } from "../_lib/serverModeration.js";
+import { listBannedWords, type BannedWordRecord } from "../_lib/bannedWordsStore.js";
+import { checkServerText, findDenylistedTerms, parseEnvDenylist } from "../_lib/serverModeration.js";
 
 export const config = { runtime: "edge" };
 
@@ -19,6 +20,29 @@ function isAdminUsername(username: string): boolean {
   if (!raw) return false;
   const set = new Set(raw.split(",").map((v) => v.trim().toLowerCase()).filter(Boolean));
   return set.has(username.toLowerCase());
+}
+
+// ---------------------------------------------------------------------------
+// Banned-words auto-moderation
+// ---------------------------------------------------------------------------
+
+// Record a moderation_flags row per matched banned word so the admin "Flagged
+// content" panel shows who wrote what. Best-effort: a failure here must never
+// break sending, so errors are logged and swallowed.
+async function recordModerationFlags(
+  supabase: NonNullable<typeof supabaseServerClient>,
+  args: { communityId: string; senderId: string; messageId: string | null; text: string; matches: BannedWordRecord[] },
+): Promise<void> {
+  for (const match of args.matches) {
+    const { error } = await supabase.from("moderation_flags").insert({
+      message_id: args.messageId,
+      community_id: args.communityId,
+      sender_id: args.senderId,
+      matched_word: match.normalizedWord,
+      reason: args.text,
+    });
+    if (error) console.error("[chat.send] moderation flag insert error", error);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -111,7 +135,10 @@ async function handleSend(request: Request): Promise<Response> {
   }
 
   // Enforce blocked words + link/number rules server-side before any DB write.
-  const [dbBlockedWords] = await Promise.all([listBlockedWords(supabaseServerClient)]);
+  const [dbBlockedWords, bannedWords] = await Promise.all([
+    listBlockedWords(supabaseServerClient),
+    listBannedWords(supabaseServerClient),
+  ]);
   const blockedTerms = [
     ...parseEnvDenylist(process.env.VITE_RAW_TEXT_DENYLIST),
     ...dbBlockedWords.map((w) => w.normalizedTerm),
@@ -144,6 +171,23 @@ async function handleSend(request: Request): Promise<Response> {
     }
 
     return json({ error: banned ? "banned_for_spam" : "blocked_word", violation: moderation.violation }, banned ? 403 : 422);
+  }
+
+  // Per-word auto-moderation: match the text against the banned-words list.
+  // 'block' words reject the send outright; 'flag'/'shadow' words let it through
+  // but get recorded for admin review after the message is stored.
+  const matchedTerms = new Set(findDenylistedTerms(trimmedText, bannedWords.map((w) => w.normalizedWord)));
+  const bannedMatches = bannedWords.filter((w) => matchedTerms.has(w.normalizedWord));
+  const blockMatches = bannedMatches.filter((w) => w.action === "block");
+  if (blockMatches.length > 0) {
+    await recordModerationFlags(supabaseServerClient, {
+      communityId,
+      senderId: userId,
+      messageId: null,
+      text: trimmedText,
+      matches: blockMatches,
+    });
+    return json({ error: "blocked_word", violation: "banned" }, 422);
   }
 
   const { data: member } = await supabaseServerClient
@@ -213,6 +257,19 @@ async function handleSend(request: Request): Promise<Response> {
   }
 
   const row = message as Record<string, unknown>;
+
+  // Record flag/shadow matches now that the message exists (message_id links the
+  // flag to the stored message). ponytail: 'shadow' currently records a flag but
+  // still shows the message to everyone; true shadow-hiding is a follow-up.
+  if (bannedMatches.length > 0) {
+    await recordModerationFlags(supabaseServerClient, {
+      communityId,
+      senderId: userId,
+      messageId: typeof row.id === "string" ? row.id : null,
+      text: trimmedText,
+      matches: bannedMatches,
+    });
+  }
 
   return json({
     ok: true,
