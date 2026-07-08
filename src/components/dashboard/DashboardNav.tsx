@@ -354,7 +354,7 @@ export function DashboardNav({ userId, username, avatarLevel, onProfileClick, on
   const handleAccentPurchase = async (presetId: AccentPresetId) => {
     if (unlockingAccentId) return;
     if (tokenBalanceForUnlocks < ACCENT_UNLOCK_COST) {
-      toast({ title: "Not enough tokens", description: `You need ${ACCENT_UNLOCK_COST} tokens to unlock this theme.` });
+      openRequestTokens(undefined, `You need ${ACCENT_UNLOCK_COST} tokens to unlock this theme.`);
       return;
     }
     setUnlockingAccentId(presetId);

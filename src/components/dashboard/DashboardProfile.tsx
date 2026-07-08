@@ -10,6 +10,7 @@ import { addOwnedInsightId, readOwnedInsightIds } from "@/lib/insightsOwnership"
 import { spendTokens } from "@/lib/api/tokens";
 import { CHAT_IDENTITY_CHANGED_EVENT, readSelectedChatAlias, writeSelectedChatAlias } from "@/lib/identitySelection";
 import { toast } from "@/hooks/use-toast";
+import { useRequestTokens } from "@/components/dashboard/RequestTokensModal";
 import {
   listUserAliases,
   savePrivateAlias,
@@ -108,6 +109,7 @@ export function DashboardProfile({
   const visibleInviteCodes = isAdmin
     ? inviteCodes.filter((code) => !redeemedCodes.has(code.toUpperCase()))
     : inviteCodes;
+  const { openRequestTokens } = useRequestTokens();
   const [openInviteCode, setOpenInviteCode] = useState<string | null>(null);
 
   // Private identity
@@ -227,7 +229,7 @@ export function DashboardProfile({
 
   const handlePurchaseInsight = async (insightId: string, tokenPrice: number) => {
     if (tokenBalance < tokenPrice) {
-      toast({ title: "Not enough tokens", description: `You need ${tokenPrice} tokens.` });
+      openRequestTokens(undefined, `You need ${tokenPrice} tokens.`);
       return;
     }
     try {

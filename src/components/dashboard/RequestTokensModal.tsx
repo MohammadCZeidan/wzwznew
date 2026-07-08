@@ -13,8 +13,11 @@ import TokenImage from "@/assets/tokens.webp";
 import { PACKAGES } from "@/lib/wallet-packages";
 
 interface RequestTokensContextValue {
-  /** Open the request-tokens popup, optionally pre-selecting a package. */
-  openRequestTokens: (initialPackageId?: string) => void;
+  /**
+   * Open the request-tokens popup, optionally pre-selecting a package and
+   * showing a reason banner (e.g. "You don't have enough tokens…").
+   */
+  openRequestTokens: (initialPackageId?: string, reason?: string) => void;
 }
 
 const RequestTokensContext = createContext<RequestTokensContextValue | null>(null);
@@ -30,9 +33,11 @@ export function useRequestTokens(): RequestTokensContextValue {
 export function RequestTokensProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [initialPackageId, setInitialPackageId] = useState<string | undefined>();
+  const [reason, setReason] = useState<string | undefined>();
 
-  const openRequestTokens = useCallback((packageId?: string) => {
+  const openRequestTokens = useCallback((packageId?: string, why?: string) => {
     setInitialPackageId(packageId);
+    setReason(why);
     setOpen(true);
   }, []);
 
@@ -44,6 +49,7 @@ export function RequestTokensProvider({ children }: { children: ReactNode }) {
       {open && (
         <RequestTokensModal
           initialPackageId={initialPackageId}
+          reason={reason}
           onClose={() => setOpen(false)}
         />
       )}
@@ -53,9 +59,11 @@ export function RequestTokensProvider({ children }: { children: ReactNode }) {
 
 function RequestTokensModal({
   initialPackageId,
+  reason,
   onClose,
 }: {
   initialPackageId?: string;
+  reason?: string;
   onClose: () => void;
 }) {
   const [packageId, setPackageId] = useState(initialPackageId ?? PACKAGES[0].id);
@@ -81,7 +89,9 @@ function RequestTokensModal({
       <div className="relative z-10 max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-3xl border border-raw-gold/30 bg-raw-black sm:max-h-[90vh] sm:rounded-3xl">
         <div className="p-5 sm:p-6">
           <div className="mb-5 flex items-center justify-between">
-            <h3 className="font-display text-lg tracking-wide text-raw-text">Request tokens</h3>
+            <h3 className="font-display text-lg tracking-wide text-raw-text">
+              {reason ? "Not enough tokens" : "Request tokens"}
+            </h3>
             <button
               onClick={onClose}
               className="flex h-8 w-8 items-center justify-center rounded-full border border-raw-border/40 text-raw-silver/60 transition hover:border-raw-gold/40 hover:text-raw-text"
@@ -89,6 +99,12 @@ function RequestTokensModal({
               <X className="h-4 w-4" />
             </button>
           </div>
+
+          {!submitted && reason && (
+            <p className="mb-4 rounded-xl border border-raw-gold/25 bg-raw-gold/5 px-4 py-3 text-sm text-raw-silver/70">
+              {reason} Pick a package below to request more.
+            </p>
+          )}
 
           {submitted ? (
             <div className="flex flex-col items-center gap-3 py-4 text-center">

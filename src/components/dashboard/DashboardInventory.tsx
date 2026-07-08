@@ -57,6 +57,7 @@ export function AvatarShop({
   userName,
   onAvatarPurchased,
 }: AvatarCommerceProps) {
+  const { openRequestTokens } = useRequestTokens();
   const [unlocking, setUnlocking] = useState<number | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [rankFilter, setRankFilter] = useState<number | null>(null);
@@ -167,10 +168,7 @@ export function AvatarShop({
               <button
                 onClick={async () => {
                   if (!canBuy) {
-                    toast({
-                      title: "Not enough tokens",
-                      description: "You don't have enough tokens for this purchase. Go to the Wallet tab to get more.",
-                    });
+                    openRequestTokens(undefined, "You don't have enough tokens for this purchase.");
                     return;
                   }
                   setUnlocking(catalogLevel);
