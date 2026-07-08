@@ -170,9 +170,11 @@ export function PremiumPollCard({
               />
             </div>
 
-            {showHint && !isAnswered && (
+            {!isAnswered && (
               <div className="mt-4 flex flex-col items-center">
-                <p className="text-center text-[10px] uppercase tracking-[0.2em]" style={{ color: "rgb(var(--raw-accent) / 0.75)" }}>tap to vote</p>
+                {showHint && (
+                  <p className="text-center text-[10px] uppercase tracking-[0.2em]" style={{ color: "rgb(var(--raw-accent) / 0.75)" }}>tap to vote</p>
+                )}
                 <ShareButton
                   links={[
                     { icon: MessageCircle, onClick: handleWhatsAppShare, label: "Share on WhatsApp" },
