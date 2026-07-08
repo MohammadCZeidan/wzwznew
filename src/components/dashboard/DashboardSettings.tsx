@@ -13,6 +13,7 @@ import { AdminBlockedWordsSettings } from "@/components/dashboard/AdminBlockedWo
 import { AdminUserModerationSettings } from "@/components/dashboard/AdminUserModerationSettings";
 import { AdminCreateStaffAccountSettings } from "@/components/dashboard/AdminCreateStaffAccountSettings";
 import { AdminInviteCodesSettings } from "@/components/dashboard/AdminInviteCodesSettings";
+import { AdminCommunityRoomsSettings } from "@/components/dashboard/AdminCommunityRoomsSettings";
 import {
   fetchDonationInterests,
   updateDonationInterestStatus,
@@ -239,6 +240,7 @@ export function DashboardSettings({ userId, username, isAdmin = false, isModerat
 
           {section === "admin" && canModerate && (
             <div className="space-y-6">
+              <AdminCommunityRoomsSettings userId={userId} username={username} />
               <AdminUserModerationSettings />
               {isAdmin && <AdminCreateStaffAccountSettings />}
               {isAdmin && <AdminInviteCodesSettings currentUsername={username} />}
