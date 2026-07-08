@@ -638,7 +638,7 @@ export default function Dashboard({
   };
 
   return (
-    <RequestTokensProvider>
+    <RequestTokensProvider userId={user.id} username={user.username}>
     <div
       className="dashboard-enhanced-bg relative min-h-screen overflow-hidden bg-raw-black"
     >

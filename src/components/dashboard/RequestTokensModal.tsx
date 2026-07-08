@@ -11,6 +11,7 @@ import { createPortal } from "react-dom";
 import { Check, X } from "lucide-react";
 import TokenImage from "@/assets/tokens.webp";
 import { PACKAGES } from "@/lib/wallet-packages";
+import { submitTokenRequest } from "@/backend/supabase/controllers/tokenRequestController";
 
 interface RequestTokensContextValue {
   /**
@@ -30,7 +31,15 @@ export function useRequestTokens(): RequestTokensContextValue {
   return useContext(RequestTokensContext) ?? { openRequestTokens: () => {} };
 }
 
-export function RequestTokensProvider({ children }: { children: ReactNode }) {
+export function RequestTokensProvider({
+  userId,
+  username,
+  children,
+}: {
+  userId: string;
+  username: string;
+  children: ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const [initialPackageId, setInitialPackageId] = useState<string | undefined>();
   const [reason, setReason] = useState<string | undefined>();
@@ -48,6 +57,8 @@ export function RequestTokensProvider({ children }: { children: ReactNode }) {
       {children}
       {open && (
         <RequestTokensModal
+          userId={userId}
+          username={username}
           initialPackageId={initialPackageId}
           reason={reason}
           onClose={() => setOpen(false)}
@@ -58,17 +69,42 @@ export function RequestTokensProvider({ children }: { children: ReactNode }) {
 }
 
 function RequestTokensModal({
+  userId,
+  username,
   initialPackageId,
   reason,
   onClose,
 }: {
+  userId: string;
+  username: string;
   initialPackageId?: string;
   reason?: string;
   onClose: () => void;
 }) {
   const [packageId, setPackageId] = useState(initialPackageId ?? PACKAGES[0].id);
+  const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const selected = PACKAGES.find((p) => p.id === packageId) ?? PACKAGES[0];
+
+  const handleSubmit = async () => {
+    setError(null);
+    setSubmitting(true);
+    try {
+      await submitTokenRequest({
+        userId,
+        username,
+        tokens: selected.tokens,
+        priceUsd: selected.price,
+        note: reason,
+      });
+      setSubmitted(true);
+    } catch {
+      setError("Couldn't send your request. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -111,10 +147,11 @@ function RequestTokensModal({
               <div className="flex h-11 w-11 items-center justify-center rounded-full border border-raw-gold/40 bg-raw-gold/10 text-raw-gold">
                 <Check className="h-5 w-5" />
               </div>
-              <p className="text-sm font-semibold text-raw-text">Request received</p>
+              <p className="text-sm font-semibold text-raw-text">Request sent</p>
               <p className="text-xs leading-relaxed text-raw-silver/50">
-                We&apos;ll reach out about your {selected.tokens.toLocaleString()} token
-                (${selected.price.toFixed(2)}) request. Payments aren&apos;t live yet.
+                Your request for {selected.tokens.toLocaleString()} tokens
+                (${selected.price.toFixed(2)}) was sent to an admin. They&apos;ll add the
+                tokens to your balance once approved.
               </p>
               <button
                 onClick={onClose}
@@ -157,11 +194,16 @@ function RequestTokensModal({
                 </div>
               </div>
 
+              {error && (
+                <p className="mt-3 text-center text-xs text-red-400">{error}</p>
+              )}
+
               <button
-                onClick={() => setSubmitted(true)}
-                className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-raw-gold/90 px-8 py-3.5 text-sm font-semibold text-raw-ink transition hover:bg-raw-gold"
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-raw-gold/90 px-8 py-3.5 text-sm font-semibold text-raw-ink transition hover:bg-raw-gold disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Request tokens
+                {submitting ? "Sending…" : "Request tokens"}
               </button>
             </>
           )}
