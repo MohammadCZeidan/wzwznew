@@ -1,28 +1,30 @@
--- Token top-up requests: a user who is out of tokens submits a request for a
--- package; an admin reviews it in the admin dashboard and grants the tokens.
--- Both apps share this Supabase project, so the request row and the grant RPC
--- are the contract between the user app and the admin dashboard.
+-- Token top-up requests, shared with the admin dashboard (welkhazen/merginggggg).
+-- A user who is out of tokens submits a request for a wallet package; the admin
+-- reviews it in the dashboard's Commerce tab and sets status = 'approved', which
+-- credits the user's balance via the trigger below.
+--
+-- Column shape matches the admin server route (server/routes/admin/commerce.ts):
+--   id, user_id, username, price_usd, reasons[], note, status, created_at.
+-- `tokens` is added so approval knows how many tokens to grant.
 
 create table if not exists public.token_requests (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.users(id) on delete cascade,
-  username text not null default '',
-  tokens int not null,
-  price numeric(10,2) not null,
+  user_id uuid references public.users(id) on delete set null,
+  username text,
+  tokens int,
+  price_usd numeric(10,2),
+  reasons text[] not null default '{}',
+  note text,
   status text not null default 'pending',
-  requested_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
   reviewed_at timestamptz,
-  reviewed_by uuid references public.users(id),
-  -- Only the known wallet packages may be requested, so nobody can ask for an
-  -- arbitrary amount by posting a crafted insert.
-  constraint token_requests_tokens_valid check (tokens in (50, 100, 200, 500, 1000)),
   constraint token_requests_status_valid check (status in ('pending', 'approved', 'rejected'))
 );
 
 create index if not exists token_requests_status_idx
-  on public.token_requests (status, requested_at desc);
+  on public.token_requests (status, created_at desc);
 create index if not exists token_requests_user_idx
-  on public.token_requests (user_id, requested_at desc);
+  on public.token_requests (user_id, created_at desc);
 
 alter table public.token_requests enable row level security;
 
@@ -33,6 +35,9 @@ create policy "Users can request tokens"
   to anon, authenticated
   with check (true);
 
+-- Admins (when acting through the authenticated client) can read/update.
+-- The admin dashboard's server route uses the service role and bypasses RLS,
+-- so these policies just cover any direct authenticated admin access.
 create policy "Admins can read token requests"
   on public.token_requests
   for select
@@ -40,9 +45,7 @@ create policy "Admins can read token requests"
   using (
     exists (
       select 1 from public.users
-      where users.id = auth.uid()
-        and users.role = 'admin'
-        and users.status <> 'banned'
+      where users.id = auth.uid() and users.role = 'admin' and users.status <> 'banned'
     )
   );
 
@@ -53,57 +56,37 @@ create policy "Admins can update token requests"
   using (
     exists (
       select 1 from public.users
-      where users.id = auth.uid()
-        and users.role = 'admin'
-        and users.status <> 'banned'
+      where users.id = auth.uid() and users.role = 'admin' and users.status <> 'banned'
     )
   );
 
 grant insert on public.token_requests to anon, authenticated;
 grant select, update on public.token_requests to authenticated;
 
--- Admin action: grant the requested tokens to the user and mark the request
--- approved. SECURITY DEFINER so it can credit users.token_balance, but it
--- verifies the caller is an admin first. The admin dashboard calls this.
-create or replace function public.approve_token_request(p_request_id uuid)
-returns json
+-- When a request flips to 'approved', credit the requested tokens to the user's
+-- balance exactly once. The admin dashboard only PATCHes status, so this trigger
+-- is what actually grants the tokens.
+create or replace function public.grant_tokens_on_approval()
+returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
-declare
-  v_req record;
-  v_balance int;
 begin
-  if not exists (
-    select 1 from public.users
-    where id = auth.uid() and role = 'admin' and status <> 'banned'
-  ) then
-    return json_build_object('ok', false, 'error', 'not_admin');
+  if new.status = 'approved'
+     and old.status is distinct from 'approved'
+     and new.tokens is not null and new.tokens > 0
+     and new.user_id is not null then
+    update public.users
+      set token_balance = token_balance + new.tokens
+      where id = new.user_id;
+    new.reviewed_at := now();
   end if;
-
-  select * into v_req from public.token_requests where id = p_request_id for update;
-  if not found then
-    return json_build_object('ok', false, 'error', 'not_found');
-  end if;
-  if v_req.status <> 'pending' then
-    return json_build_object('ok', false, 'error', 'already_reviewed');
-  end if;
-
-  update public.users
-    set token_balance = token_balance + v_req.tokens
-    where id = v_req.user_id
-    returning token_balance into v_balance;
-  if v_balance is null then
-    return json_build_object('ok', false, 'error', 'user_not_found');
-  end if;
-
-  update public.token_requests
-    set status = 'approved', reviewed_at = now(), reviewed_by = auth.uid()
-    where id = p_request_id;
-
-  return json_build_object('ok', true, 'balance', v_balance);
+  return new;
 end;
 $$;
 
-grant execute on function public.approve_token_request(uuid) to authenticated;
+drop trigger if exists token_requests_grant_on_approval on public.token_requests;
+create trigger token_requests_grant_on_approval
+  before update on public.token_requests
+  for each row execute function public.grant_tokens_on_approval();

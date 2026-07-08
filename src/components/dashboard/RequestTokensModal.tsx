@@ -95,7 +95,8 @@ function RequestTokensModal({
         userId,
         username,
         tokens: selected.tokens,
-        price: selected.price,
+        priceUsd: selected.price,
+        note: reason,
       });
       setSubmitted(true);
     } catch {
