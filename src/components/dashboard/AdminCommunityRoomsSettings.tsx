@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Lock, RefreshCw, Search, Users, X } from "lucide-react";
+import { Lock, RefreshCw, Search, Unlock, Users, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { CommunityBadge } from "@/components/dashboard/CommunityBadge";
 import { CommunityMessageComposer } from "@/components/dashboard/CommunityMessageComposer";
 import { CommunityMessageTimeline } from "@/components/dashboard/CommunityMessageTimeline";
 import { useCommunityChat } from "@/hooks/useCommunityChat";
 import { countOnlineMembers } from "@/lib/communityChat";
+import { updateCommunityLocked } from "@/backend/supabase/controllers/communityController";
 
 const MAX_COMMUNITY_MESSAGE_LENGTH = 150;
 
@@ -22,6 +23,7 @@ export function AdminCommunityRoomsSettings({
 }: AdminCommunityRoomsSettingsProps) {
   const [inspectedCommunityId, setInspectedCommunityId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [savingLockCommunityId, setSavingLockCommunityId] = useState<string | null>(null);
 
   const chat = useCommunityChat(
     inspectedCommunityId,
@@ -32,6 +34,33 @@ export function AdminCommunityRoomsSettings({
   );
 
   const inspectedCommunity = chat.selectedCommunity;
+
+  const handleToggleLocked = async (communityId: string, nextLocked: boolean) => {
+    if (savingLockCommunityId) return;
+    setSavingLockCommunityId(communityId);
+    try {
+      await updateCommunityLocked(communityId, nextLocked);
+      chat.updateCommunities((communities) =>
+        communities.map((community) =>
+          community.id === communityId ? { ...community, locked: nextLocked } : community,
+        ),
+      );
+      await chat.reload();
+      toast({
+        title: nextLocked ? "Room locked" : "Room unlocked",
+        description: nextLocked
+          ? "Members now need admin approval before joining this room."
+          : "This room is open again.",
+      });
+    } catch {
+      toast({
+        title: nextLocked ? "Could not lock room" : "Could not unlock room",
+        description: "Please try again.",
+      });
+    } finally {
+      setSavingLockCommunityId(null);
+    }
+  };
 
   return (
     <div className="overflow-hidden rounded-2xl border border-raw-border/30 bg-raw-surface/30">
@@ -66,6 +95,7 @@ export function AdminCommunityRoomsSettings({
           const isInspecting = community.id === inspectedCommunityId;
           const onlineNow = countOnlineMembers(community);
           const prompt = community.topic || community.description;
+          const lockSaving = savingLockCommunityId === community.id;
 
           return (
             <div key={community.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5">
@@ -110,16 +140,16 @@ export function AdminCommunityRoomsSettings({
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    toast({
-                      title: "Room lock unavailable",
-                      description: "This panel can inspect and reply. Locking still needs a backend action.",
-                    });
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-red-400/25 bg-red-500/[0.06] px-3 py-2 text-xs font-semibold text-red-200/85 transition-colors hover:bg-red-500/10"
+                  onClick={() => { void handleToggleLocked(community.id, !community.locked); }}
+                  disabled={lockSaving}
+                  className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                    community.locked
+                      ? "border-emerald-400/25 bg-emerald-500/[0.06] text-emerald-200/85 hover:bg-emerald-500/10"
+                      : "border-red-400/25 bg-red-500/[0.06] text-red-200/85 hover:bg-red-500/10"
+                  }`}
                 >
-                  <Lock className="h-3.5 w-3.5" />
-                  Lock
+                  {community.locked ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+                  {lockSaving ? "Saving..." : community.locked ? "Unlock" : "Lock"}
                 </button>
               </div>
             </div>

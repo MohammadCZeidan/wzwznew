@@ -194,6 +194,18 @@ export async function updateCommunityPresentation(
 }
 
 // Admin-only — RPC enforces is_admin() server-side.
+// Admin-only. RLS enforces public.is_admin() for community updates.
+export async function updateCommunityLocked(
+  communityId: string,
+  locked: boolean,
+): Promise<void> {
+  const { error } = await supabase
+    .from('communities')
+    .update({ locked })
+    .eq('id', communityId);
+  if (error) throw error;
+}
+
 export async function createCommunityFromRequest(request: CommunityRequestRecord): Promise<void> {
   const id = `request-${request.id}`;
   const communityName = assertUserTextAllowed(request.communityName);
