@@ -539,6 +539,7 @@ export function DashboardNav({ userId, username, avatarLevel, onProfileClick, on
           ? "border-slate-200 bg-white/90"
           : "border-raw-border/50 bg-raw-black/90",
       )}
+      style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
       <div className="flex h-14 items-center justify-between px-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
