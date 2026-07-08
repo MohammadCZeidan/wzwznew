@@ -15,6 +15,10 @@ function isBadRequest(error: { code?: string; status?: number } | null): boolean
   return error?.status === 400 || error?.code === "PGRST204" || error?.code === "42703";
 }
 
+function isConstraintError(error: { code?: string; message?: string | null } | null, constraint: string): boolean {
+  return error?.code === "23514" && (error.message ?? "").includes(constraint);
+}
+
 export default async function handler(request: Request): Promise<Response> {
   if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   if (!supabaseServerClient) return json({ error: "supabase_not_configured" }, 503);
@@ -41,14 +45,24 @@ export default async function handler(request: Request): Promise<Response> {
   const packageReason = `${tokens} tokens`;
   const combinedNote = note ? `${packageReason} requested. ${note}` : `${packageReason} requested.`;
 
-  const primaryInsert = await supabaseServerClient.from("token_requests").insert({
+  const insertRow = {
     user_id: userId,
     username: profile.username,
     price_usd: priceUsd,
     reasons: [packageReason],
     note: combinedNote,
+  };
+
+  let primaryInsert = await supabaseServerClient.from("token_requests").insert({
+    ...insertRow,
     status: "pending",
   });
+
+  // Production is currently between schema versions: some databases still
+  // enforce the older status check and only allow the default row status.
+  if (isConstraintError(primaryInsert.error, "token_requests_status_check")) {
+    primaryInsert = await supabaseServerClient.from("token_requests").insert(insertRow);
+  }
   if (!primaryInsert.error) return json({ ok: true }, 201);
 
   if (!isBadRequest(primaryInsert.error)) {
