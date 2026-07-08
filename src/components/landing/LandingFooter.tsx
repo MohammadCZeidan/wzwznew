@@ -1,7 +1,22 @@
+import { useEffect } from "react";
 import { MessageCircle, Mail } from "lucide-react";
 import { BrandName } from "@/components/ui/brand-name";
 
 export function LandingFooter() {
+  useEffect(() => {
+    if (document.getElementById("linkedin-profile-badge-script")) {
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = "linkedin-profile-badge-script";
+    script.src = "https://platform.linkedin.com/badges/js/profile.js";
+    script.async = true;
+    script.defer = true;
+    script.type = "text/javascript";
+    document.body.appendChild(script);
+  }, []);
+
   const supportEmail = import.meta.env.VITE_SUPPORT_EMAIL ?? "info@myraw.app";
   const supportWhatsAppNumber = import.meta.env.VITE_SUPPORT_WHATSAPP_NUMBER ?? "+96171148488";
   const whatsAppHref = `https://wa.me/${supportWhatsAppNumber.replace(/\D/g, "")}`;
@@ -46,6 +61,27 @@ export function LandingFooter() {
               <li><a href={whatsAppHref} target="_blank" rel="noreferrer" className="text-xs text-raw-silver/55 transition hover:text-raw-gold">WhatsApp</a></li>
               <li><a href="/ask" className="text-xs text-raw-silver/55 transition hover:text-raw-gold">Ask AI</a></li>
             </ul>
+          </div>
+        </div>
+
+        <div className="mb-10 flex justify-center">
+          <div
+            className="badge-base LI-profile-badge"
+            data-locale="en_US"
+            data-size="medium"
+            data-theme="dark"
+            data-type="HORIZONTAL"
+            data-vanity="william-el-khazen"
+            data-version="v1"
+          >
+            <a
+              className="badge-base__link LI-simple-link"
+              href="https://lb.linkedin.com/in/william-el-khazen?trk=profile-badge"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              William El Khazen
+            </a>
           </div>
         </div>
 
