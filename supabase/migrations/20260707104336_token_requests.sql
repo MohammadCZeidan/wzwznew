@@ -1,0 +1,14 @@
+-- Placeholder — DO NOT add DDL here.
+--
+-- The `token_requests` table is owned by the admin repo (welkhazen/merginggggg),
+-- which defines and maintains it on the shared Supabase project. wzwznew only
+-- reads/inserts into the table from app code.
+--
+-- This file exists solely as a migration-history marker so that
+-- `supabase db push` run from wzwznew reconciles with the remote history
+-- (version 20260707104336, applied by merginggggg) instead of failing with
+-- "Remote migration versions not found in local migrations directory".
+--
+-- Intentionally empty of SQL: adding the table definition here would define
+-- token_requests in both repos on the same Supabase project — the dual-ownership
+-- problem this arrangement exists to avoid. Edit the schema in merginggggg only.
