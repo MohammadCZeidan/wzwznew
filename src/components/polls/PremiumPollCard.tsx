@@ -170,12 +170,11 @@ export function PremiumPollCard({
               />
             </div>
 
-            {!isAnswered && (
-              <div className="mt-4 flex flex-col items-center">
-                {showHint && (
-                  <p className="text-center text-[10px] uppercase tracking-[0.2em]" style={{ color: "rgb(var(--raw-accent) / 0.75)" }}>tap to vote</p>
-                )}
-                <ShareButton
+            <div className="mt-4 flex flex-col items-center">
+              {!isAnswered && showHint && (
+                <p className="text-center text-[10px] uppercase tracking-[0.2em]" style={{ color: "rgb(var(--raw-accent) / 0.75)" }}>tap to vote</p>
+              )}
+              <ShareButton
                   links={[
                     { icon: MessageCircle, onClick: handleWhatsAppShare, label: "Share on WhatsApp" },
                     { icon: Instagram, onClick: handleInstagramShare, label: "Share on Instagram" },
@@ -188,8 +187,7 @@ export function PremiumPollCard({
                   <Share2 className="size-3" />
                   Share
                 </ShareButton>
-              </div>
-            )}
+            </div>
 
             <h2 className={`mt-4 flex min-h-[5.5rem] items-center text-center font-display text-[clamp(1rem,4.6vw,1.46rem)] leading-[1.4] [text-wrap:balance] sm:mt-5 sm:min-h-[7.75rem] ${isLight ? "text-[#2a2000]" : "text-[#dedede]"}`}>
               {question}
