@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DashboardChallenges } from "@/components/dashboard/DashboardChallenges";
 
@@ -53,5 +53,31 @@ describe("DashboardChallenges — Claim button contrast", () => {
     const claimButton = screen.getAllByRole("button", { name: /claim/i })[0];
     expect(claimButton.className).toContain("text-emerald-100");
     expect(claimButton.className).not.toContain("text-emerald-800");
+  });
+});
+
+describe("DashboardChallenges — claiming rewards", () => {
+  it("claims a completed challenge only after the Claim button is clicked", async () => {
+    const onClaimXP = vi.fn().mockResolvedValue({
+      awarded: true,
+      tokenBalance: 50,
+    });
+
+    render(
+      <DashboardChallenges
+        userId="user-1"
+        avatarLevel={1}
+        pollsAnswered={0}
+        dailyAnsweredCount={7}
+        dailyPollLimit={7}
+        onClaimXP={onClaimXP}
+      />,
+    );
+
+    expect(onClaimXP).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Claim" }));
+
+    await waitFor(() => expect(onClaimXP).toHaveBeenCalledTimes(1));
   });
 });

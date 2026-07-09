@@ -216,7 +216,7 @@ export function DashboardChallenges({
           setClaimedChallenges((previous) => new Set(previous).add(claimKey));
           toast({
             title: `${challenge.title} complete`,
-            description: `+${challenge.rewardXP + (challenge.rewardTokens ?? 0)} Tokens claimed automatically.`,
+            description: `+${challenge.rewardXP + (challenge.rewardTokens ?? 0)} Tokens claimed.`,
           });
         }
       }).finally(() => {
@@ -231,7 +231,7 @@ export function DashboardChallenges({
         setClaimedChallenges((previous) => new Set(previous).add(claimKey));
         toast({
           title: `${challenge.title} complete`,
-          description: `+${challenge.rewardXP + (challenge.rewardTokens ?? 0)} Tokens claimed automatically.`,
+          description: `+${challenge.rewardXP + (challenge.rewardTokens ?? 0)} Tokens claimed.`,
         });
       }).finally(() => {
         autoClaimingRef.current.delete(claimKey);
@@ -241,18 +241,6 @@ export function DashboardChallenges({
 
     autoClaimingRef.current.delete(claimKey);
   }, [claimedChallenges, isAdmin, onAwardTokens, onAwardXP, onClaimXP, onTokenBalanceChange]);
-
-  useEffect(() => {
-    if (isAdmin) return;
-
-    challengeDefinitions.forEach((challenge) => {
-      const current = testProgress[challenge.id] ?? progressSourceMap[challenge.progressKey] ?? 0;
-      const claimKey = `${challenge.id}:${getResetKey(challenge.reset)}`;
-      if (current >= challenge.target && !claimedChallenges.has(claimKey)) {
-        handleClaimChallenge(challenge);
-      }
-    });
-  }, [claimedChallenges, handleClaimChallenge, isAdmin, progressSourceMap, testProgress]);
 
   return (
     <div className="space-y-5">
