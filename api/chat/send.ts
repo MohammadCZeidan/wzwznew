@@ -244,6 +244,7 @@ async function handleSend(request: Request): Promise<Response> {
       sender_name: senderName,
       sender_avatar_level: senderAvatarLevel,
       text: trimmedText,
+      moderation_status: "ok",
       reply_to_message_id: replyToMessageId ?? null,
       reply_to_sender_name: replyToSenderName,
       reply_to_text: replyToText,
