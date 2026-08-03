@@ -1,0 +1,7 @@
+<svg width="820" height="110" viewBox="0 0 820 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="820" height="110" rx="18" fill="#0F172A"/>
+  <rect x="18" y="18" width="784" height="74" rx="14" fill="#111827" stroke="#25D366" stroke-width="2"/>
+  <circle cx="62" cy="55" r="18" fill="#25D366"/>
+  <path d="M53 65l4-11a15 15 0 1120 8l-12 3c-5 0-9-2-12-5z" stroke="#0F172A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <text x="100" y="66" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="34" font-weight="800" fill="#F0FDF4">Extras</text>
+</svg>
